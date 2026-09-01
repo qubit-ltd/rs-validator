@@ -1,0 +1,31 @@
+[package]
+name = "qubit-validator"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+authors = ["Haixing Hu <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/qubit-ltd/rs-validator"
+description = "Type-safe validation traits and registries for Qubit applications"
+homepage = "https://github.com/qubit-ltd/rs-validator"
+documentation = "https://docs.rs/qubit-validator"
+readme = "README.md"
+keywords = ["validation", "validator", "registry", "qubit", "rust"]
+categories = ["data-structures", "development-tools"]
+include = [
+    "/Cargo.toml",
+    "/LICENSE",
+    "/README.md",
+    "/README.zh_CN.md",
+    "/src/**",
+    "/doc/**",
+    "/tests/**",
+    "/benches/**",
+]
+
+[dependencies]
+inventory = "0.3"
+thiserror = "2"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
