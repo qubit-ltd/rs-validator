@@ -43,7 +43,9 @@ impl ValidatorRegistry {
     /// Returns the cached construction error when linked registrations
     /// conflict.
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
-        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
+        static REGISTRY: OnceLock<
+            Result<ValidatorRegistry, ValidatorRegistryError>,
+        > = OnceLock::new();
         match REGISTRY.get_or_init(|| {
             let registrations = inventory::iter::<ValidatorRegistrationFactory>
                 .into_iter()
@@ -63,7 +65,9 @@ impl ValidatorRegistry {
     /// Panics when linked registrations conflict.
     #[must_use]
     pub fn global() -> &'static Self {
-        Self::try_global().unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
+        Self::try_global().unwrap_or_else(|error| {
+            panic!("invalid global validator registry: {error}")
+        })
     }
 
     /// Finds a registration by stable ID.
@@ -82,11 +86,16 @@ impl ValidatorRegistry {
     }
 
     /// Freezes registrations and rejects duplicate IDs.
-    fn build(mut registrations: Vec<ValidatorRegistration>) -> Result<Self, ValidatorRegistryError> {
+    fn build(
+        mut registrations: Vec<ValidatorRegistration>,
+    ) -> Result<Self, ValidatorRegistryError> {
         registrations.sort_by_key(ValidatorRegistration::id);
         for pair in registrations.windows(2) {
             if pair[0].id() == pair[1].id() {
-                let mut sources = pair.iter().map(ValidatorRegistration::source).collect::<Vec<_>>();
+                let mut sources = pair
+                    .iter()
+                    .map(ValidatorRegistration::source)
+                    .collect::<Vec<_>>();
                 sources.sort_unstable();
                 return Err(ValidatorRegistryError::DuplicateId {
                     id: pair[0].id().as_str(),

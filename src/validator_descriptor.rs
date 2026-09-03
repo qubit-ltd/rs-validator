@@ -7,7 +7,8 @@ use crate::ValidationContext;
 use crate::Validator;
 use crate::ValidatorExecutionError;
 
-type ValidateFn = fn(&dyn Any, &ValidationContext<'_>) -> Result<(), ValidatorExecutionError>;
+type ValidateFn =
+    fn(&dyn Any, &ValidationContext<'_>) -> Result<(), ValidatorExecutionError>;
 
 /// An immutable, safely erased validator implementation for one value type.
 #[derive(Clone, Copy)]
@@ -66,13 +67,20 @@ impl ValidatorDescriptor {
     ///
     /// Returns a type mismatch for the wrong value type, or a validation
     /// failure when the typed validator rejects the value.
-    pub fn validate(&self, value: &dyn Any, context: &ValidationContext<'_>) -> Result<(), ValidatorExecutionError> {
+    pub fn validate(
+        &self,
+        value: &dyn Any,
+        context: &ValidationContext<'_>,
+    ) -> Result<(), ValidatorExecutionError> {
         (self.validate)(value, context)
     }
 }
 
 impl core::fmt::Debug for ValidatorDescriptor {
-    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(
+        &self,
+        formatter: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
         formatter
             .debug_struct("ValidatorDescriptor")
             .field("validator_type_name", &self.validator_type_name())
@@ -82,21 +90,24 @@ impl core::fmt::Debug for ValidatorDescriptor {
 }
 
 /// Downcasts and invokes one typed validator.
-fn validate<V, T>(value: &dyn Any, context: &ValidationContext<'_>) -> Result<(), ValidatorExecutionError>
+fn validate<V, T>(
+    value: &dyn Any,
+    context: &ValidationContext<'_>,
+) -> Result<(), ValidatorExecutionError>
 where
     V: Default + Validator<T> + 'static,
     T: 'static,
 {
-    let value = value
-        .downcast_ref::<T>()
-        .ok_or_else(|| ValidatorExecutionError::TypeMismatch {
+    let value = value.downcast_ref::<T>().ok_or_else(|| {
+        ValidatorExecutionError::TypeMismatch {
             expected_type: core::any::type_name::<T>(),
             actual_type: value.type_id(),
-        })?;
-    V::default()
-        .validate(value, context)
-        .map_err(|source| ValidatorExecutionError::ValidationFailed {
+        }
+    })?;
+    V::default().validate(value, context).map_err(|source| {
+        ValidatorExecutionError::ValidationFailed {
             validator_type: core::any::type_name::<V>(),
             source: Box::new(source),
-        })
+        }
+    })
 }

@@ -8,7 +8,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ValidatorExecutionError {
     /// The supplied value does not match the registered value type.
-    #[error("validator for {expected_type} received an incompatible value type {actual_type:?}")]
+    #[error(
+        "validator for {expected_type} received an incompatible value type {actual_type:?}"
+    )]
     TypeMismatch {
         /// Expected Rust value type name.
         expected_type: &'static str,

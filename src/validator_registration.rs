@@ -16,8 +16,16 @@ impl ValidatorRegistration {
     /// Creates a registration from validated static facts.
     #[doc(hidden)]
     #[must_use]
-    pub const fn new(id: ValidatorId, descriptor: &'static ValidatorDescriptor, source: RegistrationSource) -> Self {
-        Self { id, descriptor, source }
+    pub const fn new(
+        id: ValidatorId,
+        descriptor: &'static ValidatorDescriptor,
+        source: RegistrationSource,
+    ) -> Self {
+        Self {
+            id,
+            descriptor,
+            source,
+        }
     }
 
     /// Returns the stable validator ID.
@@ -44,13 +52,19 @@ impl ValidatorRegistration {
 macro_rules! register_validator {
     (id = $id:literal, validator = $validator:ty, value = $value:ty $(,)?) => {
         const _: () = {
-            static DESCRIPTOR: $crate::ValidatorDescriptor = $crate::ValidatorDescriptor::of::<$validator, $value>();
+            static DESCRIPTOR: $crate::ValidatorDescriptor =
+                $crate::ValidatorDescriptor::of::<$validator, $value>();
 
             fn registration() -> $crate::ValidatorRegistration {
                 $crate::ValidatorRegistration::new(
                     $crate::ValidatorId::new($id),
                     &DESCRIPTOR,
-                    $crate::RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+                    $crate::RegistrationSource::new(
+                        env!("CARGO_PKG_NAME"),
+                        module_path!(),
+                        file!(),
+                        line!(),
+                    ),
                 )
             }
 

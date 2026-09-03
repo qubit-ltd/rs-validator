@@ -18,5 +18,9 @@ pub trait Validator<T: ?Sized> {
     /// # Errors
     ///
     /// Returns the validator-specific error when `value` is invalid.
-    fn validate(&mut self, value: &T, context: &ValidationContext<'_>) -> Result<(), Self::Error>;
+    fn validate(
+        &mut self,
+        value: &T,
+        context: &ValidationContext<'_>,
+    ) -> Result<(), Self::Error>;
 }
