@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-`qubit-validator` provides type-safe validation traits and immutable registries for Qubit applications.
+`qubit-validator` provides type-safe validation traits, structured validation reports, and immutable registries for Qubit applications.
 
 ## Installation
 
@@ -18,18 +18,38 @@ qubit-validator = "0.1"
 
 ## Quick Start
 
-Implement `Validator<T>` for a default-constructible strategy, then register it with `register_validator!` when stable-ID lookup is required.
+Implement the root `Validator<T, C>` trait for a rule with an explicit typed context. Rules that need model metadata can be prepared once as a `PreparedValidator` and assembled into a local `ValidatorRegistry`; direct validation remains a normal typed Rust call.
+
+```rust,ignore
+use qubit_validator::Validator;
+use std::convert::Infallible;
+
+struct NonBlank;
+impl Validator<str> for NonBlank {
+    type Error = Infallible;
+
+    fn validate(&self, value: &str, _context: &()) -> Result<(), Self::Error> {
+        let _ = value;
+        Ok(())
+    }
+}
+```
 
 ## Capabilities
 
 - Typed validators with domain-specific errors.
 - Borrowed parameters and dependency values.
 - Safe type-erased invocation without `unsafe`.
-- Deterministic local and process-wide registries.
+- Structured `Violation` and `ValidationReport` values with safe paths and parameters.
+- Deterministic local registries; the optional `inventory` feature supplies process-wide discovery.
+
+## Features
+
+The default feature set is empty. Enable `registry` for explicit descriptor and registration APIs, and enable `inventory` when process-wide registration through `register_validator!` is required. `inventory` implies `registry`; applications that need isolated tests or multiple rule sets should build a local `ValidatorRegistry` instead.
 
 ## Limitations
 
-The crate does not discover model properties or schedule validation. Callers provide dependency values through `ValidationContext`.
+The crate does not discover model properties or schedule validation. `qubit-model-metadata` owns model path compilation and `ValidationPlan` execution. This crate only supplies the typed rule contract, binding primitives, reports, and registries. Runtime failures and value violations are represented separately, so a missing rule or unsupported feature cannot be mistaken for valid input.
 
 ## Testing
 

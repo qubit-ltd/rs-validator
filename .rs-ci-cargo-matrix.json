@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "name": "validator-minimal",
+      "commands": ["check", "test", "doc"],
+      "defaultFeatures": false,
+      "features": []
+    },
+    {
+      "name": "validator-registry",
+      "commands": ["check", "test", "doc"],
+      "defaultFeatures": false,
+      "features": ["registry"]
+    },
+    {
+      "name": "validator-inventory",
+      "commands": ["check", "test", "doc"],
+      "defaultFeatures": false,
+      "features": ["inventory"]
+    },
+    {
+      "name": "validator-all-features",
+      "commands": ["check", "test", "doc", "clippy"],
+      "allFeatures": true
+    }
+  ]
+}
