@@ -14,7 +14,7 @@ pub enum InputType {
 impl InputType {
     /// Creates a typed input descriptor for `T`.
     #[must_use]
-    pub fn of<T: 'static>() -> Self {
+    pub const fn of<T: 'static>() -> Self {
         Self::Typed(TypeId::of::<T>())
     }
 
