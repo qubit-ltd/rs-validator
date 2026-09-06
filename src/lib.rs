@@ -24,6 +24,9 @@ mod validator_registration_factory;
 mod validator_registry;
 mod validator_registry_error;
 
+/// The next-generation typed validation contracts and structured outcomes.
+pub mod next;
+
 #[doc(hidden)]
 pub mod __private {
     pub use inventory;

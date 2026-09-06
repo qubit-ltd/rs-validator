@@ -1,0 +1,125 @@
+use std::convert::Infallible;
+
+use qubit_validator::ValidatorId;
+use qubit_validator::next::BindError;
+use qubit_validator::next::BindErrorKind;
+use qubit_validator::next::ExecutionError;
+use qubit_validator::next::ExecutionErrorKind;
+use qubit_validator::next::PathSegment;
+use qubit_validator::next::RuleOutcome;
+use qubit_validator::next::SkipReason;
+use qubit_validator::next::SkippedValidation;
+use qubit_validator::next::ValidationPath;
+use qubit_validator::next::ValidationReport;
+use qubit_validator::next::Validator;
+use qubit_validator::next::Violation;
+use qubit_validator::next::ViolationCode;
+use qubit_validator::next::ViolationParam;
+
+struct NonEmpty;
+
+impl Validator<str> for NonEmpty {
+    type Error = Infallible;
+
+    fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
+        assert!(!value.is_empty());
+        Ok(())
+    }
+}
+
+#[test]
+fn validator_uses_shared_immutable_context() {
+    NonEmpty.validate("value", &()).expect("value is valid");
+}
+
+#[test]
+fn violation_code_accepts_stable_dot_separated_names() {
+    let code = ViolationCode::try_new("text.too_short").expect("valid code");
+
+    assert_eq!(code.as_str(), "text.too_short");
+    assert!(ViolationCode::try_new("text..too_short").is_err());
+}
+
+#[test]
+fn path_builders_preserve_segments_without_map_keys() {
+    let path = ValidationPath::root()
+        .with_field("people")
+        .with_index(2)
+        .with_map_entry(4)
+        .with_map_key();
+
+    assert_eq!(
+        path.as_segments(),
+        &[
+            PathSegment::Field("people".into()),
+            PathSegment::Index(2),
+            PathSegment::MapEntry(4),
+            PathSegment::MapKey,
+        ]
+    );
+    assert!(!format!("{path:?}").contains("people"));
+    assert_eq!(path.render(), "people[2].<map-entry:4>.<map-key>");
+}
+
+#[test]
+fn violation_and_report_keep_structured_safe_data() {
+    let violation = Violation::new(
+        ValidatorId::new("qubit.rules.text"),
+        ViolationCode::new("text.too_short"),
+    )
+    .with_path(ValidationPath::root().with_field("name"))
+    .with_param("min", ViolationParam::Unsigned(2));
+
+    let mut report = ValidationReport::new();
+    report.push(violation);
+    report.record_skip(SkippedValidation::new(
+        1,
+        ValidationPath::root().with_field("optional"),
+        SkipReason::MissingOptional,
+    ));
+
+    assert!(!report.is_valid());
+    assert_eq!(report.violations().len(), 1);
+    assert_eq!(report.skipped().len(), 1);
+    assert!(!format!("{:?}", report).contains("name"));
+    assert!(!format!("{:?}", report).contains("min"));
+}
+
+#[test]
+fn failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
+    let mut report = ValidationReport::new();
+    report.record_skip(SkippedValidation::new(
+        2,
+        ValidationPath::root(),
+        SkipReason::FailedPrerequisite,
+    ));
+
+    assert!(!report.is_valid());
+    assert!(matches!(
+        RuleOutcome::Skipped {
+            reason: SkipReason::FailedPrerequisite,
+            prerequisites: vec![Violation::new(
+                ValidatorId::new("qubit.rules.credential"),
+                ViolationCode::new("credential.invalid"),
+            )],
+        },
+        RuleOutcome::Skipped { .. }
+    ));
+}
+
+#[test]
+fn execution_and_bind_errors_expose_kind_without_source_or_values() {
+    let execution = ExecutionError::new(ExecutionErrorKind::ExternalFailure)
+        .with_rule(ValidatorId::new("qubit.rules.remote"))
+        .with_source(std::io::Error::other("secret input"));
+    assert_eq!(execution.kind(), ExecutionErrorKind::ExternalFailure);
+    assert!(!execution.to_string().contains("secret input"));
+    assert!(!format!("{execution:?}").contains("secret input"));
+
+    let bind = BindError::new(BindErrorKind::ParameterTypeMismatch)
+        .with_parameter("minimum")
+        .with_dependency("credential");
+    assert_eq!(bind.kind(), BindErrorKind::ParameterTypeMismatch);
+    assert!(bind.to_string().contains("parameter"));
+    assert!(!bind.to_string().contains("secret input"));
+}
