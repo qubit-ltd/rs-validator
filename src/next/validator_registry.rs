@@ -4,15 +4,14 @@ use std::collections::BTreeMap;
 #[cfg(feature = "inventory")]
 use std::sync::OnceLock;
 
-use crate::NamedValidationArgument;
-use crate::ValidatorId;
-use crate::ValidatorRegistryError;
-
 use super::BindError;
 use super::BindErrorKind;
 use super::BoundValidator;
 use super::InputType;
 use super::ValidatorRegistration;
+use crate::NamedValidationArgument;
+use crate::ValidatorId;
+use crate::ValidatorRegistryError;
 
 /// A deterministic local registry containing one definition per stable ID.
 #[derive(Debug)]
@@ -27,10 +26,12 @@ impl ValidatorRegistry {
     /// # Errors
     ///
     /// Returns every source which declared a duplicated stable ID.
-    pub fn from_registrations(
-        registrations: impl IntoIterator<Item = ValidatorRegistration>,
-    ) -> Result<Self, ValidatorRegistryError> {
-        Self::build(registrations.into_iter().collect())
+    pub fn from_registrations<I>(registrations: I) -> Result<Self, ValidatorRegistryError>
+    where
+        I: IntoIterator,
+        I::Item: Into<ValidatorRegistration>,
+    {
+        Self::build(registrations.into_iter().map(Into::into).collect())
     }
 
     /// Returns an empty registry.
@@ -50,7 +51,8 @@ impl ValidatorRegistry {
     /// conflict. This method is available only with the `inventory` feature.
     #[cfg(feature = "inventory")]
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
-        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
+        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> =
+            OnceLock::new();
         match REGISTRY.get_or_init(|| {
             let registrations = inventory::iter::<crate::ValidatorRegistrationFactory>
                 .into_iter()
@@ -72,7 +74,8 @@ impl ValidatorRegistry {
     #[cfg(feature = "inventory")]
     #[must_use]
     pub fn global() -> &'static Self {
-        Self::try_global().unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
+        Self::try_global()
+            .unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
     }
 
     /// Finds a registration by stable ID.
@@ -147,8 +150,8 @@ impl ValidatorRegistry {
 }
 
 // Compatibility helper for callers which still hold static references.
-impl From<&'static ValidatorRegistration> for ValidatorRegistration {
-    fn from(value: &'static ValidatorRegistration) -> Self {
+impl From<&ValidatorRegistration> for ValidatorRegistration {
+    fn from(value: &ValidatorRegistration) -> Self {
         *value
     }
 }

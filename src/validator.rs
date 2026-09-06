@@ -4,23 +4,17 @@
 //    SPDX-License-Identifier: Apache-2.0
 // =============================================================================
 
-//! Typed validator contract.
+//! The typed validator contract.
 
-use crate::ValidationContext;
-
-/// Validates values of `T` with immutable call-site context.
-pub trait Validator<T: ?Sized> {
-    /// Domain error returned when validation rejects a value.
+/// Validates a borrowed value using an immutable, typed context.
+pub trait Validator<T: ?Sized, C: ?Sized = ()> {
+    /// The domain error returned when the value is invalid.
     type Error: std::error::Error + 'static;
 
-    /// Validates `value` using the supplied parameters and dependencies.
+    /// Validates `value` with `context`.
     ///
     /// # Errors
     ///
-    /// Returns the validator-specific error when `value` is invalid.
-    fn validate(
-        &mut self,
-        value: &T,
-        context: &ValidationContext<'_>,
-    ) -> Result<(), Self::Error>;
+    /// Returns the validator-specific error when the value is invalid.
+    fn validate(&self, value: &T, context: &C) -> Result<(), Self::Error>;
 }
