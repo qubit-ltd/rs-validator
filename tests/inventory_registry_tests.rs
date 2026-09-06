@@ -43,7 +43,7 @@ register_validator!(id = "test.inventory.global", descriptor = &DESCRIPTOR);
 #[test]
 fn inventory_registration_is_available_from_global_registry() {
     let registry = ValidatorRegistry::try_global().expect("inventory registry is valid");
-    assert_eq!(registry.get("test.inventory.global").is_some(), true);
+    assert!(registry.get("test.inventory.global").is_some());
     assert!(std::ptr::eq(registry, ValidatorRegistry::global()));
 }
 
