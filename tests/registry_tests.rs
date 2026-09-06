@@ -1,5 +1,10 @@
 use std::sync::Arc;
 
+use qubit_validator::BindError;
+use qubit_validator::BoundValidationContext;
+use qubit_validator::ExecutionError;
+use qubit_validator::InputType;
+use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
 use qubit_validator::RuleOutcome;
@@ -10,17 +15,15 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
 
-fn prepare(
-    _: &[qubit_validator::NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
+fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct AlwaysValid;
 
     impl PreparedValidator for AlwaysValid {
         fn validate(
             &self,
             _: ValidationValue<'_>,
-            _: &qubit_validator::BoundValidationContext<'_>,
-        ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
+            _: &BoundValidationContext<'_>,
+        ) -> Result<RuleOutcome, ExecutionError> {
             Ok(RuleOutcome::Valid)
         }
     }
@@ -28,11 +31,7 @@ fn prepare(
     Ok(Arc::new(AlwaysValid))
 }
 
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    qubit_validator::InputType::Text,
-    &[],
-    prepare,
-)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 fn registration(id: &'static str, file: &'static str) -> ValidatorRegistration {
@@ -49,9 +48,7 @@ fn local_registry_owns_and_queries_registrations() {
     let registry = ValidatorRegistry::from_registrations([first]).expect("valid registry");
 
     assert_eq!(
-        registry
-            .get("example.valid")
-            .map(|entry| entry.id().as_str()),
+        registry.get("example.valid").map(|entry| entry.id().as_str()),
         Some("example.valid")
     );
     assert!(registry.get("missing").is_none());

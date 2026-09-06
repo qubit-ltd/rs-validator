@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
+use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
+use qubit_validator::BoundValidationContext;
+use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
+use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
 use qubit_validator::RuleOutcome;
@@ -11,16 +16,14 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
 
-fn prepare(
-    _: &[qubit_validator::NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
+fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Always;
     impl PreparedValidator for Always {
         fn validate(
             &self,
             _: ValidationValue<'_>,
-            _: &qubit_validator::BoundValidationContext<'_>,
-        ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
+            _: &BoundValidationContext<'_>,
+        ) -> Result<RuleOutcome, ExecutionError> {
             Ok(RuleOutcome::Valid)
         }
     }
@@ -56,26 +59,11 @@ fn duplicate_id_reports_every_source_independent_of_input_order() {
 fn one_id_can_expose_multiple_input_signatures() {
     let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
         ValidatorSignature::new(InputType::Text, &[], prepare),
-        ValidatorSignature::new(
-            InputType::Typed(std::any::TypeId::of::<u32>()),
-            &[],
-            prepare,
-        ),
+        ValidatorSignature::new(InputType::Typed(std::any::TypeId::of::<u32>()), &[], prepare),
     ]));
-    let descriptor: &'static ValidatorDescriptor =
-        Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
-    let registry =
-        ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)])
-            .unwrap();
-    assert_eq!(
-        registry
-            .get("test.multi")
-            .unwrap()
-            .descriptor()
-            .signatures()
-            .len(),
-        2
-    );
+    let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
+    let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)]).unwrap();
+    assert_eq!(registry.get("test.multi").unwrap().descriptor().signatures().len(), 2);
 }
 
 #[test]
@@ -84,11 +72,7 @@ fn duplicate_signatures_are_rejected_when_binding() {
         ValidatorSignature::new(InputType::Text, &[], prepare),
         ValidatorSignature::new(InputType::Text, &[], prepare),
     ]));
-    let descriptor: &'static ValidatorDescriptor =
-        Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
+    let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
     let error = descriptor.bind_for(InputType::Text, &[]).unwrap_err();
-    assert_eq!(
-        error.kind(),
-        qubit_validator::BindErrorKind::AmbiguousSignature
-    );
+    assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
 }

@@ -4,7 +4,10 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use qubit_validator::ArgumentReader;
+use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
@@ -12,6 +15,7 @@ use qubit_validator::RegistrationSource;
 use qubit_validator::RuleOutcome;
 use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationValue;
+use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
@@ -25,27 +29,18 @@ fn argument_reader_rejects_bad_names_types_and_ranges() {
     ];
     assert_eq!(
         ArgumentReader::new(&args).unwrap_err().kind(),
-        qubit_validator::BindErrorKind::DuplicateParameter
+        BindErrorKind::DuplicateParameter
     );
 
-    let args = [NamedValidationArgument::new(
-        "miin",
-        ValidationArgument::Unsigned(3),
-    )];
+    let args = [NamedValidationArgument::new("miin", ValidationArgument::Unsigned(3))];
     let reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(
-        reader.finish().unwrap_err().kind(),
-        qubit_validator::BindErrorKind::UnknownParameter
-    );
+    assert_eq!(reader.finish().unwrap_err().kind(), BindErrorKind::UnknownParameter);
 
-    let args = [NamedValidationArgument::new(
-        "min",
-        ValidationArgument::Integer(-1),
-    )];
+    let args = [NamedValidationArgument::new("min", ValidationArgument::Integer(-1))];
     let mut reader = ArgumentReader::new(&args).unwrap();
     assert_eq!(
         reader.required_u32("min").unwrap_err().kind(),
-        qubit_validator::BindErrorKind::ParameterOutOfRange
+        BindErrorKind::ParameterOutOfRange
     );
 }
 
@@ -58,26 +53,20 @@ impl PreparedValidator for CountingAdapter {
         &self,
         value: ValidationValue<'_>,
         _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
+    ) -> Result<RuleOutcome, ExecutionError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         assert!(matches!(value, ValidationValue::Text("ok")));
         Ok(RuleOutcome::Valid)
     }
 }
 
-fn prepare_counting(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
+fn prepare_counting(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(CountingAdapter {
         calls: Arc::new(AtomicUsize::new(0)),
     }))
 }
 
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_counting,
-)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_counting)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     ValidatorId::new("test.counting"),
@@ -90,16 +79,10 @@ fn bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
     let bound = REGISTRATION.descriptor().bind(0, &[]).unwrap();
     let clone = bound.clone();
     clone
-        .validate(
-            ValidationValue::Text("ok"),
-            &BoundValidationContext::new(&[]),
-        )
+        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
     bound
-        .validate(
-            ValidationValue::Text("ok"),
-            &BoundValidationContext::new(&[]),
-        )
+        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
 }
 
@@ -120,7 +103,7 @@ fn registration_descriptor_has_a_stable_signature() {
 
 #[derive(Default)]
 struct _Infallible;
-impl qubit_validator::Validator<str> for _Infallible {
+impl Validator<str> for _Infallible {
     type Error = Infallible;
     fn validate(&self, _: &str, _: &()) -> Result<(), Self::Error> {
         Ok(())
