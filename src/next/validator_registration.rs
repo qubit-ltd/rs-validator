@@ -1,9 +1,8 @@
 //! Validator registrations for the next-generation registry.
 
+use super::ValidatorDescriptor;
 use crate::RegistrationSource;
 use crate::ValidatorId;
-
-use super::ValidatorDescriptor;
 
 /// One validator definition associated with a stable identifier.
 #[derive(Clone, Copy, Debug)]

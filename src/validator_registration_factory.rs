@@ -8,7 +8,8 @@ pub struct ValidatorRegistrationFactory(pub fn() -> ValidatorRegistration);
 
 inventory::collect!(ValidatorRegistrationFactory);
 
-/// Registers a static typed validator descriptor in the optional global registry.
+/// Registers a static typed validator descriptor in the optional global
+/// registry.
 #[macro_export]
 macro_rules! register_validator {
     (id = $id:literal, descriptor = $descriptor:expr $(,)?) => {

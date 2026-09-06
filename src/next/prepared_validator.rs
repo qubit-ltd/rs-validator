@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use crate::NamedValidationArgument;
-
 use super::BindError;
 use super::BoundValidationContext;
 use super::ExecutionError;
 use super::RuleOutcome;
 use super::ValidationValue;
+use crate::NamedValidationArgument;
 
 /// A configured, immutable validator instance safe to share between calls.
 pub trait PreparedValidator: Send + Sync {

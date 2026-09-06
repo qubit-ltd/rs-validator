@@ -31,7 +31,8 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
     Ok(Arc::new(AlwaysValid))
 }
 
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+static SIGNATURES: &[ValidatorSignature] =
+    &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 fn registration(id: &'static str, file: &'static str) -> ValidatorRegistration {
@@ -48,7 +49,9 @@ fn local_registry_owns_and_queries_registrations() {
     let registry = ValidatorRegistry::from_registrations([first]).expect("valid registry");
 
     assert_eq!(
-        registry.get("example.valid").map(|entry| entry.id().as_str()),
+        registry
+            .get("example.valid")
+            .map(|entry| entry.id().as_str()),
         Some("example.valid")
     );
     assert!(registry.get("missing").is_none());

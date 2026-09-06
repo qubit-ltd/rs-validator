@@ -1,10 +1,9 @@
 //! Strict, one-pass decoding of named validator parameters.
 
-use crate::NamedValidationArgument;
-use crate::ValidationArgument;
-
 use super::BindError;
 use super::BindErrorKind;
+use crate::NamedValidationArgument;
+use crate::ValidationArgument;
 
 /// Reads declared arguments while rejecting duplicates, unknown names, and
 /// lossy numeric conversions.
