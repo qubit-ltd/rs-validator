@@ -20,7 +20,7 @@ mod validator_registration_factory;
 mod validator_registry_error;
 
 /// Typed validation contracts, structured outcomes, and registries.
-pub mod next;
+mod next;
 
 #[cfg(feature = "inventory")]
 #[doc(hidden)]

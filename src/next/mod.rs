@@ -58,5 +58,3 @@ pub use violation::Violation;
 pub use violation_code::ViolationCode;
 pub use violation_code_error::ViolationCodeError;
 pub use violation_param::ViolationParam;
-
-pub use crate::validator::Validator;
