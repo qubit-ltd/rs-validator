@@ -1,6 +1,8 @@
 //! Immutable local registries for multi-signature validator definitions.
 
 use std::collections::BTreeMap;
+#[cfg(feature = "inventory")]
+use std::sync::OnceLock;
 
 use crate::NamedValidationArgument;
 use crate::ValidatorId;
@@ -38,6 +40,39 @@ impl ValidatorRegistry {
             registrations: Box::new([]),
             indices: BTreeMap::new(),
         }
+    }
+
+    /// Initializes and returns the process-wide inventory registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns the cached duplicate-ID error when linked registrations
+    /// conflict. This method is available only with the `inventory` feature.
+    #[cfg(feature = "inventory")]
+    pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
+        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
+        match REGISTRY.get_or_init(|| {
+            let registrations = inventory::iter::<crate::ValidatorRegistrationFactory>
+                .into_iter()
+                .map(|factory| (factory.0)())
+                .collect();
+            Self::build(registrations)
+        }) {
+            Ok(registry) => Ok(registry),
+            Err(error) => Err(error.clone()),
+        }
+    }
+
+    /// Returns the process-wide inventory registry.
+    ///
+    /// # Panics
+    ///
+    /// Panics when linked registrations contain duplicate IDs. This method is
+    /// available only with the `inventory` feature.
+    #[cfg(feature = "inventory")]
+    #[must_use]
+    pub fn global() -> &'static Self {
+        Self::try_global().unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
     }
 
     /// Finds a registration by stable ID.

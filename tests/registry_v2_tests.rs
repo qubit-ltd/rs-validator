@@ -1,25 +1,26 @@
-use qubit_validator::next::InputType;
-use qubit_validator::next::PreparedValidator;
-use qubit_validator::next::RuleOutcome;
-use qubit_validator::next::ValidationValue;
-use qubit_validator::next::ValidatorDescriptor;
-use qubit_validator::next::ValidatorRegistration;
-use qubit_validator::next::ValidatorRegistry;
-use qubit_validator::next::ValidatorSignature;
-use qubit_validator::RegistrationSource;
-use qubit_validator::ValidatorId;
 use std::sync::Arc;
+
+use qubit_validator::InputType;
+use qubit_validator::PreparedValidator;
+use qubit_validator::RegistrationSource;
+use qubit_validator::RuleOutcome;
+use qubit_validator::ValidationValue;
+use qubit_validator::ValidatorDescriptor;
+use qubit_validator::ValidatorId;
+use qubit_validator::ValidatorRegistration;
+use qubit_validator::ValidatorRegistry;
+use qubit_validator::ValidatorSignature;
 
 fn prepare(
     _: &[qubit_validator::NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, qubit_validator::next::BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     struct Always;
     impl PreparedValidator for Always {
         fn validate(
             &self,
             _: ValidationValue<'_>,
-            _: &qubit_validator::next::BoundValidationContext<'_>,
-        ) -> Result<RuleOutcome, qubit_validator::next::ExecutionError> {
+            _: &qubit_validator::BoundValidationContext<'_>,
+        ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
             Ok(RuleOutcome::Valid)
         }
     }
@@ -88,6 +89,6 @@ fn duplicate_signatures_are_rejected_when_binding() {
     let error = descriptor.bind_for(InputType::Text, &[]).unwrap_err();
     assert_eq!(
         error.kind(),
-        qubit_validator::next::BindErrorKind::AmbiguousSignature
+        qubit_validator::BindErrorKind::AmbiguousSignature
     );
 }

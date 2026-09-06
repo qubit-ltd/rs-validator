@@ -1,20 +1,21 @@
 use std::convert::Infallible;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
-use qubit_validator::next::ArgumentReader;
-use qubit_validator::next::BoundValidationContext;
-use qubit_validator::next::InputType;
-use qubit_validator::next::PreparedValidator;
-use qubit_validator::next::RuleOutcome;
-use qubit_validator::next::ValidationValue;
-use qubit_validator::next::ValidatorDescriptor;
-use qubit_validator::next::ValidatorRegistration;
-use qubit_validator::next::ValidatorSignature;
+use qubit_validator::ArgumentReader;
+use qubit_validator::BoundValidationContext;
+use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
+use qubit_validator::RuleOutcome;
 use qubit_validator::ValidationArgument;
+use qubit_validator::ValidationValue;
+use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
+use qubit_validator::ValidatorRegistration;
+use qubit_validator::ValidatorSignature;
 
 #[test]
 fn argument_reader_rejects_bad_names_types_and_ranges() {
@@ -24,7 +25,7 @@ fn argument_reader_rejects_bad_names_types_and_ranges() {
     ];
     assert_eq!(
         ArgumentReader::new(&args).unwrap_err().kind(),
-        qubit_validator::next::BindErrorKind::DuplicateParameter
+        qubit_validator::BindErrorKind::DuplicateParameter
     );
 
     let args = [NamedValidationArgument::new(
@@ -34,7 +35,7 @@ fn argument_reader_rejects_bad_names_types_and_ranges() {
     let reader = ArgumentReader::new(&args).unwrap();
     assert_eq!(
         reader.finish().unwrap_err().kind(),
-        qubit_validator::next::BindErrorKind::UnknownParameter
+        qubit_validator::BindErrorKind::UnknownParameter
     );
 
     let args = [NamedValidationArgument::new(
@@ -44,7 +45,7 @@ fn argument_reader_rejects_bad_names_types_and_ranges() {
     let mut reader = ArgumentReader::new(&args).unwrap();
     assert_eq!(
         reader.required_u32("min").unwrap_err().kind(),
-        qubit_validator::next::BindErrorKind::ParameterOutOfRange
+        qubit_validator::BindErrorKind::ParameterOutOfRange
     );
 }
 
@@ -57,7 +58,7 @@ impl PreparedValidator for CountingAdapter {
         &self,
         value: ValidationValue<'_>,
         _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, qubit_validator::next::ExecutionError> {
+    ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         assert!(matches!(value, ValidationValue::Text("ok")));
         Ok(RuleOutcome::Valid)
@@ -66,7 +67,7 @@ impl PreparedValidator for CountingAdapter {
 
 fn prepare_counting(
     _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, qubit_validator::next::BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     Ok(Arc::new(CountingAdapter {
         calls: Arc::new(AtomicUsize::new(0)),
     }))
@@ -119,7 +120,7 @@ fn registration_descriptor_has_a_stable_signature() {
 
 #[derive(Default)]
 struct _Infallible;
-impl qubit_validator::next::Validator<str> for _Infallible {
+impl qubit_validator::Validator<str> for _Infallible {
     type Error = Infallible;
     fn validate(&self, _: &str, _: &()) -> Result<(), Self::Error> {
         Ok(())

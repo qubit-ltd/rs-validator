@@ -24,15 +24,13 @@ include = [
 ]
 
 [dependencies]
-inventory = "0.3"
+inventory = { version = "0.3", optional = true }
 thiserror = "2"
 
 [features]
-# Keep the legacy root API buildable during the staged migration.  T10 will
-# switch the default to an empty set once consumers have moved to `next`.
-default = ["registry", "inventory"]
+default = []
 registry = []
-inventory = ["registry"]
+inventory = ["registry", "dep:inventory"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

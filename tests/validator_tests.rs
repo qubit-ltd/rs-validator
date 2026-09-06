@@ -1,136 +1,93 @@
 use std::convert::Infallible;
+use std::sync::Arc;
 
-use qubit_validator::NamedValidationArgument;
-use qubit_validator::ValidationArgument;
-use qubit_validator::ValidationContext;
-use qubit_validator::ValidationDependency;
+use qubit_validator::BoundValidationContext;
+use qubit_validator::InputType;
+use qubit_validator::PreparedValidator;
+use qubit_validator::RuleOutcome;
+use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
-use qubit_validator::ValidatorExecutionError;
+use qubit_validator::ValidatorId;
+use qubit_validator::ValidatorSignature;
+use qubit_validator::Violation;
+use qubit_validator::ViolationCode;
 
-#[derive(Default)]
 struct Minimum;
 
 impl Validator<u32> for Minimum {
     type Error = Infallible;
 
-    fn validate(
-        &mut self,
-        value: &u32,
-        context: &ValidationContext<'_>,
-    ) -> Result<(), Self::Error> {
-        let ValidationArgument::Unsigned(minimum) =
-            context.argument("minimum").expect("minimum argument")
-        else {
-            unreachable!("fixture uses an unsigned minimum")
-        };
-        assert!(*value as u128 >= minimum);
-        assert_eq!(
-            context
-                .dependency("tenant")
-                .and_then(|value| value.downcast_ref::<u64>()),
-            Some(&7)
-        );
+    fn validate(&self, value: &u32, _: &()) -> Result<(), Self::Error> {
+        assert!(*value >= 3);
         Ok(())
     }
 }
 
 #[test]
-fn test_descriptor_validates_typed_value_with_context() {
-    let arguments = [NamedValidationArgument::new(
-        "minimum",
-        ValidationArgument::Unsigned(3),
-    )];
-    let tenant = 7_u64;
-    let dependencies = [ValidationDependency::new("tenant", &tenant)];
-    let context = ValidationContext::new(&arguments, &dependencies);
-    let descriptor = ValidatorDescriptor::of::<Minimum, u32>();
-
-    descriptor.validate(&5_u32, &context).expect("valid value");
+fn typed_validator_uses_an_immutable_context() {
+    Minimum.validate(&5, &()).expect("value is valid");
 }
 
-#[test]
-fn test_descriptor_rejects_wrong_erased_type() {
-    let descriptor = ValidatorDescriptor::of::<Minimum, u32>();
-    let error = descriptor
-        .validate(&5_u64, &ValidationContext::default())
-        .expect_err("wrong type must fail");
-
-    assert!(matches!(
-        error,
-        ValidatorExecutionError::TypeMismatch { .. }
-    ));
-    assert!(error.to_string().contains("u32"));
-}
-
-#[derive(Default)]
 struct Rejecting;
 
-impl Validator<String> for Rejecting {
-    type Error = std::io::Error;
-
+impl PreparedValidator for Rejecting {
     fn validate(
-        &mut self,
-        _value: &String,
-        _context: &ValidationContext<'_>,
-    ) -> Result<(), Self::Error> {
-        Err(std::io::Error::other("rejected by fixture"))
+        &self,
+        _: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<RuleOutcome, qubit_validator::ExecutionError> {
+        Ok(RuleOutcome::Invalid(vec![Violation::new(
+            ValidatorId::new("test.rejecting"),
+            ViolationCode::new("test.rejected"),
+        )]))
     }
 }
 
+fn prepare_rejecting(
+    _: &[qubit_validator::NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
+    Ok(Arc::new(Rejecting))
+}
+
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    &[],
+    prepare_rejecting,
+)];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
 #[test]
-fn test_descriptor_exposes_identity_and_preserves_source_error() {
-    let descriptor = ValidatorDescriptor::of::<Rejecting, String>();
+fn prepared_descriptor_preserves_structured_rule_failures() {
+    let bound = DESCRIPTOR
+        .bind_for(InputType::Text, &[])
+        .expect("valid descriptor");
+    let outcome = bound
+        .validate(
+            ValidationValue::Text("value"),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect("adapter execution succeeds");
 
-    assert_eq!(
-        descriptor.validator_type_id(),
-        std::any::TypeId::of::<Rejecting>()
+    assert!(
+        matches!(outcome, RuleOutcome::Invalid(violations) if violations[0].code().as_str() == "test.rejected")
     );
-    assert_eq!(
-        descriptor.validator_type_name(),
-        std::any::type_name::<Rejecting>()
-    );
-    assert_eq!(descriptor.value_type_id(), std::any::TypeId::of::<String>());
-    assert_eq!(
-        descriptor.value_type_name(),
-        std::any::type_name::<String>()
-    );
-    assert!(format!("{descriptor:?}").contains("Rejecting"));
-
-    let error = descriptor
-        .validate(&String::from("value"), &ValidationContext::default())
-        .expect_err("fixture rejects every value");
-    assert!(matches!(
-        error,
-        ValidatorExecutionError::ValidationFailed { .. }
-    ));
-    assert!(error.to_string().contains("rejected by fixture"));
 }
 
 #[test]
-fn test_context_exposes_entries_and_absent_lookups() {
-    let arguments = [NamedValidationArgument::new(
-        "enabled",
-        ValidationArgument::Bool(true),
-    )];
-    let owner = String::from("alice");
-    let dependencies = [ValidationDependency::new("owner", &owner)];
-    let context = ValidationContext::new(&arguments, &dependencies);
+fn prepared_descriptor_rejects_wrong_input_shape() {
+    let bound = DESCRIPTOR
+        .bind_for(InputType::Text, &[])
+        .expect("valid descriptor");
+    let error = bound
+        .validate(
+            ValidationValue::Typed(&5_u32),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect_err("wrong input shape must fail");
 
-    assert_eq!(context.arguments(), &arguments);
     assert_eq!(
-        context.argument("enabled"),
-        Some(ValidationArgument::Bool(true))
+        error.kind(),
+        qubit_validator::ExecutionErrorKind::InputTypeMismatch
     );
-    assert_eq!(context.argument("missing"), None);
-    assert_eq!(context.dependencies().len(), 1);
-    assert_eq!(context.dependencies()[0].path(), "owner");
-    assert!(std::ptr::eq(context.dependencies()[0].value(), &owner));
-    assert_eq!(
-        context
-            .dependency("owner")
-            .and_then(|value| value.downcast_ref::<String>()),
-        Some(&owner)
-    );
-    assert!(context.dependency("missing").is_none());
 }

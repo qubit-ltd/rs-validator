@@ -1,20 +1,20 @@
 use std::convert::Infallible;
 
+use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
+use qubit_validator::ExecutionError;
+use qubit_validator::ExecutionErrorKind;
+use qubit_validator::PathSegment;
+use qubit_validator::RuleOutcome;
+use qubit_validator::SkipReason;
+use qubit_validator::SkippedValidation;
+use qubit_validator::ValidationPath;
+use qubit_validator::ValidationReport;
+use qubit_validator::Validator;
 use qubit_validator::ValidatorId;
-use qubit_validator::next::BindError;
-use qubit_validator::next::BindErrorKind;
-use qubit_validator::next::ExecutionError;
-use qubit_validator::next::ExecutionErrorKind;
-use qubit_validator::next::PathSegment;
-use qubit_validator::next::RuleOutcome;
-use qubit_validator::next::SkipReason;
-use qubit_validator::next::SkippedValidation;
-use qubit_validator::next::ValidationPath;
-use qubit_validator::next::ValidationReport;
-use qubit_validator::next::Validator;
-use qubit_validator::next::Violation;
-use qubit_validator::next::ViolationCode;
-use qubit_validator::next::ViolationParam;
+use qubit_validator::Violation;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationParam;
 
 struct NonEmpty;
 
