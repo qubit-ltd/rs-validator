@@ -45,9 +45,9 @@ impl Validator<str> for NonBlank {
 
 ## Feature
 
-默认 feature 集为空。启用 `registry` 可使用显式 descriptor 和 registration API；需要通过
-`register_validator!` 进行进程级注册时启用 `inventory`，它会同时启用 `registry`。需要隔离测试或
-维护多套规则时，应直接构造局部 `ValidatorRegistry`。
+默认 feature 集为空。类型化 descriptor、registration 和局部注册表 API 始终可用；`registry` 作为
+下游 manifest 的兼容 feature 保留。需要通过 `register_validator!` 进行进程级注册时启用
+`inventory`。需要隔离测试或维护多套规则时，应直接构造局部 `ValidatorRegistry`。
 
 ## 限制
 
