@@ -15,11 +15,7 @@ impl DependencySpec {
     #[must_use]
     pub const fn new(name: &'static str, input: InputType, optional: bool) -> Self {
         assert!(!name.is_empty(), "dependency name cannot be empty");
-        Self {
-            name,
-            input,
-            optional,
-        }
+        Self { name, input, optional }
     }
 
     /// Returns the logical slot name.

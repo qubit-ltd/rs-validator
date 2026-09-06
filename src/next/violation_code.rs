@@ -69,10 +69,7 @@ impl ViolationCode {
 
 impl std::fmt::Debug for ViolationCode {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_tuple("ViolationCode")
-            .field(&self.0)
-            .finish()
+        formatter.debug_tuple("ViolationCode").field(&self.0).finish()
     }
 }
 

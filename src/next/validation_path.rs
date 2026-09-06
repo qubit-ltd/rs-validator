@@ -20,9 +20,7 @@ impl ValidationPath {
     /// Creates an empty root path.
     #[must_use]
     pub const fn root() -> Self {
-        Self {
-            segments: Vec::new(),
-        }
+        Self { segments: Vec::new() }
     }
 
     /// Appends a field segment.

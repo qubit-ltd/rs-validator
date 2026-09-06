@@ -20,5 +20,4 @@ pub trait PreparedValidator: Send + Sync {
 }
 
 /// Constructs an owned prepared validator from declaration parameters.
-pub type PrepareFn =
-    fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;
+pub type PrepareFn = fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;

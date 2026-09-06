@@ -21,11 +21,7 @@ use qubit_validator::register_validator;
 struct AlwaysValid;
 
 impl PreparedValidator for AlwaysValid {
-    fn validate(
-        &self,
-        _: ValidationValue<'_>,
-        _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError> {
+    fn validate(&self, _: ValidationValue<'_>, _: &BoundValidationContext<'_>) -> Result<RuleOutcome, ExecutionError> {
         Ok(RuleOutcome::Valid)
     }
 }
@@ -34,8 +30,7 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
     Ok(Arc::new(AlwaysValid))
 }
 
-static SIGNATURES: &[ValidatorSignature] =
-    &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 register_validator!(id = "test.inventory.global", descriptor = &DESCRIPTOR);

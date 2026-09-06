@@ -16,16 +16,8 @@ impl ValidatorRegistration {
     /// Creates a registration from validated static facts.
     #[doc(hidden)]
     #[must_use]
-    pub const fn new(
-        id: ValidatorId,
-        descriptor: &'static ValidatorDescriptor,
-        source: RegistrationSource,
-    ) -> Self {
-        Self {
-            id,
-            descriptor,
-            source,
-        }
+    pub const fn new(id: ValidatorId, descriptor: &'static ValidatorDescriptor, source: RegistrationSource) -> Self {
+        Self { id, descriptor, source }
     }
 
     /// Returns the stable identifier.

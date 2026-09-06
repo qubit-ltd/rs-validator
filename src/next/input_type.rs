@@ -23,9 +23,7 @@ impl InputType {
     pub fn accepts(self, value: super::ValidationValue<'_>) -> bool {
         match (self, value) {
             (Self::Text, super::ValidationValue::Text(_)) => true,
-            (Self::Typed(expected), super::ValidationValue::Typed(value)) => {
-                value.type_id() == expected
-            }
+            (Self::Typed(expected), super::ValidationValue::Typed(value)) => value.type_id() == expected,
             _ => false,
         }
     }

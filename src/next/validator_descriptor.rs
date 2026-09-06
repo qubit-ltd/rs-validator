@@ -108,8 +108,7 @@ impl ValidatorDescriptor {
                     .iter()
                     .any(|previous| previous.name() == dependency.name())
                 {
-                    return Err(BindError::new(BindErrorKind::InvalidDeclaration)
-                        .with_dependency(dependency.name()));
+                    return Err(BindError::new(BindErrorKind::InvalidDeclaration).with_dependency(dependency.name()));
                 }
             }
         }

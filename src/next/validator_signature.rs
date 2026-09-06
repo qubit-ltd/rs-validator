@@ -15,11 +15,7 @@ pub struct ValidatorSignature {
 impl ValidatorSignature {
     /// Creates a signature with ordered dependency slots.
     #[must_use]
-    pub const fn new(
-        input: InputType,
-        dependencies: &'static [DependencySpec],
-        prepare: PrepareFn,
-    ) -> Self {
+    pub const fn new(input: InputType, dependencies: &'static [DependencySpec], prepare: PrepareFn) -> Self {
         Self {
             input,
             dependencies,

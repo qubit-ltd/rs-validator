@@ -18,12 +18,7 @@ macro_rules! register_validator {
                 $crate::ValidatorRegistration::new(
                     $crate::ValidatorId::new($id),
                     $descriptor,
-                    $crate::RegistrationSource::new(
-                        env!("CARGO_PKG_NAME"),
-                        module_path!(),
-                        file!(),
-                        line!(),
-                    ),
+                    $crate::RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
                 )
             }
 

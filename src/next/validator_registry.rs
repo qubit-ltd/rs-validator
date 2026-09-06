@@ -51,8 +51,7 @@ impl ValidatorRegistry {
     /// conflict. This method is available only with the `inventory` feature.
     #[cfg(feature = "inventory")]
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
-        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> =
-            OnceLock::new();
+        static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
         match REGISTRY.get_or_init(|| {
             let registrations = inventory::iter::<crate::ValidatorRegistrationFactory>
                 .into_iter()
@@ -74,16 +73,13 @@ impl ValidatorRegistry {
     #[cfg(feature = "inventory")]
     #[must_use]
     pub fn global() -> &'static Self {
-        Self::try_global()
-            .unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
+        Self::try_global().unwrap_or_else(|error| panic!("invalid global validator registry: {error}"))
     }
 
     /// Finds a registration by stable ID.
     #[must_use]
     pub fn get(&self, id: &str) -> Option<&ValidatorRegistration> {
-        self.indices
-            .get(id)
-            .and_then(|index| self.registrations.get(*index))
+        self.indices.get(id).and_then(|index| self.registrations.get(*index))
     }
 
     /// Returns registrations sorted by stable ID.
@@ -103,9 +99,7 @@ impl ValidatorRegistry {
         input: InputType,
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
-        let registration = self
-            .get(id)
-            .ok_or_else(|| BindError::new(BindErrorKind::MissingRule))?;
+        let registration = self.get(id).ok_or_else(|| BindError::new(BindErrorKind::MissingRule))?;
         registration
             .descriptor()
             .bind_for(input, params)
@@ -113,9 +107,7 @@ impl ValidatorRegistry {
             .map_err(|error| error.with_rule(registration.id()))
     }
 
-    fn build(
-        mut registrations: Vec<ValidatorRegistration>,
-    ) -> Result<Self, ValidatorRegistryError> {
+    fn build(mut registrations: Vec<ValidatorRegistration>) -> Result<Self, ValidatorRegistryError> {
         registrations.sort_by_key(|registration| (registration.id(), registration.source()));
         let mut index = 0;
         while index < registrations.len() {

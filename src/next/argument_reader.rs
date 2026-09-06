@@ -20,12 +20,8 @@ impl<'a> ArgumentReader<'a> {
     /// Returns `DuplicateParameter` when a name occurs more than once.
     pub fn new(args: &'a [NamedValidationArgument<'a>]) -> Result<Self, BindError> {
         for (index, argument) in args.iter().enumerate() {
-            if args[..index]
-                .iter()
-                .any(|previous| previous.name() == argument.name())
-            {
-                return Err(BindError::new(BindErrorKind::DuplicateParameter)
-                    .with_parameter(argument.name()));
+            if args[..index].iter().any(|previous| previous.name() == argument.name()) {
+                return Err(BindError::new(BindErrorKind::DuplicateParameter).with_parameter(argument.name()));
             }
         }
         Ok(Self {
@@ -36,8 +32,7 @@ impl<'a> ArgumentReader<'a> {
 
     /// Reads a required unsigned 32-bit integer.
     pub fn required_u32(&mut self, name: &str) -> Result<u32, BindError> {
-        self.u32_value(name, true)
-            .map(|value| value.expect("required value"))
+        self.u32_value(name, true).map(|value| value.expect("required value"))
     }
 
     /// Reads an optional unsigned 32-bit integer.
@@ -66,15 +61,8 @@ impl<'a> ArgumentReader<'a> {
 
     /// Rejects every argument which was not consumed by a typed reader.
     pub fn finish(&self) -> Result<(), BindError> {
-        if let Some((_index, argument)) = self
-            .args
-            .iter()
-            .enumerate()
-            .find(|(index, _)| !self.consumed[*index])
-        {
-            return Err(
-                BindError::new(BindErrorKind::UnknownParameter).with_parameter(argument.name())
-            );
+        if let Some((_index, argument)) = self.args.iter().enumerate().find(|(index, _)| !self.consumed[*index]) {
+            return Err(BindError::new(BindErrorKind::UnknownParameter).with_parameter(argument.name()));
         }
         Ok(())
     }
@@ -97,11 +85,7 @@ impl<'a> ArgumentReader<'a> {
     }
 
     fn take_optional(&mut self, name: &str) -> Result<Option<ValidationArgument<'a>>, BindError> {
-        let Some(index) = self
-            .args
-            .iter()
-            .position(|argument| argument.name() == name)
-        else {
+        let Some(index) = self.args.iter().position(|argument| argument.name() == name) else {
             return Ok(None);
         };
         self.consumed[index] = true;
