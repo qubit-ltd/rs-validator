@@ -77,7 +77,9 @@ impl<'a> ArgumentReader<'a> {
         let value = match value {
             ValidationArgument::Unsigned(value) => u32::try_from(value),
             ValidationArgument::Integer(value) if value >= 0 => u32::try_from(value as u128),
-            ValidationArgument::Integer(_) => return Err(Self::range_error(name)),
+            ValidationArgument::Integer(_) => {
+                return Err(Self::range_error(name));
+            }
             _ => return Err(Self::type_error(name)),
         }
         .map_err(|_| Self::range_error(name))?;
