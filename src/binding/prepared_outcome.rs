@@ -1,6 +1,6 @@
 use super::ViolationDraft;
-#[non_exhaustive]
 /// Outcome produced by a prepared validator.
+#[non_exhaustive]
 pub enum PreparedOutcome {
     /// Input is valid.
     Valid,

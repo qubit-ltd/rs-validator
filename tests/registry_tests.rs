@@ -15,9 +15,7 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
 
-fn prepare(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct AlwaysValid;
 
     impl PreparedValidator for AlwaysValid {
@@ -33,8 +31,7 @@ fn prepare(
     Ok(Arc::new(AlwaysValid))
 }
 
-static SIGNATURES: &[ValidatorSignature] =
-    &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 fn registration(id: &'static str, file: &'static str) -> ValidatorRegistration {
@@ -48,13 +45,10 @@ fn registration(id: &'static str, file: &'static str) -> ValidatorRegistration {
 #[test]
 fn local_registry_owns_and_queries_registrations() {
     let first = registration("example.valid", "first.rs");
-    let registry =
-        ValidatorRegistry::from_registrations([first]).expect("valid registry");
+    let registry = ValidatorRegistry::from_registrations([first]).expect("valid registry");
 
     assert_eq!(
-        registry
-            .get("example.valid")
-            .map(|entry| entry.id().as_str()),
+        registry.get("example.valid").map(|entry| entry.id().as_str()),
         Some("example.valid")
     );
     assert!(registry.get("missing").is_none());
@@ -65,8 +59,7 @@ fn local_registry_owns_and_queries_registrations() {
 fn local_registry_rejects_duplicate_ids() {
     let first = registration("example.valid", "first.rs");
     let second = registration("example.valid", "second.rs");
-    let error = ValidatorRegistry::from_registrations([first, second])
-        .expect_err("duplicate ID");
+    let error = ValidatorRegistry::from_registrations([first, second]).expect_err("duplicate ID");
 
     assert!(error.to_string().contains("example.valid"));
     assert!(error.to_string().contains("first.rs"));

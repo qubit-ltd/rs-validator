@@ -27,12 +27,8 @@ impl std::fmt::Debug for PathSegment {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Field(_) => formatter.write_str("Field(<redacted>)"),
-            Self::Index(index) => {
-                formatter.debug_tuple("Index").field(index).finish()
-            }
-            Self::MapEntry(index) => {
-                formatter.debug_tuple("MapEntry").field(index).finish()
-            }
+            Self::Index(index) => formatter.debug_tuple("Index").field(index).finish(),
+            Self::MapEntry(index) => formatter.debug_tuple("MapEntry").field(index).finish(),
             Self::MapKey => formatter.write_str("MapKey"),
             Self::MapValue => formatter.write_str("MapValue"),
         }

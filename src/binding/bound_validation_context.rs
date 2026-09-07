@@ -16,10 +16,7 @@ impl<'a> BoundValidationContext<'a> {
     /// Creates a context with root paths for each dependency slot.
     #[must_use]
     pub fn new(values: &'a [ValidationValue<'a>]) -> Self {
-        Self {
-            values,
-            paths: None,
-        }
+        Self { values, paths: None }
     }
 
     /// Creates a context with model-provided relative dependency paths.
@@ -32,9 +29,7 @@ impl<'a> BoundValidationContext<'a> {
         paths: &'a [ValidationPath],
     ) -> Result<Self, ExecutionError> {
         if values.len() != paths.len() {
-            return Err(ExecutionError::new(
-                ExecutionErrorKind::AdapterContractViolation,
-            ));
+            return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
         }
         Ok(Self {
             values,
@@ -47,13 +42,11 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
-    pub fn value(
-        &self,
-        index: usize,
-    ) -> Result<ValidationValue<'a>, ExecutionError> {
-        self.values.get(index).copied().ok_or_else(|| {
-            ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)
-        })
+    pub fn value(&self, index: usize) -> Result<ValidationValue<'a>, ExecutionError> {
+        self.values
+            .get(index)
+            .copied()
+            .ok_or_else(|| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation))
     }
 
     /// Returns the path at an ordered dependency slot.
@@ -61,20 +54,13 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
-    pub fn dependency_path(
-        &self,
-        index: usize,
-    ) -> Result<&ValidationPath, ExecutionError> {
+    pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
-            Some(paths) => paths.get(index).ok_or_else(|| {
-                ExecutionError::new(
-                    ExecutionErrorKind::AdapterContractViolation,
-                )
-            }),
+            Some(paths) => paths
+                .get(index)
+                .ok_or_else(|| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)),
             None if index < self.values.len() => Ok(&ROOT_PATH),
-            None => Err(ExecutionError::new(
-                ExecutionErrorKind::AdapterContractViolation,
-            )),
+            None => Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)),
         }
     }
 
@@ -83,24 +69,13 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
-    pub fn typed<T: 'static>(
-        &self,
-        index: usize,
-    ) -> Result<&'a T, ExecutionError> {
+    pub fn typed<T: 'static>(&self, index: usize) -> Result<&'a T, ExecutionError> {
         match self.value(index)? {
-            ValidationValue::Typed(value) => {
-                value.downcast_ref::<T>().ok_or_else(|| {
-                    ExecutionError::new(
-                        ExecutionErrorKind::DependencyTypeMismatch,
-                    )
-                })
-            }
-            ValidationValue::Missing => Err(ExecutionError::new(
-                ExecutionErrorKind::MissingRequiredDependencyValue,
-            )),
-            ValidationValue::Text(_) => Err(ExecutionError::new(
-                ExecutionErrorKind::DependencyTypeMismatch,
-            )),
+            ValidationValue::Typed(value) => value
+                .downcast_ref::<T>()
+                .ok_or_else(|| ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
+            ValidationValue::Missing => Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue)),
+            ValidationValue::Text(_) => Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
         }
     }
 
@@ -110,22 +85,14 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// Returns a shape or slot error. A wrong concrete type is never treated
     /// as an absent optional value.
-    pub fn optional_typed<T: 'static>(
-        &self,
-        index: usize,
-    ) -> Result<Option<&'a T>, ExecutionError> {
+    pub fn optional_typed<T: 'static>(&self, index: usize) -> Result<Option<&'a T>, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Missing => Ok(None),
-            ValidationValue::Typed(value) => {
-                value.downcast_ref::<T>().map(Some).ok_or_else(|| {
-                    ExecutionError::new(
-                        ExecutionErrorKind::DependencyTypeMismatch,
-                    )
-                })
-            }
-            ValidationValue::Text(_) => Err(ExecutionError::new(
-                ExecutionErrorKind::DependencyTypeMismatch,
-            )),
+            ValidationValue::Typed(value) => value
+                .downcast_ref::<T>()
+                .map(Some)
+                .ok_or_else(|| ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
+            ValidationValue::Text(_) => Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
         }
     }
 
@@ -137,41 +104,24 @@ impl<'a> BoundValidationContext<'a> {
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Text(value) => Ok(value),
-            ValidationValue::Missing => Err(ExecutionError::new(
-                ExecutionErrorKind::MissingRequiredDependencyValue,
-            )),
-            ValidationValue::Typed(_) => Err(ExecutionError::new(
-                ExecutionErrorKind::DependencyTypeMismatch,
-            )),
+            ValidationValue::Missing => Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue)),
+            ValidationValue::Typed(_) => Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
         }
     }
 
-    pub(crate) fn check_specs(
-        &self,
-        specs: &[DependencySpec],
-    ) -> Result<(), ExecutionError> {
-        if self.values.len() != specs.len()
-            || self.paths.is_some_and(|paths| paths.len() != specs.len())
-        {
-            return Err(ExecutionError::new(
-                ExecutionErrorKind::AdapterContractViolation,
-            ));
+    pub(crate) fn check_specs(&self, specs: &[DependencySpec]) -> Result<(), ExecutionError> {
+        if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
+            return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
         }
-        for (value, spec) in
-            self.values.iter().copied().zip(specs.iter().copied())
-        {
+        for (value, spec) in self.values.iter().copied().zip(specs.iter().copied()) {
             if value.is_missing() {
                 if !spec.optional() {
-                    return Err(ExecutionError::new(
-                        ExecutionErrorKind::MissingRequiredDependencyValue,
-                    ));
+                    return Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue));
                 }
                 continue;
             }
             if !spec.input().accepts(value) {
-                return Err(ExecutionError::new(
-                    ExecutionErrorKind::DependencyTypeMismatch,
-                ));
+                return Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch));
             }
         }
         Ok(())

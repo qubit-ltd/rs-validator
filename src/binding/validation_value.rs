@@ -19,9 +19,7 @@ impl<'a> ValidationValue<'a> {
     pub fn input_type(self) -> Option<super::InputType> {
         match self {
             Self::Text(_) => Some(super::InputType::Text),
-            Self::Typed(value) => {
-                Some(super::InputType::Typed(value.type_id()))
-            }
+            Self::Typed(value) => Some(super::InputType::Typed(value.type_id())),
             Self::Missing => None,
         }
     }

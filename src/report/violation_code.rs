@@ -31,9 +31,7 @@ impl ViolationCode {
     /// # Errors
     ///
     /// Returns the protocol violation when `value` is invalid.
-    pub const fn try_new(
-        value: &'static str,
-    ) -> Result<Self, ViolationCodeError> {
+    pub const fn try_new(value: &'static str) -> Result<Self, ViolationCodeError> {
         let bytes = value.as_bytes();
         if bytes.is_empty() {
             return Err(ViolationCodeError::Empty);
@@ -71,10 +69,7 @@ impl ViolationCode {
 
 impl std::fmt::Debug for ViolationCode {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_tuple("ViolationCode")
-            .field(&self.0)
-            .finish()
+        formatter.debug_tuple("ViolationCode").field(&self.0).finish()
     }
 }
 

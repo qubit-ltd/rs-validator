@@ -24,19 +24,45 @@ pub mod __private {
     pub use inventory;
 }
 
-pub use argument::{NamedValidationArgument, ValidationArgument};
-pub use binding::{ArgumentReader, BindError, BindErrorKind, BoundValidationContext,
-    BoundValidator, DependencySpec, ExecutionError, ExecutionErrorKind, InputType,
-    PrepareFn, PreparedOutcome, PreparedValidator, RuleOutcome, ValidationOutcome,
-    ValidationValue, ViolationDraft, prepare_text_validator, prepare_typed_validator};
-pub use registry::{RegistrationSource, ValidatorDescriptor, ValidatorRegistration,
-    ValidatorRegistry, ValidatorSignature};
-pub use report::{PathSegment, SkipReason, SkippedValidation, ValidationPath,
-    ValidationLimits, ValidationReport, Violation, ViolationCode, ViolationCodeError, ViolationParam};
-pub use validator::Validator;
-pub use validator_id::ValidatorId;
-pub use validator_id_error::ValidatorIdError;
+pub use argument::NamedValidationArgument;
+pub use argument::ValidationArgument;
+pub use binding::ArgumentReader;
+pub use binding::BindError;
+pub use binding::BindErrorKind;
+pub use binding::BoundValidationContext;
+pub use binding::BoundValidator;
+pub use binding::DependencySpec;
+pub use binding::ExecutionError;
+pub use binding::ExecutionErrorKind;
+pub use binding::InputType;
+pub use binding::PrepareFn;
+pub use binding::PreparedOutcome;
+pub use binding::PreparedValidator;
+pub use binding::RuleOutcome;
+pub use binding::ValidationOutcome;
+pub use binding::ValidationValue;
+pub use binding::ViolationDraft;
+pub use binding::prepare_text_validator;
+pub use binding::prepare_typed_validator;
+pub use registry::RegistrationSource;
+pub use registry::ValidatorDescriptor;
+pub use registry::ValidatorRegistration;
 #[cfg(feature = "inventory")]
 #[doc(hidden)]
 pub use registry::ValidatorRegistrationFactory;
+pub use registry::ValidatorRegistry;
+pub use registry::ValidatorSignature;
+pub use report::PathSegment;
+pub use report::SkipReason;
+pub use report::SkippedValidation;
+pub use report::ValidationLimits;
+pub use report::ValidationPath;
+pub use report::ValidationReport;
+pub use report::Violation;
+pub use report::ViolationCode;
+pub use report::ViolationCodeError;
+pub use report::ViolationParam;
+pub use validator::Validator;
+pub use validator_id::ValidatorId;
+pub use validator_id_error::ValidatorIdError;
 pub use validator_registry_error::ValidatorRegistryError;

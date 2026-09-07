@@ -1,6 +1,7 @@
-use crate::{SkipReason, Violation};
-#[derive(Debug, PartialEq, Eq)]
+use crate::SkipReason;
+use crate::Violation;
 /// Legacy prepared execution outcome.
+#[derive(Debug, PartialEq, Eq)]
 pub enum RuleOutcome {
     /// The value is valid.
     Valid,

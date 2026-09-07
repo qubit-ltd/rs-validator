@@ -59,12 +59,8 @@ impl std::fmt::Display for BindErrorKind {
             Self::InvalidPattern => "invalid pattern",
             Self::MissingRule => "missing rule",
             Self::UnsupportedInput => "unsupported input",
-            Self::MissingDependencyDeclaration => {
-                "missing dependency declaration"
-            }
-            Self::UnknownDependencyDeclaration => {
-                "unknown dependency declaration"
-            }
+            Self::MissingDependencyDeclaration => "missing dependency declaration",
+            Self::UnknownDependencyDeclaration => "unknown dependency declaration",
             Self::DependencyTypeMismatch => "dependency type mismatch",
             Self::UnreadablePath => "unreadable path",
             Self::AmbiguousSignature => "ambiguous signature",

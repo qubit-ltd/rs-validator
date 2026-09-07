@@ -20,11 +20,7 @@ pub struct SkippedValidation {
 impl SkippedValidation {
     /// Creates a skipped validation record.
     #[must_use]
-    pub const fn new(
-        occurrence: usize,
-        path: ValidationPath,
-        reason: SkipReason,
-    ) -> Self {
+    pub const fn new(occurrence: usize, path: ValidationPath, reason: SkipReason) -> Self {
         Self {
             occurrence,
             path,

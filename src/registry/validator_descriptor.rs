@@ -27,9 +27,7 @@ impl ValidatorDescriptor {
     /// # Errors
     ///
     /// Returns `AmbiguousSignature` when the definition contains duplicates.
-    pub fn try_new(
-        signatures: &'static [ValidatorSignature],
-    ) -> Result<Self, BindError> {
+    pub fn try_new(signatures: &'static [ValidatorSignature]) -> Result<Self, BindError> {
         let descriptor = Self::new(signatures);
         descriptor.validate_definition()?;
         Ok(descriptor)
@@ -105,17 +103,12 @@ impl ValidatorDescriptor {
             {
                 return Err(BindError::new(BindErrorKind::InvalidDeclaration));
             }
-            for (dependency_index, dependency) in
-                left.dependencies().iter().enumerate()
-            {
+            for (dependency_index, dependency) in left.dependencies().iter().enumerate() {
                 if left.dependencies()[..dependency_index]
                     .iter()
                     .any(|previous| previous.name() == dependency.name())
                 {
-                    return Err(BindError::new(
-                        BindErrorKind::InvalidDeclaration,
-                    )
-                    .with_dependency(dependency.name()));
+                    return Err(BindError::new(BindErrorKind::InvalidDeclaration).with_dependency(dependency.name()));
                 }
             }
         }

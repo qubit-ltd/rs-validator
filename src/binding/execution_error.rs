@@ -98,8 +98,6 @@ impl std::fmt::Display for ExecutionError {
 
 impl Error for ExecutionError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.source
-            .as_deref()
-            .map(|source| source as &(dyn Error + 'static))
+        self.source.as_deref().map(|source| source as &(dyn Error + 'static))
     }
 }

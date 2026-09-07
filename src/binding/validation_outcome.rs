@@ -1,6 +1,6 @@
 use crate::Violation;
-#[non_exhaustive]
 /// Outcome produced by a bound validator.
+#[non_exhaustive]
 pub enum ValidationOutcome {
     /// Input is valid.
     Valid,

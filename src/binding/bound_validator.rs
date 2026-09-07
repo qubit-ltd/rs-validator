@@ -55,23 +55,17 @@ impl BoundValidator {
             .validate(value, context)
             .map_err(|error| error.with_rule_opt(self.rule_id))?
         {
-            RuleOutcome::Invalid(issues) if issues.is_empty() => {
+            RuleOutcome::Invalid(issues) if issues.is_empty() => Err(self.contract_error()),
+            RuleOutcome::Skipped {
+                reason,
+                ref prerequisites,
+            } if matches!(reason, super::SkipReason::MissingOptional) && !prerequisites.is_empty() => {
                 Err(self.contract_error())
             }
             RuleOutcome::Skipped {
                 reason,
                 ref prerequisites,
-            } if matches!(reason, super::SkipReason::MissingOptional)
-                && !prerequisites.is_empty() =>
-            {
-                Err(self.contract_error())
-            }
-            RuleOutcome::Skipped {
-                reason,
-                ref prerequisites,
-            } if matches!(reason, super::SkipReason::FailedPrerequisite)
-                && prerequisites.is_empty() =>
-            {
+            } if matches!(reason, super::SkipReason::FailedPrerequisite) && prerequisites.is_empty() => {
                 Err(self.contract_error())
             }
             outcome => Ok(outcome),
@@ -96,38 +90,25 @@ impl BoundValidator {
         self.rule_id
     }
 
-    fn check_input(
-        &self,
-        value: ValidationValue<'_>,
-    ) -> Result<(), ExecutionError> {
+    fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.signature.input().accepts(value) {
-            return Err(ExecutionError::new(
-                ExecutionErrorKind::InputTypeMismatch,
-            )
-            .with_rule_opt(self.rule_id));
+            return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule_opt(self.rule_id));
         }
         Ok(())
     }
 
-    fn check_dependencies(
-        &self,
-        context: &BoundValidationContext<'_>,
-    ) -> Result<(), ExecutionError> {
-        context
-            .check_specs(self.signature.dependencies())
-            .map_err(|error| {
-                if error.kind() == ExecutionErrorKind::AdapterContractViolation
-                {
-                    error
-                } else {
-                    error.with_rule_opt(self.rule_id)
-                }
-            })
+    fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
+        context.check_specs(self.signature.dependencies()).map_err(|error| {
+            if error.kind() == ExecutionErrorKind::AdapterContractViolation {
+                error
+            } else {
+                error.with_rule_opt(self.rule_id)
+            }
+        })
     }
 
     fn contract_error(&self) -> ExecutionError {
-        ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)
-            .with_rule_opt(self.rule_id)
+        ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule_opt(self.rule_id)
     }
 }
 

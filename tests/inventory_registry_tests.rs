@@ -21,31 +21,23 @@ use qubit_validator::register_validator;
 struct AlwaysValid;
 
 impl PreparedValidator for AlwaysValid {
-    fn validate(
-        &self,
-        _: ValidationValue<'_>,
-        _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError> {
+    fn validate(&self, _: ValidationValue<'_>, _: &BoundValidationContext<'_>) -> Result<RuleOutcome, ExecutionError> {
         Ok(RuleOutcome::Valid)
     }
 }
 
-fn prepare(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(AlwaysValid))
 }
 
-static SIGNATURES: &[ValidatorSignature] =
-    &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 register_validator!(id = "test.inventory.global", descriptor = &DESCRIPTOR);
 
 #[test]
 fn inventory_registration_is_available_from_global_registry() {
-    let registry =
-        ValidatorRegistry::try_global().expect("inventory registry is valid");
+    let registry = ValidatorRegistry::try_global().expect("inventory registry is valid");
     assert!(registry.get("test.inventory.global").is_some());
     assert!(std::ptr::eq(registry, ValidatorRegistry::global()));
 }
@@ -65,11 +57,6 @@ fn registry_registration() -> ValidatorRegistration {
     ValidatorRegistration::new(
         ValidatorId::new("test.inventory.local"),
         &DESCRIPTOR,
-        RegistrationSource::new(
-            "test",
-            "inventory",
-            "inventory_registry_tests.rs",
-            1,
-        ),
+        RegistrationSource::new("test", "inventory", "inventory_registry_tests.rs", 1),
     )
 }

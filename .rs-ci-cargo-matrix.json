@@ -8,12 +8,6 @@
       "features": []
     },
     {
-      "name": "validator-registry",
-      "commands": ["check", "test", "doc"],
-      "defaultFeatures": false,
-      "features": ["registry"]
-    },
-    {
       "name": "validator-inventory",
       "commands": ["check", "test", "doc"],
       "defaultFeatures": false,

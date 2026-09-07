@@ -8,8 +8,8 @@
 
 use super::SkipReason;
 use super::SkippedValidation;
-use super::Violation;
 use super::ValidationLimits;
+use super::Violation;
 
 /// A bounded collection of validation violations and skipped occurrences.
 pub struct ValidationReport {
@@ -27,7 +27,10 @@ impl ValidationReport {
             violations: Vec::new(),
             skipped: Vec::new(),
             truncated: false,
-            limits: ValidationLimits { max_violations: None, max_skipped: None },
+            limits: ValidationLimits {
+                max_violations: None,
+                max_skipped: None,
+            },
         }
     }
 
@@ -38,8 +41,15 @@ impl ValidationReport {
 
     /// Appends a violation if the configured limit permits it.
     pub fn push_violation(&mut self, violation: Violation) -> bool {
-        if self.limits.max_violations.is_some_and(|limit| self.violations.len() >= limit) { return false; }
-        self.violations.push(violation); true
+        if self
+            .limits
+            .max_violations
+            .is_some_and(|limit| self.violations.len() >= limit)
+        {
+            return false;
+        }
+        self.violations.push(violation);
+        true
     }
 
     /// Records one skipped validation occurrence.
@@ -49,8 +59,11 @@ impl ValidationReport {
 
     /// Records a skipped entry if the configured limit permits it.
     pub fn push_skipped(&mut self, skipped: SkippedValidation) -> bool {
-        if self.limits.max_skipped.is_some_and(|limit| self.skipped.len() >= limit) { return false; }
-        self.skipped.push(skipped); true
+        if self.limits.max_skipped.is_some_and(|limit| self.skipped.len() >= limit) {
+            return false;
+        }
+        self.skipped.push(skipped);
+        true
     }
 
     /// Marks that validation stopped before it was exhaustive.

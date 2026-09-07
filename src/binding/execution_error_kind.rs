@@ -30,9 +30,7 @@ impl std::fmt::Display for ExecutionErrorKind {
         let name = match self {
             Self::InputTypeMismatch => "input type mismatch",
             Self::DependencyTypeMismatch => "dependency type mismatch",
-            Self::MissingRequiredDependencyValue => {
-                "missing required dependency value"
-            }
+            Self::MissingRequiredDependencyValue => "missing required dependency value",
             Self::PropertyReadFailed => "property read failed",
             Self::TraversalLimit => "traversal limit exceeded",
             Self::AdapterContractViolation => "adapter contract violation",

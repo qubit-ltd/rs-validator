@@ -23,9 +23,15 @@ pub struct Violation {
 }
 
 impl Violation {
+    #[allow(dead_code)]
     pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
         let (code, path, params) = draft.parts();
-        Self { rule_id, code, path, params }
+        Self {
+            rule_id,
+            code,
+            path,
+            params,
+        }
     }
     /// Creates a violation at the root path.
     #[must_use]
@@ -47,11 +53,7 @@ impl Violation {
 
     /// Adds or replaces a safe structured parameter.
     #[must_use]
-    pub fn with_param(
-        mut self,
-        name: &'static str,
-        value: ViolationParam,
-    ) -> Self {
+    pub fn with_param(mut self, name: &'static str, value: ViolationParam) -> Self {
         self.params.insert(name, value);
         self
     }
