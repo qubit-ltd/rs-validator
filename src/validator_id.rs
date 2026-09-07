@@ -27,7 +27,9 @@ impl ValidatorId {
     /// # Errors
     ///
     /// Returns the exact protocol violation for an invalid ID.
-    pub const fn try_new(value: &'static str) -> Result<Self, ValidatorIdError> {
+    pub const fn try_new(
+        value: &'static str,
+    ) -> Result<Self, ValidatorIdError> {
         match validate(value) {
             Ok(()) => Ok(Self(value)),
             Err(error) => Err(error),
@@ -71,7 +73,11 @@ const fn validate(value: &str) -> Result<(), ValidatorIdError> {
 }
 
 /// Validates one non-empty identifier segment.
-const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), ValidatorIdError> {
+const fn validate_segment(
+    bytes: &[u8],
+    start: usize,
+    end: usize,
+) -> Result<(), ValidatorIdError> {
     if start == end || !bytes[start].is_ascii_alphabetic() {
         return Err(ValidatorIdError::InvalidSegment);
     }
