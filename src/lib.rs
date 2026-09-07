@@ -9,18 +9,14 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
-mod named_validation_argument;
-mod registration_source;
-mod validation_argument;
+mod argument;
+mod binding;
+mod registry;
+mod report;
 mod validator;
 mod validator_id;
 mod validator_id_error;
-#[cfg(feature = "inventory")]
-mod validator_registration_factory;
 mod validator_registry_error;
-
-/// Typed validation contracts, structured outcomes, and registries.
-mod next;
 
 #[cfg(feature = "inventory")]
 #[doc(hidden)]
@@ -28,39 +24,19 @@ pub mod __private {
     pub use inventory;
 }
 
-pub use named_validation_argument::NamedValidationArgument;
-pub use next::ArgumentReader;
-pub use next::BindError;
-pub use next::BindErrorKind;
-pub use next::BoundValidationContext;
-pub use next::BoundValidator;
-pub use next::DependencySpec;
-pub use next::ExecutionError;
-pub use next::ExecutionErrorKind;
-pub use next::InputType;
-pub use next::PathSegment;
-pub use next::PrepareFn;
-pub use next::PreparedValidator;
-pub use next::RuleOutcome;
-pub use next::SkipReason;
-pub use next::SkippedValidation;
-pub use next::ValidationPath;
-pub use next::ValidationReport;
-pub use next::ValidationValue;
-pub use next::ValidatorDescriptor;
-pub use next::ValidatorRegistration;
-pub use next::ValidatorRegistry;
-pub use next::ValidatorSignature;
-pub use next::Violation;
-pub use next::ViolationCode;
-pub use next::ViolationCodeError;
-pub use next::ViolationParam;
-pub use registration_source::RegistrationSource;
-pub use validation_argument::ValidationArgument;
+pub use argument::{NamedValidationArgument, ValidationArgument};
+pub use binding::{ArgumentReader, BindError, BindErrorKind, BoundValidationContext,
+    BoundValidator, DependencySpec, ExecutionError, ExecutionErrorKind, InputType,
+    PrepareFn, PreparedOutcome, PreparedValidator, RuleOutcome, ValidationOutcome,
+    ValidationValue, ViolationDraft, prepare_text_validator, prepare_typed_validator};
+pub use registry::{RegistrationSource, ValidatorDescriptor, ValidatorRegistration,
+    ValidatorRegistry, ValidatorSignature};
+pub use report::{PathSegment, SkipReason, SkippedValidation, ValidationPath,
+    ValidationLimits, ValidationReport, Violation, ViolationCode, ViolationCodeError, ViolationParam};
 pub use validator::Validator;
 pub use validator_id::ValidatorId;
 pub use validator_id_error::ValidatorIdError;
 #[cfg(feature = "inventory")]
 #[doc(hidden)]
-pub use validator_registration_factory::ValidatorRegistrationFactory;
+pub use registry::ValidatorRegistrationFactory;
 pub use validator_registry_error::ValidatorRegistryError;

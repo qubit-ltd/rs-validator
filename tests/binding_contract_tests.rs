@@ -32,11 +32,20 @@ fn argument_reader_rejects_bad_names_types_and_ranges() {
         BindErrorKind::DuplicateParameter
     );
 
-    let args = [NamedValidationArgument::new("miin", ValidationArgument::Unsigned(3))];
+    let args = [NamedValidationArgument::new(
+        "miin",
+        ValidationArgument::Unsigned(3),
+    )];
     let reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(reader.finish().unwrap_err().kind(), BindErrorKind::UnknownParameter);
+    assert_eq!(
+        reader.finish().unwrap_err().kind(),
+        BindErrorKind::UnknownParameter
+    );
 
-    let args = [NamedValidationArgument::new("min", ValidationArgument::Integer(-1))];
+    let args = [NamedValidationArgument::new(
+        "min",
+        ValidationArgument::Integer(-1),
+    )];
     let mut reader = ArgumentReader::new(&args).unwrap();
     assert_eq!(
         reader.required_u32("min").unwrap_err().kind(),
@@ -60,14 +69,22 @@ impl PreparedValidator for CountingAdapter {
     }
 }
 
-fn prepare_counting(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_counting(
+    _: &[NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, BindError> {
     COUNTING_CALLS.store(0, Ordering::SeqCst);
-    Ok(Arc::new(CountingAdapter { calls: &COUNTING_CALLS }))
+    Ok(Arc::new(CountingAdapter {
+        calls: &COUNTING_CALLS,
+    }))
 }
 
 static COUNTING_CALLS: AtomicUsize = AtomicUsize::new(0);
 
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_counting)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    &[],
+    prepare_counting,
+)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     ValidatorId::new("test.counting"),
@@ -80,10 +97,16 @@ fn bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
     let bound = REGISTRATION.descriptor().bind(0, &[]).unwrap();
     let clone = bound.clone();
     clone
-        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
+        .validate(
+            ValidationValue::Text("ok"),
+            &BoundValidationContext::new(&[]),
+        )
         .unwrap();
     bound
-        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
+        .validate(
+            ValidationValue::Text("ok"),
+            &BoundValidationContext::new(&[]),
+        )
         .unwrap();
     assert_eq!(COUNTING_CALLS.load(Ordering::SeqCst), 2);
 }

@@ -17,11 +17,7 @@ include = [
     "/LICENSE",
     "/README.md",
     "/README.zh_CN.md",
-    "/src/lib.rs",
-    "/src/named_validation_argument.rs",
-    "/src/next/**",
-    "/src/registration_source.rs",
-    "/src/validation_argument.rs",
+    "/src/**",
     "/src/validator.rs",
     "/src/validator_id.rs",
     "/src/validator_id_error.rs",
@@ -38,8 +34,7 @@ thiserror = "2"
 
 [features]
 default = []
-registry = []
-inventory = ["registry", "dep:inventory"]
+inventory = ["dep:inventory"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
