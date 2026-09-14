@@ -30,7 +30,7 @@ include = [
 
 [dependencies]
 inventory = { version = "0.3", optional = true }
-thiserror = "2"
+thiserror = "^2.0"
 
 [features]
 default = []
