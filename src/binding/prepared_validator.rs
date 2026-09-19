@@ -5,7 +5,7 @@ use std::sync::Arc;
 use super::BindError;
 use super::BoundValidationContext;
 use super::ExecutionError;
-use super::RuleOutcome;
+use super::PreparedOutcome;
 use super::ValidationValue;
 use crate::NamedValidationArgument;
 
@@ -16,7 +16,7 @@ pub trait PreparedValidator: Send + Sync {
         &self,
         value: ValidationValue<'_>,
         context: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError>;
+    ) -> Result<PreparedOutcome, ExecutionError>;
 }
 
 /// Constructs an owned prepared validator from declaration parameters.

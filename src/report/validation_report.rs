@@ -20,23 +20,24 @@ pub struct ValidationReport {
 }
 
 impl ValidationReport {
-    /// Creates an empty report.
+    /// Creates an empty report with explicit collection limits.
     #[must_use]
-    pub const fn new() -> Self {
+    pub const fn with_limits(limits: ValidationLimits) -> Self {
         Self {
             violations: Vec::new(),
             skipped: Vec::new(),
             truncated: false,
-            limits: ValidationLimits {
-                max_violations: None,
-                max_skipped: None,
-            },
+            limits,
         }
     }
 
-    /// Appends one violation.
-    pub fn push(&mut self, violation: Violation) {
-        self.violations.push(violation);
+    /// Creates an empty report.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self::with_limits(ValidationLimits {
+            max_violations: None,
+            max_skipped: None,
+        })
     }
 
     /// Appends a violation if the configured limit permits it.
@@ -46,20 +47,17 @@ impl ValidationReport {
             .max_violations
             .is_some_and(|limit| self.violations.len() >= limit)
         {
+            self.mark_truncated();
             return false;
         }
         self.violations.push(violation);
         true
     }
 
-    /// Records one skipped validation occurrence.
-    pub fn record_skip(&mut self, skipped: SkippedValidation) {
-        self.skipped.push(skipped);
-    }
-
     /// Records a skipped entry if the configured limit permits it.
     pub fn push_skipped(&mut self, skipped: SkippedValidation) -> bool {
         if self.limits.max_skipped.is_some_and(|limit| self.skipped.len() >= limit) {
+            self.mark_truncated();
             return false;
         }
         self.skipped.push(skipped);
@@ -98,6 +96,12 @@ impl ValidationReport {
     #[must_use]
     pub const fn is_truncated(&self) -> bool {
         self.truncated
+    }
+
+    /// Returns the configured collection limits.
+    #[must_use]
+    pub const fn limits(&self) -> ValidationLimits {
+        self.limits
     }
 }
 

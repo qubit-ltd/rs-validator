@@ -2,7 +2,9 @@
 
 use thiserror::Error;
 
+use crate::BindErrorKind;
 use crate::RegistrationSource;
+use crate::ValidatorId;
 
 /// Failure while freezing a validator registry.
 #[derive(Clone, Debug, Error)]
@@ -14,5 +16,15 @@ pub enum ValidatorRegistryError {
         id: &'static str,
         /// Registration sources in deterministic order.
         sources: Vec<RegistrationSource>,
+    },
+    /// A registration contains an invalid descriptor declaration.
+    #[error("invalid descriptor for validator ID {id:?} from {registration_source:?}: {kind}")]
+    InvalidDescriptor {
+        /// Validator identifier.
+        id: ValidatorId,
+        /// Registration source.
+        registration_source: RegistrationSource,
+        /// Declaration error kind.
+        kind: BindErrorKind,
     },
 }

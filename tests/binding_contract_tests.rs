@@ -10,9 +10,9 @@ use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
-use qubit_validator::RuleOutcome;
 use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
@@ -53,10 +53,10 @@ impl PreparedValidator for CountingAdapter {
         &self,
         value: ValidationValue<'_>,
         _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError> {
+    ) -> Result<PreparedOutcome, ExecutionError> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         assert!(matches!(value, ValidationValue::Text("ok")));
-        Ok(RuleOutcome::Valid)
+        Ok(PreparedOutcome::Valid)
     }
 }
 
@@ -77,7 +77,10 @@ static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
 
 #[test]
 fn bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
-    let bound = REGISTRATION.descriptor().bind(0, &[]).unwrap();
+    let bound = REGISTRATION
+        .descriptor()
+        .bind(ValidatorId::new("test.binding"), 0, &[])
+        .unwrap();
     let clone = bound.clone();
     clone
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))

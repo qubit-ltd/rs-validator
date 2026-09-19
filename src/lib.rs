@@ -38,7 +38,6 @@ pub use binding::InputType;
 pub use binding::PrepareFn;
 pub use binding::PreparedOutcome;
 pub use binding::PreparedValidator;
-pub use binding::RuleOutcome;
 pub use binding::ValidationOutcome;
 pub use binding::ValidationValue;
 pub use binding::ViolationDraft;
