@@ -4,8 +4,8 @@ use crate::ValidationPath;
 use crate::ViolationCode;
 use crate::ViolationParam;
 /// A violation without a rule identity.
+#[derive(Eq, PartialEq)]
 pub struct ViolationDraft {
-    #[allow(dead_code)]
     code: ViolationCode,
     path: ValidationPath,
     params: BTreeMap<&'static str, ViolationParam>,
@@ -29,8 +29,18 @@ impl ViolationDraft {
         self.params.insert(name, value);
         self
     }
-    #[allow(dead_code)]
     pub(crate) fn parts(self) -> (ViolationCode, ValidationPath, BTreeMap<&'static str, ViolationParam>) {
         (self.code, self.path, self.params)
+    }
+}
+
+impl std::fmt::Debug for ViolationDraft {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ViolationDraft")
+            .field("code", &self.code)
+            .field("path", &self.path)
+            .field("parameter_count", &self.params.len())
+            .finish()
     }
 }

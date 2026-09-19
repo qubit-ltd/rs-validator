@@ -7,15 +7,16 @@ use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
-use qubit_validator::RuleOutcome;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
-use qubit_validator::Violation;
 use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
 
 struct Minimum;
 
@@ -36,11 +37,14 @@ fn typed_validator_uses_an_immutable_context() {
 struct Rejecting;
 
 impl PreparedValidator for Rejecting {
-    fn validate(&self, _: ValidationValue<'_>, _: &BoundValidationContext<'_>) -> Result<RuleOutcome, ExecutionError> {
-        Ok(RuleOutcome::Invalid(vec![Violation::new(
-            ValidatorId::new("test.rejecting"),
-            ViolationCode::new("test.rejected"),
-        )]))
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(ViolationCode::new(
+            "test.rejected",
+        ))]))
     }
 }
 
@@ -53,17 +57,23 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 #[test]
 fn prepared_descriptor_preserves_structured_rule_failures() {
-    let bound = DESCRIPTOR.bind_for(InputType::Text, &[]).expect("valid descriptor");
+    let bound = DESCRIPTOR
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
+        .expect("valid descriptor");
     let outcome = bound
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
         .expect("adapter execution succeeds");
 
-    assert!(matches!(outcome, RuleOutcome::Invalid(violations) if violations[0].code().as_str() == "test.rejected"));
+    assert!(
+        matches!(outcome, ValidationOutcome::Invalid(violations) if violations[0].code().as_str() == "test.rejected")
+    );
 }
 
 #[test]
 fn prepared_descriptor_rejects_wrong_input_shape() {
-    let bound = DESCRIPTOR.bind_for(InputType::Text, &[]).expect("valid descriptor");
+    let bound = DESCRIPTOR
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
+        .expect("valid descriptor");
     let error = bound
         .validate(ValidationValue::Typed(&5_u32), &BoundValidationContext::new(&[]))
         .expect_err("wrong input shape must fail");

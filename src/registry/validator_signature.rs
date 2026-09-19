@@ -40,16 +40,6 @@ impl ValidatorSignature {
     pub const fn prepare(self) -> PrepareFn {
         self.prepare
     }
-
-    pub(crate) fn same_shape(self, other: Self) -> bool {
-        self.input == other.input
-            && self.dependencies.len() == other.dependencies.len()
-            && self
-                .dependencies
-                .iter()
-                .zip(other.dependencies.iter())
-                .all(|(left, right)| left == right)
-    }
 }
 
 impl std::fmt::Debug for ValidatorSignature {

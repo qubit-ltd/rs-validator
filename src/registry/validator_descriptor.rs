@@ -5,6 +5,7 @@ use super::BindErrorKind;
 use super::BoundValidator;
 use super::ValidatorSignature;
 use crate::NamedValidationArgument;
+use crate::ValidatorId;
 
 /// A definition containing one or more input/dependency signatures.
 #[derive(Clone, Copy)]
@@ -47,6 +48,7 @@ impl ValidatorDescriptor {
     /// descriptors.
     pub fn bind(
         &self,
+        rule_id: ValidatorId,
         signature_index: usize,
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
@@ -57,7 +59,7 @@ impl ValidatorDescriptor {
             .copied()
             .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection))?;
         let prepared = (signature.prepare())(params)?;
-        Ok(BoundValidator::new(prepared, signature, None))
+        Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
     /// Selects and binds the unique signature matching an input shape.
@@ -68,31 +70,30 @@ impl ValidatorDescriptor {
     /// error.
     pub fn bind_for(
         &self,
+        rule_id: ValidatorId,
         input: super::InputType,
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
-        let matches = self
+        let signature = self
             .signatures
             .iter()
             .copied()
-            .filter(|signature| signature.input() == input)
-            .collect::<Vec<_>>();
-        let signature = match matches.as_slice() {
-            [] => return Err(BindError::new(BindErrorKind::UnsupportedInput)),
-            [signature] => *signature,
-            _ => return Err(BindError::new(BindErrorKind::AmbiguousSignature)),
-        };
+            .find(|signature| signature.input() == input)
+            .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput))?;
         let prepared = (signature.prepare())(params)?;
-        Ok(BoundValidator::new(prepared, signature, None))
+        Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
     pub(crate) fn validate_definition(&self) -> Result<(), BindError> {
+        if self.signatures.is_empty() {
+            return Err(BindError::new(BindErrorKind::InvalidDeclaration));
+        }
         for (index, left) in self.signatures.iter().copied().enumerate() {
             if self.signatures[..index]
                 .iter()
                 .copied()
-                .any(|right| left.same_shape(right))
+                .any(|right| left.input() == right.input())
             {
                 return Err(BindError::new(BindErrorKind::AmbiguousSignature));
             }

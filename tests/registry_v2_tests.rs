@@ -6,9 +6,9 @@ use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
-use qubit_validator::RuleOutcome;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
@@ -23,8 +23,8 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
             &self,
             _: ValidationValue<'_>,
             _: &BoundValidationContext<'_>,
-        ) -> Result<RuleOutcome, ExecutionError> {
-            Ok(RuleOutcome::Valid)
+        ) -> Result<PreparedOutcome, ExecutionError> {
+            Ok(PreparedOutcome::Valid)
         }
     }
     Ok(Arc::new(Always))
@@ -73,6 +73,35 @@ fn duplicate_signatures_are_rejected_when_binding() {
         ValidatorSignature::new(InputType::Text, &[], prepare),
     ]));
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
-    let error = descriptor.bind_for(InputType::Text, &[]).unwrap_err();
+    let error = descriptor
+        .bind_for(ValidatorId::new("test.multi"), InputType::Text, &[])
+        .unwrap_err();
     assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
+}
+
+#[test]
+fn descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
+    static TEXT_DEPS: &[qubit_validator::DependencySpec] = &[qubit_validator::DependencySpec::new(
+        "credential",
+        InputType::Text,
+        false,
+    )];
+    static DUPLICATE: &[ValidatorSignature] = &[
+        ValidatorSignature::new(InputType::Text, &[], prepare),
+        ValidatorSignature::new(InputType::Text, TEXT_DEPS, prepare),
+    ];
+    assert_eq!(
+        ValidatorDescriptor::try_new(DUPLICATE).unwrap_err().kind(),
+        BindErrorKind::AmbiguousSignature
+    );
+
+    static EMPTY: &[ValidatorSignature] = &[];
+    assert_eq!(
+        ValidatorDescriptor::try_new(EMPTY).unwrap_err().kind(),
+        BindErrorKind::InvalidDeclaration
+    );
+    let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(EMPTY)));
+    let error =
+        ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)]).unwrap_err();
+    assert!(error.to_string().contains("invalid descriptor"));
 }

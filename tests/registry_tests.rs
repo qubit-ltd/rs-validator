@@ -5,9 +5,9 @@ use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
-use qubit_validator::RuleOutcome;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
@@ -23,8 +23,8 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
             &self,
             _: ValidationValue<'_>,
             _: &BoundValidationContext<'_>,
-        ) -> Result<RuleOutcome, ExecutionError> {
-            Ok(RuleOutcome::Valid)
+        ) -> Result<PreparedOutcome, ExecutionError> {
+            Ok(PreparedOutcome::Valid)
         }
     }
 

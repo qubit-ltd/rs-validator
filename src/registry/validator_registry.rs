@@ -102,8 +102,7 @@ impl ValidatorRegistry {
         let registration = self.get(id).ok_or_else(|| BindError::new(BindErrorKind::MissingRule))?;
         registration
             .descriptor()
-            .bind_for(input, params)
-            .map(|bound| bound.with_rule(registration.id()))
+            .bind_for(registration.id(), input, params)
             .map_err(|error| error.with_rule(registration.id()))
     }
 
@@ -128,6 +127,15 @@ impl ValidatorRegistry {
                 });
             }
             index = end;
+        }
+        for registration in &registrations {
+            if let Err(error) = registration.descriptor().validate_definition() {
+                return Err(ValidatorRegistryError::InvalidDescriptor {
+                    id: registration.id(),
+                    registration_source: registration.source(),
+                    kind: error.kind(),
+                });
+            }
         }
         let indices = registrations
             .iter()

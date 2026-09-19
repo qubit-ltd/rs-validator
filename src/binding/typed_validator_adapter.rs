@@ -2,13 +2,12 @@ use std::sync::Arc;
 
 use super::BoundValidationContext;
 use super::ExecutionError;
+use super::PreparedOutcome;
 use super::PreparedValidator;
-use super::RuleOutcome;
 use super::ValidationValue;
 use crate::Validator;
-use crate::ValidatorId;
-use crate::Violation;
 use crate::ViolationCode;
+use crate::ViolationDraft;
 struct Adapter<T, V, M>(V, M, std::marker::PhantomData<fn() -> T>);
 impl<T: 'static, V, M> PreparedValidator for Adapter<T, V, M>
 where
@@ -20,16 +19,13 @@ where
         &self,
         value: ValidationValue<'_>,
         _: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError> {
+    ) -> Result<PreparedOutcome, ExecutionError> {
         let typed = value
             .typed::<T>()
             .ok_or_else(|| ExecutionError::new(super::ExecutionErrorKind::InputTypeMismatch))?;
         match self.0.validate(typed, &()) {
-            Ok(()) => Ok(RuleOutcome::Valid),
-            Err(e) => Ok(RuleOutcome::Invalid(vec![Violation::new(
-                ValidatorId::new("adapter"),
-                (self.1)(e),
-            )])),
+            Ok(()) => Ok(PreparedOutcome::Valid),
+            Err(e) => Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new((self.1)(e))])),
         }
     }
 }

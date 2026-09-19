@@ -5,7 +5,7 @@ use qubit_validator::BindErrorKind;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::PathSegment;
-use qubit_validator::RuleOutcome;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
 use qubit_validator::SkippedValidation;
 use qubit_validator::ValidationPath;
@@ -71,12 +71,12 @@ fn violation_and_report_keep_structured_safe_data() {
     .with_param("min", ViolationParam::Unsigned(2));
 
     let mut report = ValidationReport::new();
-    report.push(violation);
-    report.record_skip(SkippedValidation::new(
+    assert!(report.push_violation(violation));
+    assert!(report.push_skipped(SkippedValidation::new(
         1,
         ValidationPath::root().with_field("optional"),
         SkipReason::MissingOptional,
-    ));
+    )));
 
     assert!(!report.is_valid());
     assert_eq!(report.violations().len(), 1);
@@ -88,22 +88,22 @@ fn violation_and_report_keep_structured_safe_data() {
 #[test]
 fn failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
     let mut report = ValidationReport::new();
-    report.record_skip(SkippedValidation::new(
+    assert!(report.push_skipped(SkippedValidation::new(
         2,
         ValidationPath::root(),
         SkipReason::FailedPrerequisite,
-    ));
+    )));
 
     assert!(!report.is_valid());
     assert!(matches!(
-        RuleOutcome::Skipped {
+        PreparedOutcome::Skipped {
             reason: SkipReason::FailedPrerequisite,
             prerequisites: vec![Violation::new(
                 ValidatorId::new("qubit.rules.credential"),
                 ViolationCode::new("credential.invalid"),
             )],
         },
-        RuleOutcome::Skipped { .. }
+        PreparedOutcome::Skipped { .. }
     ));
 }
 

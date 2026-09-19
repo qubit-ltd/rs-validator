@@ -6,36 +6,33 @@ use super::BoundValidationContext;
 use super::ExecutionError;
 use super::ExecutionErrorKind;
 use super::InputType;
+use super::PreparedOutcome;
 use super::PreparedValidator;
-use super::RuleOutcome;
+use super::ValidationOutcome;
 use super::ValidationValue;
 use super::ValidatorSignature;
 use crate::ValidatorId;
+use crate::Violation;
 
 /// A bound occurrence that owns a reusable prepared validator instance.
 #[derive(Clone)]
 pub struct BoundValidator {
     prepared: Arc<dyn PreparedValidator>,
     signature: ValidatorSignature,
-    rule_id: Option<ValidatorId>,
+    rule_id: ValidatorId,
 }
 
 impl BoundValidator {
     pub(crate) fn new(
         prepared: Arc<dyn PreparedValidator>,
         signature: ValidatorSignature,
-        rule_id: Option<ValidatorId>,
+        rule_id: ValidatorId,
     ) -> Self {
         Self {
             prepared,
             signature,
             rule_id,
         }
-    }
-
-    pub(crate) fn with_rule(mut self, rule_id: ValidatorId) -> Self {
-        self.rule_id = Some(rule_id);
-        self
     }
 
     /// Validates one value after checking its erased input and dependencies.
@@ -47,28 +44,37 @@ impl BoundValidator {
         &self,
         value: ValidationValue<'_>,
         context: &BoundValidationContext<'_>,
-    ) -> Result<RuleOutcome, ExecutionError> {
+    ) -> Result<ValidationOutcome, ExecutionError> {
         self.check_input(value)?;
         self.check_dependencies(context)?;
-        match self
+        let outcome = self
             .prepared
             .validate(value, context)
-            .map_err(|error| error.with_rule_opt(self.rule_id))?
-        {
-            RuleOutcome::Invalid(issues) if issues.is_empty() => Err(self.contract_error()),
-            RuleOutcome::Skipped {
+            .map_err(|error| error.with_rule(self.rule_id))?;
+        match outcome {
+            PreparedOutcome::Invalid(drafts) if drafts.is_empty() => Err(self.contract_error()),
+            PreparedOutcome::Skipped {
                 reason,
                 ref prerequisites,
-            } if matches!(reason, super::SkipReason::MissingOptional) && !prerequisites.is_empty() => {
+            } if matches!(reason, crate::SkipReason::MissingOptional) && !prerequisites.is_empty() => {
                 Err(self.contract_error())
             }
-            RuleOutcome::Skipped {
+            PreparedOutcome::Skipped {
                 reason,
                 ref prerequisites,
-            } if matches!(reason, super::SkipReason::FailedPrerequisite) && prerequisites.is_empty() => {
+            } if matches!(reason, crate::SkipReason::FailedPrerequisite) && prerequisites.is_empty() => {
                 Err(self.contract_error())
             }
-            outcome => Ok(outcome),
+            PreparedOutcome::Valid => Ok(ValidationOutcome::Valid),
+            PreparedOutcome::Invalid(drafts) => Ok(ValidationOutcome::Invalid(
+                drafts
+                    .into_iter()
+                    .map(|draft| Violation::from_draft(self.rule_id, draft))
+                    .collect(),
+            )),
+            PreparedOutcome::Skipped { reason, prerequisites } => {
+                Ok(ValidationOutcome::Skipped { reason, prerequisites })
+            }
         }
     }
 
@@ -84,15 +90,15 @@ impl BoundValidator {
         self.signature.dependencies()
     }
 
-    /// Returns the rule identifier when bound through a registry.
+    /// Returns the stable rule identifier.
     #[must_use]
-    pub const fn rule_id(&self) -> Option<ValidatorId> {
+    pub const fn rule_id(&self) -> ValidatorId {
         self.rule_id
     }
 
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.signature.input().accepts(value) {
-            return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule_opt(self.rule_id));
+            return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule(self.rule_id));
         }
         Ok(())
     }
@@ -102,26 +108,13 @@ impl BoundValidator {
             if error.kind() == ExecutionErrorKind::AdapterContractViolation {
                 error
             } else {
-                error.with_rule_opt(self.rule_id)
+                error.with_rule(self.rule_id)
             }
         })
     }
 
     fn contract_error(&self) -> ExecutionError {
-        ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule_opt(self.rule_id)
-    }
-}
-
-trait ExecutionErrorExt {
-    fn with_rule_opt(self, rule_id: Option<ValidatorId>) -> Self;
-}
-
-impl ExecutionErrorExt for ExecutionError {
-    fn with_rule_opt(self, rule_id: Option<ValidatorId>) -> Self {
-        match rule_id {
-            Some(rule_id) => self.with_rule(rule_id),
-            None => self,
-        }
+        ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id)
     }
 }
 
