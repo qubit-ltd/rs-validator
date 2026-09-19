@@ -45,7 +45,7 @@ impl Validator<str> for NonBlank {
 
 ## Features
 
-The default feature set is empty. The typed descriptor, registration, and local registry APIs are always available; `registry` is retained as a compatibility feature for downstream manifests. Enable `inventory` when process-wide registration through `register_validator!` is required. Applications that need isolated tests or multiple rule sets should build a local `ValidatorRegistry` instead.
+The default feature set is empty. The typed descriptor, registration, and local registry APIs are always available. Enable `inventory` only when process-wide registration through `register_validator!` is required. Applications that need isolated tests or multiple rule sets should build a local `ValidatorRegistry` instead. Validation reports can be created with `ValidationReport::with_limits` when collection bounds are required.
 
 ## Limitations
 

@@ -45,9 +45,7 @@ impl Validator<str> for NonBlank {
 
 ## Feature
 
-默认 feature 集为空。类型化 descriptor、registration 和局部注册表 API 始终可用；`registry` 作为
-下游 manifest 的兼容 feature 保留。需要通过 `register_validator!` 进行进程级注册时启用
-`inventory`。需要隔离测试或维护多套规则时，应直接构造局部 `ValidatorRegistry`。
+默认 feature 集为空。类型化 descriptor、registration 和局部注册表 API 始终可用；只有需要通过 `register_validator!` 进行进程级注册时才启用 `inventory`。需要隔离测试或维护多套规则时，应直接构造局部 `ValidatorRegistry`；需要限制报告规模时使用 `ValidationReport::with_limits`。
 
 ## 限制
 
