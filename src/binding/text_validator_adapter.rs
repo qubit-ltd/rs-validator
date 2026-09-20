@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
+//! Text validator adapters.
+
 use std::sync::Arc;
 
 use super::BoundValidationContext;
@@ -7,8 +15,9 @@ use super::PreparedValidator;
 use super::ValidationValue;
 use crate::Validator;
 use crate::ViolationDraft;
-struct Adapter<V, M>(V, M);
-impl<V, M> PreparedValidator for Adapter<V, M>
+/// Adapts a typed text validator to the prepared-validator boundary.
+struct TextAdapter<V, M>(V, M);
+impl<V, M> PreparedValidator for TextAdapter<V, M>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
@@ -35,5 +44,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(Adapter(validator, map_error))
+    Arc::new(TextAdapter(validator, map_error))
 }

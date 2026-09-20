@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
+//! Outcomes returned by prepared validators.
+
 use super::ViolationDraft;
 use crate::SkipReason;
 use crate::Violation;

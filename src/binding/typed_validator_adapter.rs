@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
+//! Typed validator adapters.
+
 use std::sync::Arc;
 
 use super::BoundValidationContext;
@@ -7,8 +15,9 @@ use super::PreparedValidator;
 use super::ValidationValue;
 use crate::Validator;
 use crate::ViolationDraft;
-struct Adapter<T, V, M>(V, M, std::marker::PhantomData<fn() -> T>);
-impl<T: 'static, V, M> PreparedValidator for Adapter<T, V, M>
+/// Adapts a typed validator to the prepared-validator boundary.
+struct TypedAdapter<T, V, M>(V, M, std::marker::PhantomData<fn() -> T>);
+impl<T: 'static, V, M> PreparedValidator for TypedAdapter<T, V, M>
 where
     V: Validator<T, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
@@ -35,5 +44,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(Adapter(validator, map_error, std::marker::PhantomData))
+    Arc::new(TypedAdapter(validator, map_error, std::marker::PhantomData))
 }

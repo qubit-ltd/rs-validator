@@ -3,6 +3,7 @@ use std::sync::Arc;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
@@ -81,7 +82,7 @@ fn duplicate_signatures_are_rejected_when_binding() {
 
 #[test]
 fn descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
-    static TEXT_DEPS: &[qubit_validator::DependencySpec] = &[qubit_validator::DependencySpec::new(
+    static TEXT_DEPS: &[DependencySpec] = &[DependencySpec::new(
         "credential",
         InputType::Text,
         false,
@@ -105,3 +106,8 @@ fn descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
         ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)]).unwrap_err();
     assert!(error.to_string().contains("invalid descriptor"));
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

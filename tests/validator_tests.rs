@@ -17,6 +17,7 @@ use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
+use qubit_validator::ViolationParam;
 use qubit_validator::prepare_text_validator;
 
 struct Minimum;
@@ -48,7 +49,7 @@ impl Validator<str> for TextRule {
 fn typed_adapter_preserves_structured_violation_drafts() {
     let prepared = prepare_text_validator(TextRule, |_| {
         ViolationDraft::new(ViolationCode::new("test.rejected"))
-            .with_param("bound", qubit_validator::ViolationParam::Unsigned(3))
+            .with_param("bound", ViolationParam::Unsigned(3))
     });
     let outcome = prepared
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
@@ -107,3 +108,8 @@ fn prepared_descriptor_rejects_wrong_input_shape() {
 
     assert_eq!(error.kind(), ExecutionErrorKind::InputTypeMismatch);
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

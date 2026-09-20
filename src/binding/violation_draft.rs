@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
+//! Rule-independent violation drafts.
+
 use std::collections::BTreeMap;
 
 use crate::ValidationPath;
