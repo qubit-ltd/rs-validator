@@ -7,8 +7,8 @@ use super::PreparedValidator;
 use super::ValidationValue;
 use crate::Validator;
 use crate::ViolationDraft;
-struct Adapter<T, V, M>(V, M, std::marker::PhantomData<fn() -> T>);
-impl<T: 'static, V, M> PreparedValidator for Adapter<T, V, M>
+struct TypedValidatorAdapter<T, V, M>(V, M, std::marker::PhantomData<fn() -> T>);
+impl<T: 'static, V, M> PreparedValidator for TypedValidatorAdapter<T, V, M>
 where
     V: Validator<T, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
@@ -35,5 +35,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(Adapter(validator, map_error, std::marker::PhantomData))
+    Arc::new(TypedValidatorAdapter(validator, map_error, std::marker::PhantomData))
 }

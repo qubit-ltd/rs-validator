@@ -7,8 +7,8 @@ use super::PreparedValidator;
 use super::ValidationValue;
 use crate::Validator;
 use crate::ViolationDraft;
-struct Adapter<V, M>(V, M);
-impl<V, M> PreparedValidator for Adapter<V, M>
+struct TextValidatorAdapter<V, M>(V, M);
+impl<V, M> PreparedValidator for TextValidatorAdapter<V, M>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
@@ -35,5 +35,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(Adapter(validator, map_error))
+    Arc::new(TextValidatorAdapter(validator, map_error))
 }
