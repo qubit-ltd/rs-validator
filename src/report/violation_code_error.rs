@@ -2,13 +2,16 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Violation code protocol errors.
 
 use thiserror::Error;
 
-/// A violation code protocol error.
+/// The reason a candidate string violates the stable violation-code protocol.
+#[must_use]
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[non_exhaustive]
 pub enum ViolationCodeError {

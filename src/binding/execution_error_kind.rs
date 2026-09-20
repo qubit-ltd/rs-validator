@@ -2,11 +2,14 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Execution error kinds.
 
 /// A failure in the validation execution infrastructure.
+#[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ExecutionErrorKind {
@@ -27,6 +30,7 @@ pub enum ExecutionErrorKind {
 }
 
 impl std::fmt::Display for ExecutionErrorKind {
+    /// Formats the stable human-readable error category.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::InputTypeMismatch => "input type mismatch",

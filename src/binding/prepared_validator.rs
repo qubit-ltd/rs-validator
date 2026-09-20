@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 //! Type-erased prepared validator instances.
 
 use std::sync::Arc;
@@ -12,6 +20,11 @@ use crate::NamedValidationArgument;
 /// A configured, immutable validator instance safe to share between calls.
 pub trait PreparedValidator: Send + Sync {
     /// Validates one erased input with its ordered dependency context.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when the input or context cannot be
+    /// processed.
     fn validate(
         &self,
         value: ValidationValue<'_>,
@@ -20,4 +33,7 @@ pub trait PreparedValidator: Send + Sync {
 }
 
 /// Constructs an owned prepared validator from declaration parameters.
+///
+/// The function returns a binding error when parameters are missing, unknown,
+/// duplicated, or cannot be decoded by the validator implementation.
 pub type PrepareFn = fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;

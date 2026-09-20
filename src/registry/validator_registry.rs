@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 //! Immutable local registries for multi-signature validator definitions.
 
 use std::collections::BTreeMap;
@@ -14,9 +22,21 @@ use crate::ValidatorId;
 use crate::ValidatorRegistryError;
 
 /// A deterministic local registry containing one definition per stable ID.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidatorRegistry;
+///
+/// let registry = ValidatorRegistry::empty();
+/// assert!(registry.registrations().is_empty());
+/// assert!(registry.get("example.unknown").is_none());
+/// ```
 #[derive(Debug)]
 pub struct ValidatorRegistry {
+    /// Registrations sorted by stable identifier.
     registrations: Box<[ValidatorRegistration]>,
+    /// Lookup table mapping each stable identifier to its sorted position.
     indices: BTreeMap<ValidatorId, usize>,
 }
 
@@ -77,13 +97,19 @@ impl ValidatorRegistry {
     }
 
     /// Finds a registration by stable ID.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` for a registered ID and `None` when the ID is unknown.
     #[must_use]
+    #[inline]
     pub fn get(&self, id: &str) -> Option<&ValidatorRegistration> {
         self.indices.get(id).and_then(|index| self.registrations.get(*index))
     }
 
     /// Returns registrations sorted by stable ID.
     #[must_use]
+    #[inline]
     pub fn registrations(&self) -> &[ValidatorRegistration] {
         &self.registrations
     }
@@ -107,6 +133,12 @@ impl ValidatorRegistry {
             .map_err(|error| error.with_rule(registration.id()))
     }
 
+    /// Sorts and validates owned registrations before building the lookup
+    /// table.
+    ///
+    /// # Errors
+    ///
+    /// Returns duplicate-ID metadata or the first invalid descriptor.
     fn build(mut registrations: Vec<ValidatorRegistration>) -> Result<Self, ValidatorRegistryError> {
         registrations.sort_by_key(|registration| (registration.id(), registration.source()));
         let mut index = 0;
@@ -152,6 +184,9 @@ impl ValidatorRegistry {
 
 // Compatibility helper for callers which still hold static references.
 impl From<&ValidatorRegistration> for ValidatorRegistration {
+    /// Copies a static-reference-compatible registration into the owned
+    /// registry input.
+    #[inline]
     fn from(value: &ValidatorRegistration) -> Self {
         *value
     }

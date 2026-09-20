@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 //! Ordered, shape-checked dependency values for one validation call.
 
 use super::DependencySpec;
@@ -8,13 +16,16 @@ use super::ValidationValue;
 
 /// Borrowed dependency slots used during a synchronous validation call.
 pub struct BoundValidationContext<'a> {
+    /// Values stored in signature slot order.
     values: &'a [ValidationValue<'a>],
+    /// Optional model paths stored in the same slot order as `values`.
     paths: Option<&'a [ValidationPath]>,
 }
 
 impl<'a> BoundValidationContext<'a> {
     /// Creates a context with root paths for each dependency slot.
     #[must_use]
+    #[inline]
     pub fn new(values: &'a [ValidationValue<'a>]) -> Self {
         Self { values, paths: None }
     }
@@ -42,6 +53,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    #[inline]
     pub fn value(&self, index: usize) -> Result<ValidationValue<'a>, ExecutionError> {
         self.values
             .get(index)
@@ -54,6 +66,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
             Some(paths) => paths
@@ -69,6 +82,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    #[inline]
     pub fn typed<T: 'static>(&self, index: usize) -> Result<&'a T, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Typed(value) => value
@@ -81,10 +95,16 @@ impl<'a> BoundValidationContext<'a> {
 
     /// Downcasts an optional dependency, treating only `Missing` as `None`.
     ///
+    /// # Returns
+    ///
+    /// Returns `Some` with a correctly typed present value, or `None` for the
+    /// explicit missing marker.
+    ///
     /// # Errors
     ///
     /// Returns a shape or slot error. A wrong concrete type is never treated
     /// as an absent optional value.
+    #[inline]
     pub fn optional_typed<T: 'static>(&self, index: usize) -> Result<Option<&'a T>, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Missing => Ok(None),
@@ -101,6 +121,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    #[inline]
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Text(value) => Ok(value),
@@ -109,6 +130,12 @@ impl<'a> BoundValidationContext<'a> {
         }
     }
 
+    /// Checks all bound values against their declared dependency slots.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first shape, missing-value, or adapter contract error in
+    /// signature order. Error metadata does not include raw dependency values.
     pub(crate) fn check_specs(&self, specs: &[DependencySpec]) -> Result<(), ExecutionError> {
         if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
             return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
@@ -135,9 +162,11 @@ impl<'a> BoundValidationContext<'a> {
     }
 }
 
+/// Shared root path used when an adapter does not supply dependency paths.
 static ROOT_PATH: ValidationPath = ValidationPath::root();
 
 impl std::fmt::Debug for BoundValidationContext<'_> {
+    /// Formats only the slot count so dependency values remain private.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("BoundValidationContext")

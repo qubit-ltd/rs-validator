@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 //! Immutable multi-signature validator descriptors.
 
 use super::BindError;
@@ -8,8 +16,48 @@ use crate::NamedValidationArgument;
 use crate::ValidatorId;
 
 /// A definition containing one or more input/dependency signatures.
+///
+/// # Examples
+///
+/// ```
+/// use std::convert::Infallible;
+/// use std::sync::Arc;
+///
+/// use qubit_validator::prepare_text_validator;
+/// use qubit_validator::BindError;
+/// use qubit_validator::InputType;
+/// use qubit_validator::NamedValidationArgument;
+/// use qubit_validator::PreparedValidator;
+/// use qubit_validator::Validator;
+/// use qubit_validator::ValidatorDescriptor;
+/// use qubit_validator::ValidatorSignature;
+///
+/// struct AcceptAll;
+///
+/// impl Validator<str> for AcceptAll {
+///     type Error = Infallible;
+///
+///     fn validate(&self, _: &str, _: &()) -> Result<(), Self::Error> {
+///         Ok(())
+///     }
+/// }
+///
+/// fn prepare(
+///     _: &[NamedValidationArgument<'_>],
+/// ) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(prepare_text_validator(AcceptAll, |never| match never {}))
+/// }
+///
+/// static SIGNATURES: &[ValidatorSignature] = &[
+///     ValidatorSignature::new(InputType::Text, &[], prepare),
+/// ];
+/// let descriptor = ValidatorDescriptor::try_new(SIGNATURES)?;
+/// assert_eq!(descriptor.signatures().len(), 1);
+/// # Ok::<(), BindError>(())
+/// ```
 #[derive(Clone, Copy)]
 pub struct ValidatorDescriptor {
+    /// Supported signatures in declaration order.
     signatures: &'static [ValidatorSignature],
 }
 
@@ -19,6 +67,7 @@ impl ValidatorDescriptor {
     /// Duplicate signature shapes are rejected when binding. Use
     /// [`Self::try_new`] when construction-time validation is desired.
     #[must_use]
+    #[inline]
     pub const fn new(signatures: &'static [ValidatorSignature]) -> Self {
         Self { signatures }
     }
@@ -36,6 +85,7 @@ impl ValidatorDescriptor {
 
     /// Returns every supported signature in declaration order.
     #[must_use]
+    #[inline]
     pub const fn signatures(&self) -> &'static [ValidatorSignature] {
         self.signatures
     }
@@ -89,6 +139,12 @@ impl ValidatorDescriptor {
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
+    /// Checks that the descriptor is non-empty and unambiguous.
+    ///
+    /// # Errors
+    ///
+    /// Returns a declaration error for empty signatures, duplicate input
+    /// shapes, or duplicate or empty dependency names.
     pub(crate) fn validate_definition(&self) -> Result<(), BindError> {
         if self.signatures.is_empty() {
             return Err(BindError::new(BindErrorKind::InvalidDeclaration));
@@ -121,6 +177,12 @@ impl ValidatorDescriptor {
     }
 }
 
+/// Checks supplied dependency declarations against one selected signature.
+///
+/// # Errors
+///
+/// Returns the first duplicate, missing, unknown, misordered, or mismatched
+/// dependency declaration.
 fn validate_dependencies(
     expected: &[super::DependencySpec],
     declared: &[super::DependencySpec],
@@ -162,6 +224,7 @@ fn validate_dependencies(
 }
 
 impl std::fmt::Debug for ValidatorDescriptor {
+    /// Formats only the signature count without invoking any prepare function.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ValidatorDescriptor")

@@ -2,11 +2,14 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Binding error kinds.
 
 /// A configuration or declaration error found while binding a rule.
+#[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum BindErrorKind {
@@ -53,6 +56,7 @@ pub enum BindErrorKind {
 }
 
 impl std::fmt::Display for BindErrorKind {
+    /// Formats the stable human-readable error category.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::UnknownParameter => "unknown parameter",
