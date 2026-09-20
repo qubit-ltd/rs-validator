@@ -32,6 +32,8 @@ pub enum BindErrorKind {
     MissingDependencyDeclaration,
     /// A dependency declaration is unknown.
     UnknownDependencyDeclaration,
+    /// Dependency declarations do not follow the signature's slot order.
+    DependencyOrderMismatch,
     /// A dependency has the wrong type.
     DependencyTypeMismatch,
     /// A dependency path cannot be read.
@@ -62,6 +64,7 @@ impl std::fmt::Display for BindErrorKind {
             Self::UnsupportedInput => "unsupported input",
             Self::MissingDependencyDeclaration => "missing dependency declaration",
             Self::UnknownDependencyDeclaration => "unknown dependency declaration",
+            Self::DependencyOrderMismatch => "dependency order mismatch",
             Self::DependencyTypeMismatch => "dependency type mismatch",
             Self::UnreadablePath => "unreadable path",
             Self::AmbiguousSignature => "ambiguous signature",

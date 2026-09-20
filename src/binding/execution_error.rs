@@ -16,6 +16,7 @@ pub struct ExecutionError {
     kind: ExecutionErrorKind,
     path: super::ValidationPath,
     rule_id: Option<ValidatorId>,
+    dependency: Option<&'static str>,
     source: Option<Box<dyn Error + Send + Sync + 'static>>,
 }
 
@@ -27,6 +28,7 @@ impl ExecutionError {
             kind,
             path: super::ValidationPath::root(),
             rule_id: None,
+            dependency: None,
             source: None,
         }
     }
@@ -35,6 +37,13 @@ impl ExecutionError {
     #[must_use]
     pub const fn with_rule(mut self, rule_id: ValidatorId) -> Self {
         self.rule_id = Some(rule_id);
+        self
+    }
+
+    /// Associates a dependency slot name with this error.
+    #[must_use]
+    pub const fn with_dependency(mut self, dependency: &'static str) -> Self {
+        self.dependency = Some(dependency);
         self
     }
 
@@ -67,6 +76,12 @@ impl ExecutionError {
         self.rule_id
     }
 
+    /// Returns the associated dependency slot name, if the error concerns one.
+    #[must_use]
+    pub const fn dependency(&self) -> Option<&'static str> {
+        self.dependency
+    }
+
     /// Returns the structured error path.
     #[must_use]
     pub const fn path(&self) -> &super::ValidationPath {
@@ -86,6 +101,7 @@ impl std::fmt::Debug for ExecutionError {
             .debug_struct("ExecutionError")
             .field("kind", &self.kind)
             .field("rule_id", &self.rule_id)
+            .field("has_dependency", &self.dependency.is_some())
             .finish_non_exhaustive()
     }
 }

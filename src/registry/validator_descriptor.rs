@@ -134,11 +134,8 @@ fn validate_dependencies(
         }
     }
     for dependency in expected {
-        let Some(actual) = declared.iter().find(|item| item.name() == dependency.name()) else {
+        if !declared.iter().any(|item| item.name() == dependency.name()) {
             return Err(BindError::new(BindErrorKind::MissingDependencyDeclaration).with_dependency(dependency.name()));
-        };
-        if actual.input() != dependency.input() || actual.optional() != dependency.optional() {
-            return Err(BindError::new(BindErrorKind::DependencyTypeMismatch).with_dependency(dependency.name()));
         }
     }
     if let Some(extra) = declared
@@ -146,6 +143,20 @@ fn validate_dependencies(
         .find(|dependency| !expected.iter().any(|item| item.name() == dependency.name()))
     {
         return Err(BindError::new(BindErrorKind::UnknownDependencyDeclaration).with_dependency(extra.name()));
+    }
+    if let Some((_, actual)) = expected
+        .iter()
+        .zip(declared)
+        .find(|(expected, actual)| expected.name() != actual.name())
+    {
+        return Err(BindError::new(BindErrorKind::DependencyOrderMismatch).with_dependency(actual.name()));
+    }
+    if let Some((expected, _)) = expected
+        .iter()
+        .zip(declared)
+        .find(|(expected, actual)| expected.input() != actual.input() || expected.optional() != actual.optional())
+    {
+        return Err(BindError::new(BindErrorKind::DependencyTypeMismatch).with_dependency(expected.name()));
     }
     Ok(())
 }

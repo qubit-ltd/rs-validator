@@ -113,15 +113,21 @@ impl<'a> BoundValidationContext<'a> {
         if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
             return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
         }
-        for (value, spec) in self.values.iter().copied().zip(specs.iter().copied()) {
+        for (index, spec) in specs.iter().copied().enumerate() {
+            let value = self.value(index)?;
+            let path = self.dependency_path(index)?.clone();
             if value.is_missing() {
                 if !spec.optional() {
-                    return Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue));
+                    return Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue)
+                        .with_dependency(spec.name())
+                        .with_path(path));
                 }
                 continue;
             }
             if !spec.input().accepts(value) {
-                return Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch));
+                return Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)
+                    .with_dependency(spec.name())
+                    .with_path(path));
             }
         }
         Ok(())
