@@ -115,20 +115,21 @@ impl<'a> BoundValidationContext<'a> {
         }
         for (index, spec) in specs.iter().copied().enumerate() {
             let value = self.value(index)?;
-            let path = self.dependency_path(index)?.clone();
-            if value.is_missing() {
+            let error_kind = if value.is_missing() {
                 if !spec.optional() {
-                    return Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue)
-                        .with_dependency(spec.name())
-                        .with_path(path));
+                    ExecutionErrorKind::MissingRequiredDependencyValue
+                } else {
+                    continue;
                 }
+            } else if !spec.input().accepts(value) {
+                ExecutionErrorKind::DependencyTypeMismatch
+            } else {
                 continue;
-            }
-            if !spec.input().accepts(value) {
-                return Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)
-                    .with_dependency(spec.name())
-                    .with_path(path));
-            }
+            };
+            let path = self.dependency_path(index)?.clone();
+            return Err(ExecutionError::new(error_kind)
+                .with_dependency(spec.name())
+                .with_path(path));
         }
         Ok(())
     }

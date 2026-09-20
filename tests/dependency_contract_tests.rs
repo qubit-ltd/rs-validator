@@ -60,6 +60,67 @@ fn test_bind_accepts_dependency_declarations_in_signature_order() {
 }
 
 #[test]
+fn test_bind_reports_duplicate_before_missing_dependency() {
+    let declared = [
+        DependencySpec::new("minimum", InputType::of::<u64>(), false),
+        DependencySpec::new("minimum", InputType::of::<u64>(), false),
+    ];
+
+    let error = DESCRIPTOR
+        .bind(RULE_ID, 0, &[], &declared)
+        .expect_err("a duplicate declaration must take precedence over a missing declaration");
+
+    assert_eq!(error.kind(), BindErrorKind::InvalidDeclaration);
+    assert_eq!(error.dependency(), Some("minimum"));
+}
+
+#[test]
+fn test_bind_reports_missing_before_unknown_dependency() {
+    let declared = [
+        DependencySpec::new("minimum", InputType::of::<u64>(), false),
+        DependencySpec::new("other", InputType::of::<u64>(), false),
+    ];
+
+    let error = DESCRIPTOR
+        .bind(RULE_ID, 0, &[], &declared)
+        .expect_err("a missing declaration must take precedence over an unknown declaration");
+
+    assert_eq!(error.kind(), BindErrorKind::MissingDependencyDeclaration);
+    assert_eq!(error.dependency(), Some("maximum"));
+}
+
+#[test]
+fn test_bind_reports_unknown_before_dependency_order() {
+    let declared = [
+        DependencySpec::new("maximum", InputType::of::<u64>(), false),
+        DependencySpec::new("minimum", InputType::of::<u64>(), false),
+        DependencySpec::new("other", InputType::of::<u64>(), false),
+    ];
+
+    let error = DESCRIPTOR
+        .bind(RULE_ID, 0, &[], &declared)
+        .expect_err("an unknown declaration must take precedence over slot order");
+
+    assert_eq!(error.kind(), BindErrorKind::UnknownDependencyDeclaration);
+    assert_eq!(error.dependency(), Some("other"));
+}
+
+#[test]
+fn test_bind_reports_dependency_order_before_type_mismatch() {
+    let declared = [
+        DependencySpec::new("maximum", InputType::Text, false),
+        DependencySpec::new("minimum", InputType::of::<u64>(), false),
+    ];
+
+    let error = DESCRIPTOR
+        .bind(RULE_ID, 0, &[], &declared)
+        .expect_err("slot order must take precedence over a dependency type mismatch");
+
+    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
+    assert_eq!(error.dependency(), Some("maximum"));
+}
+
+#[test]
 fn test_validate_reports_missing_dependency_name_rule_and_path() {
     let bound = DESCRIPTOR
         .bind(RULE_ID, 0, &[], DEPENDENCIES)
