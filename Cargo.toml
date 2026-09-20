@@ -13,19 +13,14 @@ readme = "README.md"
 keywords = ["validation", "validator", "registry", "qubit", "rust"]
 categories = ["data-structures", "development-tools"]
 include = [
-    "/Cargo.toml",
-    "/LICENSE",
-    "/README.md",
-    "/README.zh_CN.md",
-    "/src/**",
-    "/src/validator.rs",
-    "/src/validator_id.rs",
-    "/src/validator_id_error.rs",
-    "/src/validator_registration_factory.rs",
-    "/src/validator_registry_error.rs",
-    "/doc/**",
-    "/tests/**",
-    "/benches/**",
+  "/Cargo.toml",
+  "/LICENSE",
+  "/README.md",
+  "/README.zh_CN.md",
+  "/src/**",
+  "/doc/**",
+  "/examples/**",
+  "/tests/**",
 ]
 
 [dependencies]
