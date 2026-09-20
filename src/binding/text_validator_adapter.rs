@@ -16,8 +16,8 @@ use super::ValidationValue;
 use crate::Validator;
 use crate::ViolationDraft;
 /// Adapts a typed text validator to the prepared-validator boundary.
-struct TextAdapter<V, M>(V, M);
-impl<V, M> PreparedValidator for TextAdapter<V, M>
+struct TextValidatorAdapter<V, M>(V, M);
+impl<V, M> PreparedValidator for TextValidatorAdapter<V, M>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
@@ -44,5 +44,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(TextAdapter(validator, map_error))
+    Arc::new(TextValidatorAdapter(validator, map_error))
 }
