@@ -90,10 +90,10 @@ fn test_bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
         .bind(ValidatorId::new("test.binding"), 0, &[], &[])
         .unwrap();
     let clone = bound.clone();
-    clone
+    let _ = clone
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
-    bound
+    let _ = bound
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
     assert_eq!(COUNTING_CALLS.load(Ordering::SeqCst), 2);
