@@ -104,13 +104,9 @@ impl BoundValidator {
     }
 
     fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
-        context.check_specs(self.signature.dependencies()).map_err(|error| {
-            if error.kind() == ExecutionErrorKind::AdapterContractViolation {
-                error
-            } else {
-                error.with_rule(self.rule_id)
-            }
-        })
+        context
+            .check_specs(self.signature.dependencies())
+            .map_err(|error| error.with_rule(self.rule_id))
     }
 
     fn contract_error(&self) -> ExecutionError {

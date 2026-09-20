@@ -98,11 +98,12 @@ impl ValidatorRegistry {
         id: &str,
         input: InputType,
         params: &[NamedValidationArgument<'_>],
+        dependencies: &[super::DependencySpec],
     ) -> Result<BoundValidator, BindError> {
         let registration = self.get(id).ok_or_else(|| BindError::new(BindErrorKind::MissingRule))?;
         registration
             .descriptor()
-            .bind_for(registration.id(), input, params)
+            .bind_for(registration.id(), input, params, dependencies)
             .map_err(|error| error.with_rule(registration.id()))
     }
 

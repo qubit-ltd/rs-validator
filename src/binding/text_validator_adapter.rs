@@ -6,14 +6,13 @@ use super::PreparedOutcome;
 use super::PreparedValidator;
 use super::ValidationValue;
 use crate::Validator;
-use crate::ViolationCode;
 use crate::ViolationDraft;
 struct Adapter<V, M>(V, M);
 impl<V, M> PreparedValidator for Adapter<V, M>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
-    M: Fn(V::Error) -> ViolationCode + Send + Sync + 'static,
+    M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     fn validate(
         &self,
@@ -25,7 +24,7 @@ where
             .ok_or_else(|| ExecutionError::new(super::ExecutionErrorKind::InputTypeMismatch))?;
         match self.0.validate(text, &()) {
             Ok(()) => Ok(PreparedOutcome::Valid),
-            Err(e) => Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new((self.1)(e))])),
+            Err(e) => Ok(PreparedOutcome::Invalid(vec![(self.1)(e)])),
         }
     }
 }
@@ -34,7 +33,7 @@ pub fn prepare_text_validator<V, M>(validator: V, map_error: M) -> Arc<dyn Prepa
 where
     V: Validator<str, ()> + Send + Sync + 'static,
     V::Error: Send + Sync,
-    M: Fn(V::Error) -> ViolationCode + Send + Sync + 'static,
+    M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     Arc::new(Adapter(validator, map_error))
 }

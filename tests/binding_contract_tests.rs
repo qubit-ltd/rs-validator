@@ -79,7 +79,7 @@ static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
 fn bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
     let bound = REGISTRATION
         .descriptor()
-        .bind(ValidatorId::new("test.binding"), 0, &[])
+        .bind(ValidatorId::new("test.binding"), 0, &[], &[])
         .unwrap();
     let clone = bound.clone();
     clone

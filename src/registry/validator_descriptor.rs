@@ -51,6 +51,7 @@ impl ValidatorDescriptor {
         rule_id: ValidatorId,
         signature_index: usize,
         params: &[NamedValidationArgument<'_>],
+        dependencies: &[super::DependencySpec],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
         let signature = self
@@ -58,6 +59,7 @@ impl ValidatorDescriptor {
             .get(signature_index)
             .copied()
             .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection))?;
+        validate_dependencies(signature.dependencies(), dependencies)?;
         let prepared = (signature.prepare())(params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
@@ -73,6 +75,7 @@ impl ValidatorDescriptor {
         rule_id: ValidatorId,
         input: super::InputType,
         params: &[NamedValidationArgument<'_>],
+        dependencies: &[super::DependencySpec],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
         let signature = self
@@ -81,6 +84,7 @@ impl ValidatorDescriptor {
             .copied()
             .find(|signature| signature.input() == input)
             .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput))?;
+        validate_dependencies(signature.dependencies(), dependencies)?;
         let prepared = (signature.prepare())(params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
@@ -115,6 +119,35 @@ impl ValidatorDescriptor {
         }
         Ok(())
     }
+}
+
+fn validate_dependencies(
+    expected: &[super::DependencySpec],
+    declared: &[super::DependencySpec],
+) -> Result<(), BindError> {
+    for (index, dependency) in declared.iter().enumerate() {
+        if declared[..index]
+            .iter()
+            .any(|previous| previous.name() == dependency.name())
+        {
+            return Err(BindError::new(BindErrorKind::InvalidDeclaration).with_dependency(dependency.name()));
+        }
+    }
+    for dependency in expected {
+        let Some(actual) = declared.iter().find(|item| item.name() == dependency.name()) else {
+            return Err(BindError::new(BindErrorKind::MissingDependencyDeclaration).with_dependency(dependency.name()));
+        };
+        if actual.input() != dependency.input() || actual.optional() != dependency.optional() {
+            return Err(BindError::new(BindErrorKind::DependencyTypeMismatch).with_dependency(dependency.name()));
+        }
+    }
+    if let Some(extra) = declared
+        .iter()
+        .find(|dependency| !expected.iter().any(|item| item.name() == dependency.name()))
+    {
+        return Err(BindError::new(BindErrorKind::UnknownDependencyDeclaration).with_dependency(extra.name()));
+    }
+    Ok(())
 }
 
 impl std::fmt::Debug for ValidatorDescriptor {

@@ -17,6 +17,7 @@ use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_text_validator;
 
 struct Minimum;
 
@@ -27,6 +28,32 @@ impl Validator<u32> for Minimum {
         assert!(*value >= 3);
         Ok(())
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("text rejected")]
+struct TextRejected;
+
+struct TextRule;
+
+impl Validator<str> for TextRule {
+    type Error = TextRejected;
+
+    fn validate(&self, _: &str, _: &()) -> Result<(), Self::Error> {
+        Err(TextRejected)
+    }
+}
+
+#[test]
+fn typed_adapter_preserves_structured_violation_drafts() {
+    let prepared = prepare_text_validator(TextRule, |_| {
+        ViolationDraft::new(ViolationCode::new("test.rejected"))
+            .with_param("bound", qubit_validator::ViolationParam::Unsigned(3))
+    });
+    let outcome = prepared
+        .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
+        .expect("adapter execution succeeds");
+    assert!(matches!(outcome, PreparedOutcome::Invalid(violations) if violations.len() == 1));
 }
 
 #[test]
@@ -58,7 +85,7 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 #[test]
 fn prepared_descriptor_preserves_structured_rule_failures() {
     let bound = DESCRIPTOR
-        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
         .expect("valid descriptor");
     let outcome = bound
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
@@ -72,7 +99,7 @@ fn prepared_descriptor_preserves_structured_rule_failures() {
 #[test]
 fn prepared_descriptor_rejects_wrong_input_shape() {
     let bound = DESCRIPTOR
-        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
         .expect("valid descriptor");
     let error = bound
         .validate(ValidationValue::Typed(&5_u32), &BoundValidationContext::new(&[]))
