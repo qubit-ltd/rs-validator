@@ -11,6 +11,15 @@
 use std::any::TypeId;
 
 /// The two intentionally small input views used by the validation boundary.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{InputType, ValidationValue};
+///
+/// assert!(InputType::Text.accepts(ValidationValue::Text("hello")));
+/// assert!(InputType::of::<u32>().accepts(ValidationValue::Typed(&3_u32)));
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum InputType {

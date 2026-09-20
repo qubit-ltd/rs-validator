@@ -9,6 +9,15 @@
 //! Domain-neutral validator parameter values.
 
 /// One statically typed validator parameter value.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationArgument;
+///
+/// let argument = ValidationArgument::String("admin");
+/// assert_eq!(argument, ValidationArgument::String("admin"));
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ValidationArgument<'a> {

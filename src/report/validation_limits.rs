@@ -9,6 +9,18 @@
 //! Bounds applied while collecting validation results.
 
 /// Explicit bounds applied while collecting a validation report.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationLimits;
+///
+/// let limits = ValidationLimits {
+///     max_violations: Some(10),
+///     max_skipped: None,
+/// };
+/// assert_eq!(limits.max_violations, Some(10));
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct ValidationLimits {
     /// Maximum violations; `None` means unlimited.

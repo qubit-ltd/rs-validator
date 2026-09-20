@@ -12,6 +12,19 @@ use super::SkipReason;
 use super::ValidationPath;
 
 /// One validation occurrence that was skipped by the executor.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{SkipReason, SkippedValidation, ValidationPath};
+///
+/// let skipped = SkippedValidation::new(
+///     0,
+///     ValidationPath::root().with_field("optional"),
+///     SkipReason::MissingOptional,
+/// );
+/// assert_eq!(skipped.reason(), SkipReason::MissingOptional);
+/// ```
 #[must_use]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SkippedValidation {

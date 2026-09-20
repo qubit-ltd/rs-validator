@@ -9,6 +9,15 @@
 //! Safe, structured validation violation parameters.
 
 /// A parameter that is safe to carry in a public violation.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ViolationParam;
+///
+/// let parameter = ViolationParam::Unsigned(3);
+/// assert_eq!(parameter, ViolationParam::Unsigned(3));
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ViolationParam {

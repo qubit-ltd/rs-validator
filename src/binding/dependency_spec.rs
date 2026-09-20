@@ -11,6 +11,16 @@
 use super::InputType;
 
 /// Describes one ordered dependency slot supplied to a validator.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{DependencySpec, InputType};
+///
+/// let dependency = DependencySpec::new("credential", InputType::Text, false);
+/// assert_eq!(dependency.name(), "credential");
+/// assert!(!dependency.optional());
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DependencySpec {
     /// Logical slot name used in diagnostics.

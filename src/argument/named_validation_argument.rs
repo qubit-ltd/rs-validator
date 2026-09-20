@@ -11,6 +11,18 @@
 use crate::ValidationArgument;
 
 /// One named validator parameter.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{NamedValidationArgument, ValidationArgument};
+///
+/// let argument = NamedValidationArgument::new(
+///     "minimum",
+///     ValidationArgument::Unsigned(3),
+/// );
+/// assert_eq!(argument.name(), "minimum");
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NamedValidationArgument<'a> {
     /// Name used by a validator's parameter schema.
