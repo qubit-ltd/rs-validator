@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-`qubit-validator` 为 Qubit 应用提供类型安全的验证 trait、结构化验证报告和不可变注册表。
+`qubit-validator` 为 Rust 应用提供一条小而明确的类型安全验证边界：既支持直接的类型化规则，也支持预构造的类型擦除规则、结构化违规结果和确定性的规则注册表。这样，输入不符合规则、规则绑定失败和执行失败可以被分别处理。
 
 ## 安装
 
@@ -18,22 +18,48 @@ qubit-validator = "0.1"
 
 ## 快速开始
 
-为规则实现带有显式类型化上下文的根导出 trait `Validator<T, C>`。需要由模型元数据调用的规则，可以预先构造为 `PreparedValidator`，再组装进局部 `ValidatorRegistry`；直接验证仍然是普通的类型化 Rust 调用。
+例如，应用需要拒绝空白用户名，同时希望把同一条规则交给准备好的验证边界执行。可以先实现类型化规则，再通过适配器生成结构化违规结果；过程中不需要把输入转成字符串或复制输入：
 
 ```rust,ignore
+use qubit_validator::BoundValidationContext;
+use qubit_validator::PreparedOutcome;
+use qubit_validator::PreparedValidator;
 use qubit_validator::Validator;
-use std::convert::Infallible;
+use qubit_validator::ValidationValue;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_text_validator;
+
+#[derive(Debug)]
+struct BlankName;
+
+impl std::fmt::Display for BlankName {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("name is blank")
+    }
+}
+
+impl std::error::Error for BlankName {}
 
 struct NonBlank;
 impl Validator<str> for NonBlank {
-    type Error = Infallible;
+    type Error = BlankName;
 
     fn validate(&self, value: &str, _context: &()) -> Result<(), Self::Error> {
-        let _ = value;
-        Ok(())
+        if value.trim().is_empty() { Err(BlankName) } else { Ok(()) }
     }
 }
+
+let prepared = prepare_text_validator(NonBlank, |_| {
+    ViolationDraft::new(ViolationCode::new("user.name.blank"))
+});
+let outcome = prepared
+    .validate(ValidationValue::Text("  "), &BoundValidationContext::new(&[]))?;
+assert!(matches!(outcome, PreparedOutcome::Invalid(_)));
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+类型化实现仍然是普通 Rust 代码；适配器则把失败转换为报告或注册表执行器可以继续处理的结构化违规。
 
 ## 能力
 
@@ -52,6 +78,12 @@ impl Validator<str> for NonBlank {
 本 crate 不发现模型属性，也不调度验证。模型路径编译和 `ValidationPlan` 执行由
 `qubit-model-metadata` 负责；本 crate 只提供类型化规则契约、绑定原语、报告和注册表。运行故障和
 业务违规分开表示，因此缺少规则或未启用 feature 时不会被误判为输入合法。
+
+## 延伸阅读
+
+- [English user guide](doc/user_guide.md) / [中文用户手册](doc/user_guide.zh_CN.md)
+- [API 文档](https://docs.rs/qubit-validator)
+- [English README](README.md)
 
 ## 测试
 
@@ -79,7 +111,8 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 ## 贡献
 
 欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
-Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
+Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh`
+对齐 CI 要求。
 
 ## 作者
 

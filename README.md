@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-`qubit-validator` provides type-safe validation traits, structured validation reports, and immutable registries for Qubit applications.
+`qubit-validator` gives Rust applications a small, type-safe boundary for reusable validation rules. It keeps direct typed validation, prepared type-erased rules, structured violations, and deterministic rule registries separate so invalid input is not confused with a binding or execution failure.
 
 ## Installation
 
@@ -18,22 +18,48 @@ qubit-validator = "0.1"
 
 ## Quick Start
 
-Implement the root `Validator<T, C>` trait for a rule with an explicit typed context. Rules that need model metadata can be prepared once as a `PreparedValidator` and assembled into a local `ValidatorRegistry`; direct validation remains a normal typed Rust call.
+Suppose an application must reject a blank user name and later expose the same rule through a prepared validation boundary. The typed rule can be adapted without stringifying or cloning the input:
 
 ```rust,ignore
+use qubit_validator::BoundValidationContext;
+use qubit_validator::PreparedOutcome;
+use qubit_validator::PreparedValidator;
 use qubit_validator::Validator;
-use std::convert::Infallible;
+use qubit_validator::ValidationValue;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_text_validator;
+
+#[derive(Debug)]
+struct BlankName;
+
+impl std::fmt::Display for BlankName {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("name is blank")
+    }
+}
+
+impl std::error::Error for BlankName {}
 
 struct NonBlank;
 impl Validator<str> for NonBlank {
-    type Error = Infallible;
+    type Error = BlankName;
 
     fn validate(&self, value: &str, _context: &()) -> Result<(), Self::Error> {
-        let _ = value;
-        Ok(())
+        if value.trim().is_empty() { Err(BlankName) } else { Ok(()) }
     }
 }
+
+let prepared = prepare_text_validator(NonBlank, |_| {
+    ViolationDraft::new(ViolationCode::new("user.name.blank"))
+});
+let outcome = prepared
+    .validate(ValidationValue::Text("  "), &BoundValidationContext::new(&[]))?;
+assert!(matches!(outcome, PreparedOutcome::Invalid(_)));
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
+
+The typed implementation remains ordinary Rust code, while the adapter produces a structured violation that a report or registry-driven executor can consume.
 
 ## Capabilities
 
@@ -50,6 +76,12 @@ The default feature set is empty. The typed descriptor, registration, and local 
 ## Limitations
 
 The crate does not discover model properties or schedule validation. `qubit-model-metadata` owns model path compilation and `ValidationPlan` execution. This crate only supplies the typed rule contract, binding primitives, reports, and registries. Runtime failures and value violations are represented separately, so a missing rule or unsupported feature cannot be mistaken for valid input.
+
+## Learn More
+
+- [English user guide](doc/user_guide.md) / [中文用户手册](doc/user_guide.zh_CN.md)
+- [API documentation](https://docs.rs/qubit-validator)
+- [中文 README](README.zh_CN.md)
 
 ## Testing
 
