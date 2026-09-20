@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Validator ID errors.
 
 use thiserror::Error;
@@ -15,8 +21,3 @@ pub enum ValidatorIdError {
     #[error("validator ID contains an invalid segment")]
     InvalidSegment,
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Validation reporting primitives.
 mod path_segment;
 mod skip_reason;
@@ -19,8 +25,3 @@ pub use violation::Violation;
 pub use violation_code::ViolationCode;
 pub use violation_code_error::ViolationCodeError;
 pub use violation_param::ViolationParam;
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

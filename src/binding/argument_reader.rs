@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Strict, one-pass decoding of named validator parameters.
 
 use super::BindError;
@@ -7,6 +13,21 @@ use crate::ValidationArgument;
 
 /// Reads declared arguments while rejecting duplicates, unknown names, and
 /// lossy numeric conversions.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ArgumentReader, NamedValidationArgument, ValidationArgument};
+///
+/// let arguments = [NamedValidationArgument::new(
+///     "limit",
+///     ValidationArgument::Unsigned(10),
+/// )];
+/// let mut reader = ArgumentReader::new(&arguments)?;
+/// assert_eq!(reader.required_u32("limit")?, 10);
+/// reader.finish()?;
+/// # Ok::<(), qubit_validator::BindError>(())
+/// ```
 pub struct ArgumentReader<'a> {
     args: &'a [NamedValidationArgument<'a>],
     consumed: Vec<bool>,
@@ -121,8 +142,3 @@ impl std::fmt::Debug for ArgumentReader<'_> {
             .finish()
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

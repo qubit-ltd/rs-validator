@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 use std::convert::Infallible;
 use std::sync::Arc;
 
@@ -108,8 +114,3 @@ fn prepared_descriptor_rejects_wrong_input_shape() {
 
     assert_eq!(error.kind(), ExecutionErrorKind::InputTypeMismatch);
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

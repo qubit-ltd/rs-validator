@@ -1,6 +1,21 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Domain-neutral validator parameter values.
 
 /// One statically typed validator parameter value.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationArgument;
+///
+/// let argument = ValidationArgument::String("admin");
+/// assert_eq!(argument, ValidationArgument::String("admin"));
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValidationArgument<'a> {
     /// A Boolean value.
@@ -20,8 +35,3 @@ pub enum ValidationArgument<'a> {
     /// A string list.
     StringList(&'a [&'a str]),
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

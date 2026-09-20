@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 use std::sync::Arc;
 
 use qubit_validator::BindError;
@@ -73,8 +79,3 @@ fn empty_registry_has_no_rules() {
     assert!(registry.registrations().is_empty());
     assert!(registry.get("missing").is_none());
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

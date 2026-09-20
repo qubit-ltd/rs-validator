@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -114,8 +120,3 @@ impl Validator<str> for _Infallible {
         Ok(())
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

@@ -1,8 +1,24 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Dependency slot declarations for prepared validators.
 
 use super::InputType;
 
 /// Describes one ordered dependency slot supplied to a validator.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{DependencySpec, InputType};
+///
+/// let dependency = DependencySpec::new("credential", InputType::Text, false);
+/// assert!(!dependency.optional());
+/// assert_eq!(dependency.input(), InputType::Text);
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DependencySpec {
     name: &'static str,
@@ -36,8 +52,3 @@ impl DependencySpec {
         self.optional
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

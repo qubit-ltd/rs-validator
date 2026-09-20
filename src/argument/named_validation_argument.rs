@@ -1,8 +1,26 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Named validator parameter values.
 
 use crate::ValidationArgument;
 
 /// One named validator parameter.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{NamedValidationArgument, ValidationArgument};
+///
+/// let argument = NamedValidationArgument::new(
+///     "minimum",
+///     ValidationArgument::Unsigned(3),
+/// );
+/// assert_eq!(argument.name(), "minimum");
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NamedValidationArgument<'a> {
     name: &'a str,
@@ -33,8 +51,3 @@ impl<'a> NamedValidationArgument<'a> {
         self.value
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

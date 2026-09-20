@@ -9,6 +9,15 @@
 use super::ViolationCodeError;
 
 /// A stable violation code using the point-separated ASCII protocol.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ViolationCode;
+///
+/// let code = ViolationCode::new("text.blank");
+/// assert_eq!(code.as_str(), "text.blank");
+/// ```
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ViolationCode(&'static str);
 

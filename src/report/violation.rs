@@ -14,6 +14,18 @@ use super::ViolationParam;
 use crate::ValidatorId;
 
 /// One rule violation without the rejected value.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ValidatorId, Violation, ViolationCode};
+///
+/// let violation = Violation::new(
+///     ValidatorId::new("text.required"),
+///     ViolationCode::new("text.blank"),
+/// );
+/// assert_eq!(violation.code().as_str(), "text.blank");
+/// ```
 #[derive(Eq, PartialEq)]
 pub struct Violation {
     rule_id: ValidatorId,

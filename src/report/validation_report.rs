@@ -12,6 +12,15 @@ use super::ValidationLimits;
 use super::Violation;
 
 /// A bounded collection of validation violations and skipped occurrences.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationReport;
+///
+/// let report = ValidationReport::new();
+/// assert!(report.is_valid());
+/// ```
 pub struct ValidationReport {
     violations: Vec<Violation>,
     skipped: Vec<SkippedValidation>,

@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Configured validator occurrences.
 
 use std::sync::Arc;
@@ -127,8 +133,3 @@ impl std::fmt::Debug for BoundValidator {
             .finish_non_exhaustive()
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

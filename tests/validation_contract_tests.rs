@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 use std::convert::Infallible;
 
 use qubit_validator::BindError;
@@ -123,8 +129,3 @@ fn execution_and_bind_errors_expose_kind_without_source_or_values() {
     assert!(bind.to_string().contains("parameter"));
     assert!(!bind.to_string().contains("secret input"));
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

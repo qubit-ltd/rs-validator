@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Immutable local registries for multi-signature validator definitions.
 
 use std::collections::BTreeMap;
@@ -14,6 +20,15 @@ use crate::ValidatorId;
 use crate::ValidatorRegistryError;
 
 /// A deterministic local registry containing one definition per stable ID.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidatorRegistry;
+///
+/// let registry = ValidatorRegistry::empty();
+/// assert!(registry.registrations().is_empty());
+/// ```
 #[derive(Debug)]
 pub struct ValidatorRegistry {
     registrations: Box<[ValidatorRegistration]>,
@@ -157,8 +172,3 @@ impl From<&ValidatorRegistration> for ValidatorRegistration {
         *value
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

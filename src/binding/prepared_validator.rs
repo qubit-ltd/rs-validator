@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Type-erased prepared validator instances.
 
 use std::sync::Arc;
@@ -21,8 +27,3 @@ pub trait PreparedValidator: Send + Sync {
 
 /// Constructs an owned prepared validator from declaration parameters.
 pub type PrepareFn = fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

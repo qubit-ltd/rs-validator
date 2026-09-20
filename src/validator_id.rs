@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Stable validator identifiers.
 
 use core::borrow::Borrow;
@@ -5,6 +11,15 @@ use core::borrow::Borrow;
 use crate::ValidatorIdError;
 
 /// A validated, process-independent validator identifier.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidatorId;
+///
+/// let id = ValidatorId::new("text.non_blank");
+/// assert_eq!(id.as_str(), "text.non_blank");
+/// ```
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ValidatorId(&'static str);
 
@@ -87,8 +102,3 @@ const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), 
     }
     Ok(())
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

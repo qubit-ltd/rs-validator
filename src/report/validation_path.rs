@@ -11,6 +11,15 @@ use std::borrow::Cow;
 use super::PathSegment;
 
 /// A structured path to a value being validated.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationPath;
+///
+/// let path = ValidationPath::root().with_field("user").with_index(2);
+/// assert_eq!(path.render(), "user[2]");
+/// ```
 #[derive(Clone, Eq, PartialEq)]
 pub struct ValidationPath {
     segments: Vec<PathSegment>,

@@ -1,8 +1,24 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Erased input shapes accepted by prepared validators.
 
 use std::any::TypeId;
 
 /// The two intentionally small input views used by the validation boundary.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{InputType, ValidationValue};
+///
+/// let input = ValidationValue::Text("hello");
+/// assert!(InputType::Text.accepts(input));
+/// assert_eq!(InputType::of::<u32>(), InputType::of::<u32>());
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum InputType {
     /// A borrowed UTF-8 text view.
@@ -28,8 +44,3 @@ impl InputType {
         }
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

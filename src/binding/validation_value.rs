@@ -3,6 +3,16 @@
 use std::any::Any;
 
 /// A value view that deliberately avoids implicit stringification and cloning.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ValidationValue;
+///
+/// let value = ValidationValue::Text("hello");
+/// assert_eq!(value.as_text(), Some("hello"));
+/// assert!(!value.is_missing());
+/// ```
 #[derive(Clone, Copy)]
 pub enum ValidationValue<'a> {
     /// A borrowed UTF-8 string slice.

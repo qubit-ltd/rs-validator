@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 //! Ordered, shape-checked dependency values for one validation call.
 
 use super::DependencySpec;
@@ -7,6 +13,18 @@ use super::ValidationPath;
 use super::ValidationValue;
 
 /// Borrowed dependency slots used during a synchronous validation call.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{BoundValidationContext, ValidationValue};
+///
+/// let value = 7_u32;
+/// let values = [ValidationValue::Typed(&value)];
+/// let context = BoundValidationContext::new(&values);
+/// assert_eq!(context.typed::<u32>(0)?, &value);
+/// # Ok::<(), qubit_validator::ExecutionError>(())
+/// ```
 pub struct BoundValidationContext<'a> {
     values: &'a [ValidationValue<'a>],
     paths: Option<&'a [ValidationPath]>,
@@ -138,8 +156,3 @@ impl std::fmt::Debug for BoundValidationContext<'_> {
             .finish()
     }
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================

@@ -1,3 +1,9 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================
+
 use std::sync::Arc;
 
 use qubit_validator::BindError;
@@ -106,8 +112,3 @@ fn descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
         ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)]).unwrap_err();
     assert!(error.to_string().contains("invalid descriptor"));
 }
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-// =============================================================================
