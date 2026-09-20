@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 #![cfg(feature = "inventory")]
@@ -46,14 +48,14 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 register_validator!(id = "test.inventory.global", descriptor = &DESCRIPTOR);
 
 #[test]
-fn inventory_registration_is_available_from_global_registry() {
+fn test_inventory_registration_is_available_from_global_registry() {
     let registry = ValidatorRegistry::try_global().expect("inventory registry is valid");
     assert!(registry.get("test.inventory.global").is_some());
     assert!(std::ptr::eq(registry, ValidatorRegistry::global()));
 }
 
 #[test]
-fn local_registry_accepts_static_registration_references() {
+fn test_local_registry_accepts_static_registration_references() {
     let registration = registry_registration();
     let registry = ValidatorRegistry::from_registrations([&registration])
         .expect("reference registration is copied into the local registry");

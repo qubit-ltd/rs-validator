@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Safe validation paths.
@@ -12,22 +14,29 @@ use super::PathSegment;
 
 /// A structured path to a value being validated.
 ///
+/// `Debug` and `Display` do not reveal field labels. Call [`Self::render`]
+/// explicitly only in a trusted presentation layer; even rendered map entries
+/// contain opaque positions rather than raw map keys.
+///
 /// # Examples
 ///
 /// ```
 /// use qubit_validator::ValidationPath;
 ///
-/// let path = ValidationPath::root().with_field("user").with_index(2);
-/// assert_eq!(path.render(), "user[2]");
+/// let path = ValidationPath::root().with_field("profile").with_index(2);
+/// assert_eq!(path.render(), "profile[2]");
+/// assert_eq!(path.as_segments().len(), 2);
 /// ```
 #[derive(Clone, Eq, PartialEq)]
 pub struct ValidationPath {
+    /// Segments stored from the root toward the validated value.
     segments: Vec<PathSegment>,
 }
 
 impl ValidationPath {
     /// Creates an empty root path.
     #[must_use]
+    #[inline]
     pub const fn root() -> Self {
         Self { segments: Vec::new() }
     }
@@ -69,11 +78,15 @@ impl ValidationPath {
 
     /// Returns the path segments in order.
     #[must_use]
+    #[inline]
     pub fn as_segments(&self) -> &[PathSegment] {
         &self.segments
     }
 
     /// Explicitly renders this path for a trusted presentation layer.
+    ///
+    /// The result can contain program-supplied field labels but never contains
+    /// a raw validation value or map key.
     #[must_use]
     pub fn render(&self) -> String {
         let mut rendered = String::new();
@@ -104,6 +117,7 @@ impl ValidationPath {
 }
 
 impl std::fmt::Debug for ValidationPath {
+    /// Formats only the segment count so field labels remain private.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ValidationPath")
@@ -113,6 +127,7 @@ impl std::fmt::Debug for ValidationPath {
 }
 
 impl std::fmt::Display for ValidationPath {
+    /// Formats a redacted placeholder instead of rendering path labels.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.write_str("<validation-path>")
     }

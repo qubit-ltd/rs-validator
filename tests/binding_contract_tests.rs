@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use std::convert::Infallible;
@@ -28,7 +30,7 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorSignature;
 
 #[test]
-fn argument_reader_rejects_bad_names_types_and_ranges() {
+fn test_argument_reader_rejects_bad_names_types_and_ranges() {
     let args = [
         NamedValidationArgument::new("min", ValidationArgument::String("3")),
         NamedValidationArgument::new("min", ValidationArgument::Unsigned(1)),
@@ -82,23 +84,23 @@ static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
 );
 
 #[test]
-fn bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
+fn test_bound_validator_can_be_cloned_and_uses_one_prepared_instance() {
     let bound = REGISTRATION
         .descriptor()
         .bind(ValidatorId::new("test.binding"), 0, &[], &[])
         .unwrap();
     let clone = bound.clone();
-    clone
+    let _ = clone
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
-    bound
+    let _ = bound
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .unwrap();
     assert_eq!(COUNTING_CALLS.load(Ordering::SeqCst), 2);
 }
 
 #[test]
-fn dependency_context_preserves_optional_missing_and_rejects_wrong_shapes() {
+fn test_dependency_context_preserves_optional_missing_and_rejects_wrong_shapes() {
     let owner = 7_u64;
     let values = [ValidationValue::Typed(&owner)];
     let context = BoundValidationContext::new(&values);
@@ -107,7 +109,7 @@ fn dependency_context_preserves_optional_missing_and_rejects_wrong_shapes() {
 }
 
 #[test]
-fn registration_descriptor_has_a_stable_signature() {
+fn test_registration_descriptor_has_a_stable_signature() {
     assert_eq!(REGISTRATION.descriptor().signatures().len(), 1);
     assert_eq!(REGISTRATION.source().crate_name(), "test");
 }

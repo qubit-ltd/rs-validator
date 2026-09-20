@@ -2,12 +2,16 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Binding error kinds.
 
 /// A configuration or declaration error found while binding a rule.
+#[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum BindErrorKind {
     /// A parameter name is not known to the rule.
     UnknownParameter,
@@ -15,6 +19,8 @@ pub enum BindErrorKind {
     DuplicateParameter,
     /// A required parameter is absent.
     MissingParameter,
+    /// A parameter has already been consumed by this reader.
+    ParameterAlreadyConsumed,
     /// A parameter has the wrong value type.
     ParameterTypeMismatch,
     /// A parameter is outside the supported range.
@@ -31,6 +37,8 @@ pub enum BindErrorKind {
     MissingDependencyDeclaration,
     /// A dependency declaration is unknown.
     UnknownDependencyDeclaration,
+    /// Dependency declarations do not follow the signature's slot order.
+    DependencyOrderMismatch,
     /// A dependency has the wrong type.
     DependencyTypeMismatch,
     /// A dependency path cannot be read.
@@ -48,11 +56,13 @@ pub enum BindErrorKind {
 }
 
 impl std::fmt::Display for BindErrorKind {
+    /// Formats the stable human-readable error category.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::UnknownParameter => "unknown parameter",
             Self::DuplicateParameter => "duplicate parameter",
             Self::MissingParameter => "missing parameter",
+            Self::ParameterAlreadyConsumed => "parameter already consumed",
             Self::ParameterTypeMismatch => "parameter type mismatch",
             Self::ParameterOutOfRange => "parameter out of range",
             Self::InvalidBounds => "invalid bounds",
@@ -61,6 +71,7 @@ impl std::fmt::Display for BindErrorKind {
             Self::UnsupportedInput => "unsupported input",
             Self::MissingDependencyDeclaration => "missing dependency declaration",
             Self::UnknownDependencyDeclaration => "unknown dependency declaration",
+            Self::DependencyOrderMismatch => "dependency order mismatch",
             Self::DependencyTypeMismatch => "dependency type mismatch",
             Self::UnreadablePath => "unreadable path",
             Self::AmbiguousSignature => "ambiguous signature",

@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Configured validator occurrences.
@@ -21,15 +23,67 @@ use crate::ValidatorId;
 use crate::Violation;
 
 /// A bound occurrence that owns a reusable prepared validator instance.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use qubit_validator::BindError;
+/// use qubit_validator::BoundValidationContext;
+/// use qubit_validator::ExecutionError;
+/// use qubit_validator::InputType;
+/// use qubit_validator::NamedValidationArgument;
+/// use qubit_validator::PreparedOutcome;
+/// use qubit_validator::PreparedValidator;
+/// use qubit_validator::ValidationOutcome;
+/// use qubit_validator::ValidationValue;
+/// use qubit_validator::ValidatorDescriptor;
+/// use qubit_validator::ValidatorId;
+/// use qubit_validator::ValidatorSignature;
+///
+/// struct AcceptAll;
+///
+/// impl PreparedValidator for AcceptAll {
+///     fn validate(
+///         &self,
+///         _: ValidationValue<'_>,
+///         _: &BoundValidationContext<'_>,
+///     ) -> Result<PreparedOutcome, ExecutionError> {
+///         Ok(PreparedOutcome::Valid)
+///     }
+/// }
+///
+/// fn prepare(
+///     _: &[NamedValidationArgument<'_>],
+/// ) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(Arc::new(AcceptAll))
+/// }
+///
+/// static SIGNATURES: &[ValidatorSignature] = &[
+///     ValidatorSignature::new(InputType::Text, &[], prepare),
+/// ];
+/// let descriptor = ValidatorDescriptor::new(SIGNATURES);
+/// let bound = descriptor.bind(ValidatorId::new("example.accept_all"), 0, &[], &[])?;
+/// let outcome = bound.validate(
+///     ValidationValue::Text("accepted"),
+///     &BoundValidationContext::new(&[]),
+/// )?;
+/// assert_eq!(outcome, ValidationOutcome::Valid);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone)]
 pub struct BoundValidator {
+    /// Immutable prepared implementation shared by cloned bound occurrences.
     prepared: Arc<dyn PreparedValidator>,
+    /// Signature selected when the occurrence was bound.
     signature: ValidatorSignature,
+    /// Stable identifier attached to outcomes and errors.
     rule_id: ValidatorId,
 }
 
 impl BoundValidator {
-    /// Creates a bound validator from a prepared instance and signature.
+    /// Creates a bound occurrence from a prepared implementation and signature.
     pub(crate) fn new(
         prepared: Arc<dyn PreparedValidator>,
         signature: ValidatorSignature,
@@ -87,23 +141,26 @@ impl BoundValidator {
 
     /// Returns the selected input shape.
     #[must_use]
+    #[inline]
     pub const fn input_type(&self) -> InputType {
         self.signature.input()
     }
 
     /// Returns dependencies in their execution slot order.
     #[must_use]
+    #[inline]
     pub const fn dependency_specs(&self) -> &'static [super::DependencySpec] {
         self.signature.dependencies()
     }
 
     /// Returns the stable rule identifier.
     #[must_use]
+    #[inline]
     pub const fn rule_id(&self) -> ValidatorId {
         self.rule_id
     }
 
-    /// Verifies that the supplied value matches the selected input shape.
+    /// Checks the erased input against the selected signature.
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.signature.input().accepts(value) {
             return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule(self.rule_id));
@@ -111,20 +168,23 @@ impl BoundValidator {
         Ok(())
     }
 
-    /// Verifies dependency count, optionality, and input shapes.
+    /// Checks dependency values against the selected signature.
     fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
         context
             .check_specs(self.signature.dependencies())
             .map_err(|error| error.with_rule(self.rule_id))
     }
 
-    /// Creates an error for an invalid prepared-validator outcome.
+    /// Builds an adapter contract error tagged with this rule identifier.
+    #[inline]
     fn contract_error(&self) -> ExecutionError {
         ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id)
     }
 }
 
 impl std::fmt::Debug for BoundValidator {
+    /// Formats structural metadata without exposing the prepared
+    /// implementation.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("BoundValidator")

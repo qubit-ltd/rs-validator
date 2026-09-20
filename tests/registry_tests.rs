@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use std::sync::Arc;
@@ -49,7 +51,7 @@ fn registration(id: &'static str, file: &'static str) -> ValidatorRegistration {
 }
 
 #[test]
-fn local_registry_owns_and_queries_registrations() {
+fn test_local_registry_owns_and_queries_registrations() {
     let first = registration("example.valid", "first.rs");
     let registry = ValidatorRegistry::from_registrations([first]).expect("valid registry");
 
@@ -62,7 +64,7 @@ fn local_registry_owns_and_queries_registrations() {
 }
 
 #[test]
-fn local_registry_rejects_duplicate_ids() {
+fn test_local_registry_rejects_duplicate_ids() {
     let first = registration("example.valid", "first.rs");
     let second = registration("example.valid", "second.rs");
     let error = ValidatorRegistry::from_registrations([first, second]).expect_err("duplicate ID");
@@ -73,7 +75,7 @@ fn local_registry_rejects_duplicate_ids() {
 }
 
 #[test]
-fn empty_registry_has_no_rules() {
+fn test_empty_registry_has_no_rules() {
     let registry = ValidatorRegistry::empty();
 
     assert!(registry.registrations().is_empty());

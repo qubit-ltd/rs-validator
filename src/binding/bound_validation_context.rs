@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 //! Ordered, shape-checked dependency values for one validation call.
@@ -13,26 +15,17 @@ use super::ValidationPath;
 use super::ValidationValue;
 
 /// Borrowed dependency slots used during a synchronous validation call.
-///
-/// # Examples
-///
-/// ```
-/// use qubit_validator::{BoundValidationContext, ValidationValue};
-///
-/// let value = 7_u32;
-/// let values = [ValidationValue::Typed(&value)];
-/// let context = BoundValidationContext::new(&values);
-/// assert_eq!(context.typed::<u32>(0)?, &value);
-/// # Ok::<(), qubit_validator::ExecutionError>(())
-/// ```
 pub struct BoundValidationContext<'a> {
+    /// Values stored in signature slot order.
     values: &'a [ValidationValue<'a>],
+    /// Optional model paths stored in the same slot order as `values`.
     paths: Option<&'a [ValidationPath]>,
 }
 
 impl<'a> BoundValidationContext<'a> {
     /// Creates a context with root paths for each dependency slot.
     #[must_use]
+    #[inline]
     pub fn new(values: &'a [ValidationValue<'a>]) -> Self {
         Self { values, paths: None }
     }
@@ -60,6 +53,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    #[inline]
     pub fn value(&self, index: usize) -> Result<ValidationValue<'a>, ExecutionError> {
         self.values
             .get(index)
@@ -72,6 +66,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
             Some(paths) => paths
@@ -87,6 +82,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    #[inline]
     pub fn typed<T: 'static>(&self, index: usize) -> Result<&'a T, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Typed(value) => value
@@ -99,10 +95,16 @@ impl<'a> BoundValidationContext<'a> {
 
     /// Downcasts an optional dependency, treating only `Missing` as `None`.
     ///
+    /// # Returns
+    ///
+    /// Returns `Some` with a correctly typed present value, or `None` for the
+    /// explicit missing marker.
+    ///
     /// # Errors
     ///
     /// Returns a shape or slot error. A wrong concrete type is never treated
     /// as an absent optional value.
+    #[inline]
     pub fn optional_typed<T: 'static>(&self, index: usize) -> Result<Option<&'a T>, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Missing => Ok(None),
@@ -119,6 +121,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    #[inline]
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {
             ValidationValue::Text(value) => Ok(value),
@@ -127,28 +130,43 @@ impl<'a> BoundValidationContext<'a> {
         }
     }
 
+    /// Checks all bound values against their declared dependency slots.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first shape, missing-value, or adapter contract error in
+    /// signature order. Error metadata does not include raw dependency values.
     pub(crate) fn check_specs(&self, specs: &[DependencySpec]) -> Result<(), ExecutionError> {
         if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
             return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
         }
-        for (value, spec) in self.values.iter().copied().zip(specs.iter().copied()) {
-            if value.is_missing() {
+        for (index, spec) in specs.iter().copied().enumerate() {
+            let value = self.value(index)?;
+            let error_kind = if value.is_missing() {
                 if !spec.optional() {
-                    return Err(ExecutionError::new(ExecutionErrorKind::MissingRequiredDependencyValue));
+                    ExecutionErrorKind::MissingRequiredDependencyValue
+                } else {
+                    continue;
                 }
+            } else if !spec.input().accepts(value) {
+                ExecutionErrorKind::DependencyTypeMismatch
+            } else {
                 continue;
-            }
-            if !spec.input().accepts(value) {
-                return Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch));
-            }
+            };
+            let path = self.dependency_path(index)?.clone();
+            return Err(ExecutionError::new(error_kind)
+                .with_dependency(spec.name())
+                .with_path(path));
         }
         Ok(())
     }
 }
 
+/// Shared root path used when an adapter does not supply dependency paths.
 static ROOT_PATH: ValidationPath = ValidationPath::root();
 
 impl std::fmt::Debug for BoundValidationContext<'_> {
+    /// Formats only the slot count so dependency values remain private.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("BoundValidationContext")

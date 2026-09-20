@@ -2,6 +2,8 @@
 //    Copyright (c) 2025 - 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
 use std::any::TypeId;
@@ -139,7 +141,7 @@ fn registration(id: &'static str) -> ValidatorRegistration {
 }
 
 #[test]
-fn argument_reader_covers_typed_and_optional_parameters() {
+fn test_argument_reader_covers_typed_and_optional_parameters() {
     let args = [
         NamedValidationArgument::new("count", ValidationArgument::Unsigned(7)),
         NamedValidationArgument::new("signed", ValidationArgument::Integer(8)),
@@ -157,7 +159,7 @@ fn argument_reader_covers_typed_and_optional_parameters() {
 }
 
 #[test]
-fn argument_reader_reports_missing_type_range_and_unknown_errors() {
+fn test_argument_reader_reports_missing_type_range_and_unknown_errors() {
     let mut reader = ArgumentReader::new(&[]).unwrap();
     assert_eq!(
         reader.required_u32("count").unwrap_err().kind(),
@@ -209,7 +211,7 @@ fn argument_reader_reports_missing_type_range_and_unknown_errors() {
 }
 
 #[test]
-fn values_paths_and_input_shapes_are_safe() {
+fn test_values_paths_and_input_shapes_are_safe() {
     let number = 4_u32;
     let text = ValidationValue::Text("secret");
     let typed = ValidationValue::Typed(&number);
@@ -239,7 +241,7 @@ fn values_paths_and_input_shapes_are_safe() {
 }
 
 #[test]
-fn context_checks_paths_shapes_and_dependencies() {
+fn test_context_checks_paths_shapes_and_dependencies() {
     let value = 9_u32;
     let values = [
         ValidationValue::Typed(&value),
@@ -284,7 +286,7 @@ fn context_checks_paths_shapes_and_dependencies() {
 }
 
 #[test]
-fn descriptor_binding_and_bound_validation_cover_contract_errors() {
+fn test_descriptor_binding_and_bound_validation_cover_contract_errors() {
     let args = [NamedValidationArgument::new("unused", ValidationArgument::Bool(false))];
     assert_eq!(
         TEXT_DESCRIPTOR
@@ -356,7 +358,7 @@ fn descriptor_binding_and_bound_validation_cover_contract_errors() {
 }
 
 #[test]
-fn bound_validation_checks_dependency_contracts_and_outcome_contracts() {
+fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
     static DEPENDENCIES: &[DependencySpec] = &[
         DependencySpec::new("required", InputType::Text, false),
         DependencySpec::new("optional", InputType::of::<u32>(), true),
@@ -424,7 +426,7 @@ fn bound_validation_checks_dependency_contracts_and_outcome_contracts() {
 }
 
 #[test]
-fn binding_checks_dependency_declarations_before_preparation() {
+fn test_binding_checks_dependency_declarations_before_preparation() {
     static DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
     static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
     static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
@@ -452,7 +454,7 @@ fn binding_checks_dependency_declarations_before_preparation() {
 }
 
 #[test]
-fn errors_reports_violations_and_registries_expose_structured_data() {
+fn test_errors_reports_violations_and_registries_expose_structured_data() {
     let source = RegistrationSource::new("crate", "module", "file.rs", 42);
     assert_eq!(
         (source.crate_name(), source.module_path(), source.file(), source.line()),
@@ -520,7 +522,7 @@ fn errors_reports_violations_and_registries_expose_structured_data() {
 }
 
 #[test]
-fn debug_and_error_trait_surfaces_are_covered() {
+fn test_debug_and_error_trait_surfaces_are_covered() {
     let dependency = DependencySpec::new("dependency", InputType::Text, true);
     assert_eq!(
         (dependency.name(), dependency.input(), dependency.optional()),
@@ -558,7 +560,7 @@ fn debug_and_error_trait_surfaces_are_covered() {
 }
 
 #[test]
-fn bound_validator_accepts_valid_nonempty_and_prerequisite_outcomes() {
+fn test_bound_validator_accepts_valid_nonempty_and_prerequisite_outcomes() {
     static INVALID: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_nonempty)];
     static PREREQUISITE: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], skipped_prerequisite)];
     let invalid = ValidatorDescriptor::new(INVALID)
@@ -578,7 +580,7 @@ fn bound_validator_accepts_valid_nonempty_and_prerequisite_outcomes() {
 }
 
 #[test]
-fn protocol_and_enum_display_values_are_stable() {
+fn test_protocol_and_enum_display_values_are_stable() {
     for kind in [
         BindErrorKind::UnknownParameter,
         BindErrorKind::DuplicateParameter,

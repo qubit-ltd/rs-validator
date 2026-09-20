@@ -1,140 +1,387 @@
-# qubit-validator user guide
+# qubit-validator User Guide
 
-[中文版本](user_guide.zh_CN.md) · [README](../README.md) · [API documentation](https://docs.rs/qubit-validator)
+## Purpose and Audience
 
-This guide describes `qubit-validator` 0.1.0 for Rust 1.94 or later. It is for application and library authors who need reusable validation rules, structured results, or a registry that can bind rules by stable identifier.
+`qubit-validator` is for Rust libraries and applications that need both normal
+typed validation and configured lookup by a stable rule ID. This guide assumes
+basic familiarity with Rust traits and error handling. It focuses on the public
+API; it does not assume a model framework, code generator, or scheduler.
 
-## Purpose and audience
+## Conceptual Model
 
-The crate owns the validation boundary, not model traversal. Use it when a caller already has a value and needs to run a typed rule, prepare a rule for repeated erased calls, or collect violations in a bounded report. Model metadata and validation-plan scheduling remain outside this crate.
+The API deliberately separates six concepts:
 
-## Conceptual model
-
-| Object | Role |
+| Concept | Meaning |
 | --- | --- |
-| `Validator<T, C>` | A normal typed rule over a borrowed value and immutable context. |
-| `PreparedValidator` | A shareable, type-erased rule instance. |
-| `ValidatorSignature` and `ValidatorDescriptor` | The input shape, dependency slots, and preparation function accepted by a rule definition. |
-| `ValidatorRegistry` | A deterministic collection of registrations that can bind a rule by ID and input shape. |
-| `ValidationOutcome` | Valid, invalid with `Violation` values, or explicitly skipped. |
-| `ValidationReport` | A bounded aggregate of violations and skipped occurrences. |
+| Direct typed validation | Calling `Validator<T, C>::validate` with concrete Rust types and receiving the rule's domain error. |
+| Prepared validator | A reusable, type-erased rule instance produced after configuration parameters have been decoded. It returns `PreparedOutcome` drafts or an `ExecutionError`. |
+| Bound validator | A prepared validator paired with a selected signature and stable rule ID. It checks the input and ordered dependency slots before executing. |
+| Validation outcome | The result of one successful invocation: `Valid`, `Invalid`, or `Skipped`. Invalid input is data, not an execution failure. |
+| Execution error | An infrastructure or contract failure such as an input mismatch, missing required dependency, or adapter contract violation. It is returned as `Err`. |
+| Report | A caller-assembled `ValidationReport` that aggregates final `Violation` and `SkippedValidation` values, optionally with limits. |
 
-There are two error boundaries: binding errors (`BindError`) mean a definition or call could not be prepared; execution errors (`ExecutionError`) mean a prepared rule could not run with the supplied value or dependencies. A rule violation is data returned through `ValidationOutcome::Invalid`, not an execution failure.
+This separation lets a rule keep a domain-specific error during direct calls,
+then map that error to a stable `ViolationDraft` only when it crosses the
+prepared boundary.
 
-## Scenario: reject a blank user name
+## Scenario: Validate a Configured Display Name
 
-The success criterion is that a non-blank name returns `Valid`, while whitespace-only input returns a violation with the stable code `user.name.blank`.
+The running scenario uses a `NonBlank` rule for a display name. Direct typed
+validation answers a simple question with `Result<(), BlankText>`. Configured
+validation registers the same rule as `text.non_blank`, maps `BlankText` to the
+public violation code `text.blank`, and invokes it through a registry.
 
-## Installation and minimal configuration
+The complete runnable source is
+[`examples/local_registry.rs`](../examples/local_registry.rs). The full source
+is reproduced in the next section so it can be copied as a program.
+
+## Installation and Minimal Configuration
+
+Add the crate without optional features for direct validation and local
+registries:
 
 ```toml
 [dependencies]
 qubit-validator = "0.1"
 ```
 
-The default feature set is empty. Enable `inventory` only when the application wants process-wide registration through `register_validator!`:
-
-```toml
-qubit-validator = { version = "0.1", features = ["inventory"] }
-```
-
-## Core workflow
-
-### 1. Write and use a typed rule
-
-Implement `Validator<T>` when the caller already knows the concrete input type. The default context is `()`; use `Validator<T, C>` when the rule needs an immutable typed context.
+Local registration is available in the default feature set. The following is
+the complete `examples/local_registry.rs` program:
 
 ```rust
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+use std::error::Error;
+use std::fmt;
+use std::sync::Arc;
+
+use qubit_validator::ArgumentReader;
+use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
+use qubit_validator::BoundValidationContext;
+use qubit_validator::DependencySpec;
+use qubit_validator::InputType;
+use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedValidator;
+use qubit_validator::RegistrationSource;
+use qubit_validator::ValidationArgument;
+use qubit_validator::ValidationOutcome;
+use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
+use qubit_validator::ValidatorDescriptor;
+use qubit_validator::ValidatorId;
+use qubit_validator::ValidatorRegistration;
+use qubit_validator::ValidatorRegistry;
+use qubit_validator::ValidatorSignature;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_text_validator;
+#[cfg(feature = "inventory")]
+use qubit_validator::register_validator;
 
 #[derive(Debug)]
-struct BlankName;
+struct BlankText;
 
-impl std::fmt::Display for BlankName {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("name is blank")
+impl fmt::Display for BlankText {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("text must not be blank")
     }
 }
 
-impl std::error::Error for BlankName {}
+impl Error for BlankText {}
 
 struct NonBlank;
 
 impl Validator<str> for NonBlank {
-    type Error = BlankName;
+    type Error = BlankText;
 
     fn validate(&self, value: &str, _context: &()) -> Result<(), Self::Error> {
-        if value.trim().is_empty() { Err(BlankName) } else { Ok(()) }
+        if value.trim().is_empty() {
+            Err(BlankText)
+        } else {
+            Ok(())
+        }
     }
 }
 
-assert!(NonBlank.validate("Ada", &()).is_ok());
-assert!(NonBlank.validate("  ", &()).is_err());
+fn prepare_non_blank(
+    params: &[NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    ArgumentReader::new(params)?.finish()?;
+    Ok(prepare_text_validator(NonBlank, |_| {
+        ViolationDraft::new(ViolationCode::new("text.blank"))
+    }))
+}
+
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    &[],
+    prepare_non_blank,
+)];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
+#[cfg(feature = "inventory")]
+register_validator!(id = "text.non_blank.global", descriptor = &DESCRIPTOR);
+
+static DEPENDENCIES: &[DependencySpec] = &[
+    DependencySpec::new("minimum", InputType::Text, false),
+    DependencySpec::new("maximum", InputType::Text, false),
+];
+static DEPENDENCY_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    DEPENDENCIES,
+    prepare_non_blank,
+)];
+static DEPENDENCY_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(DEPENDENCY_SIGNATURES);
+
+fn assert_dependency_order_is_checked() {
+    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
+    let error = DEPENDENCY_DESCRIPTOR
+        .bind(ValidatorId::new("text.dependent"), 0, &[], &declared)
+        .expect_err("swapped dependency slots must fail during binding");
+    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
+}
+
+fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
+    let args = [NamedValidationArgument::new(
+        "limit",
+        ValidationArgument::Unsigned(10),
+    )];
+    let mut reader = ArgumentReader::new(&args)?;
+    assert_eq!(reader.required_u32("limit")?, 10);
+    let error = reader
+        .required_u32("limit")
+        .expect_err("a parameter cannot be read twice");
+    assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let registration = ValidatorRegistration::new(
+        ValidatorId::new("text.non_blank"),
+        &DESCRIPTOR,
+        RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+
+    assert!(registry.get("text.non_blank").is_some());
+    let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
+    let context = BoundValidationContext::new(&[]);
+
+    let valid = validator.validate(ValidationValue::Text("Ada"), &context)?;
+    assert_eq!(valid, ValidationOutcome::Valid);
+
+    let invalid = validator.validate(ValidationValue::Text("   "), &context)?;
+    let ValidationOutcome::Invalid(violations) = invalid else {
+        panic!("blank text must be invalid");
+    };
+    assert_eq!(violations.len(), 1);
+    assert_eq!(violations[0].code(), ViolationCode::new("text.blank"));
+
+    assert_dependency_order_is_checked();
+    assert_parameters_are_consumed_once()?;
+
+    #[cfg(feature = "inventory")]
+    {
+        let global = ValidatorRegistry::try_global()?;
+        assert!(global.get("text.non_blank.global").is_some());
+    }
+
+    Ok(())
+}
 ```
 
-### 2. Adapt the rule for an erased boundary
+Run the canonical source with:
 
-`prepare_text_validator` adapts a `Validator<str>` and maps its domain error to a `ViolationDraft`. The prepared rule borrows the input at execution time and can be shared through `Arc`.
+```bash
+cargo run --example local_registry --locked
+```
+
+## Core Workflow
+
+1. Implement `Validator<T, C>` for a typed rule. Call it directly when runtime
+   lookup is unnecessary.
+2. Adapt the rule with `prepare_text_validator` or `prepare_typed_validator`.
+   The mapper converts a domain error into a `ViolationDraft` with a stable
+   code and safe parameters.
+3. Put the preparation function in one or more static `ValidatorSignature`
+   values. Each signature fixes its accepted input shape and ordered dependency
+   slots.
+4. Put the signatures in a static `ValidatorDescriptor`, then associate the
+   descriptor with a `ValidatorId` and `RegistrationSource`.
+5. Freeze registrations into a local registry, look up or bind the rule, then
+   reuse the resulting `BoundValidator`.
+6. For each call, pass a borrowed `ValidationValue` and a
+   `BoundValidationContext`. Handle the non-exhaustive `ValidationOutcome` with
+   a fallback arm.
+7. If validating several occurrences, convert the outcomes into a
+   caller-owned `ValidationReport`. The crate does not schedule or traverse
+   those occurrences for you.
+
+Preparation happens during binding, not for every validation call. A
+`BoundValidator` owns the prepared instance through `Arc` and can be cloned.
+
+## Advanced Usage: Local and Inventory Registries
+
+Use `ValidatorRegistry::from_registrations` for deterministic, explicit
+composition. It is always available, works well in tests, and allows different
+registries in the same process.
+
+Process-wide discovery is optional. Enable it explicitly:
+
+```toml
+[dependencies]
+qubit-validator = { version = "0.1", features = ["inventory"] }
+```
+
+Then submit a static descriptor and obtain the global registry. Both excerpts
+come from `examples/local_registry.rs`:
 
 ```rust
-use qubit_validator::BoundValidationContext;
-use qubit_validator::PreparedOutcome;
-use qubit_validator::PreparedValidator;
-use qubit_validator::ValidationValue;
-use qubit_validator::ViolationCode;
-use qubit_validator::ViolationDraft;
-use qubit_validator::prepare_text_validator;
-
-let prepared = prepare_text_validator(NonBlank, |_| {
-    ViolationDraft::new(ViolationCode::new("user.name.blank"))
-});
-let outcome = prepared
-    .validate(ValidationValue::Text("  "), &BoundValidationContext::new(&[]))?;
-assert!(matches!(outcome, PreparedOutcome::Invalid(_)));
-# Ok::<(), Box<dyn std::error::Error>>(())
+#[cfg(feature = "inventory")]
+register_validator!(id = "text.non_blank.global", descriptor = &DESCRIPTOR);
 ```
 
-For a concrete `T: 'static`, use `prepare_typed_validator` and pass `ValidationValue::Typed(&value)` at execution time.
+```rust
+#[cfg(feature = "inventory")]
+{
+    let global = ValidatorRegistry::try_global()?;
+    assert!(global.get("text.non_blank.global").is_some());
+}
+```
 
-### 3. Bind through a local registry
+Compile and execute those feature-gated paths with:
 
-For rule lookup by stable ID, declare a `ValidatorSignature`, put it in a static `ValidatorDescriptor`, and create a `ValidatorRegistration` with a `ValidatorId` and `RegistrationSource`. Build an isolated registry with `ValidatorRegistry::from_registrations`. It sorts registrations by ID and rejects duplicate IDs or invalid descriptors.
+```bash
+cargo run --example local_registry --all-features --locked
+```
 
-Call `registry.bind(id, input_type, params, dependencies)` once per configured rule occurrence, then reuse the returned `BoundValidator` for calls to `validate`. A descriptor may expose multiple signatures, but each input shape must be unique.
+Duplicate IDs cause registry construction to fail with
+`ValidatorRegistryError::DuplicateId`. Prefer `try_global` where that failure
+must be handled; `global` panics on an invalid linked registry.
 
-The `inventory` feature adds `register_validator!` and `ValidatorRegistry::try_global()`/`global()` for process-wide discovery. Prefer local registries when tests or tenants need independent rule sets.
+## Dependency Slots
 
-## Advanced usage
+A dependency signature is an ordered list of `DependencySpec` values. Names
+make diagnostics understandable, but names do not turn the list into a map:
+position, `InputType`, and optionality all form the contract. Binding rejects a
+caller declaration that contains the right dependencies in the wrong order.
 
-- Declare ordered `DependencySpec` values for values supplied through `BoundValidationContext`. Required slots reject `ValidationValue::Missing`; optional slots accept it and can be read with `optional_typed`.
-- Use `NamedValidationArgument` and `ValidationArgument` for borrowed, domain-neutral preparation parameters.
-- Return `PreparedOutcome::Skipped` with `SkipReason::MissingOptional` or `SkipReason::FailedPrerequisite` when the executor deliberately does not run a rule.
-- Build nested locations with `ValidationPath::root().with_field("profile").with_index(0)`. A `ViolationDraft` or `Violation` can carry that path and static `ViolationParam` values.
-- Use `ValidationReport::with_limits` when a caller must bound retained violations or skipped entries. Reaching a limit marks the report truncated.
+This focused example comes directly from `examples/local_registry.rs`:
 
-## Errors and diagnostics
+```rust
+fn assert_dependency_order_is_checked() {
+    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
+    let error = DEPENDENCY_DESCRIPTOR
+        .bind(ValidatorId::new("text.dependent"), 0, &[], &declared)
+        .expect_err("swapped dependency slots must fail during binding");
+    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
+}
+```
 
-- `ValidatorRegistryError` reports duplicate IDs and invalid descriptors while building a registry.
-- `BindError` reports missing rules, unsupported or ambiguous signatures, dependency declaration mismatches, and preparation failures.
-- `ExecutionError` reports input-shape mismatches, missing or incorrectly typed dependencies, adapter contract violations, and rule execution failures.
-- `ValidationOutcome::Invalid` contains structured `Violation` values. `ValidationOutcome::Skipped` preserves the reason and prerequisite violations.
+Run that source with:
 
-Do not treat a binding or execution error as a successful validation result. Use the error kind accessors and the associated rule/dependency information in diagnostics.
+```bash
+cargo run --example local_registry --locked
+```
+
+At execution time, `BoundValidationContext` must contain the same number and
+shape of values. Use `ValidationValue::Missing` only for an optional slot.
+`new_with_paths` can associate each slot with a structured dependency path for
+diagnostics.
+
+## Errors and Diagnostics
+
+- A rule's domain error belongs to direct typed validation. An adapter mapper
+  turns it into a `ViolationDraft`; the bound validator attaches the rule ID
+  and returns final `Violation` values in `ValidationOutcome::Invalid`.
+- `BindError` reports configuration failures such as missing rules, unsupported
+  inputs, malformed parameters, and dependency declaration mismatches.
+- `ValidatorRegistryError` reports duplicate IDs or invalid descriptors while
+  freezing a registry.
+- `ExecutionError` reports infrastructure and adapter failures. It is separate
+  from an invalid business value.
+- `ValidationReport` is an aggregate chosen by the caller. It can bound stored
+  violations and skipped entries and records truncation.
+
+Parameters are decoded through `ArgumentReader`. A present parameter is
+consumed by its first typed read, including a read that fails type or range
+conversion. Reading it again returns `ParameterAlreadyConsumed`. This excerpt
+comes directly from `examples/local_registry.rs`:
+
+```rust
+fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
+    let args = [NamedValidationArgument::new(
+        "limit",
+        ValidationArgument::Unsigned(10),
+    )];
+    let mut reader = ArgumentReader::new(&args)?;
+    assert_eq!(reader.required_u32("limit")?, 10);
+    let error = reader
+        .required_u32("limit")
+        .expect_err("a parameter cannot be read twice");
+    assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    Ok(())
+}
+```
+
+Run that source with:
+
+```bash
+cargo run --example local_registry --locked
+```
+
+Public diagnostics intentionally omit raw inputs and raw parameter values.
+`ExecutionError` may retain an internal source error, but its `Display` and
+`Debug` output do not expose the source text. `ValidationPath::Display` is also
+redacted; trusted presentation code must opt in to `ValidationPath::render`.
 
 ## Troubleshooting
 
-1. If binding reports `UnsupportedInput`, compare the requested `InputType` with the descriptor signatures.
-2. If binding reports a dependency error, compare names, order, input shapes, and optionality with the declared `DependencySpec` values.
-3. If execution reports a type mismatch, ensure `ValidationValue` and every dependency slot use the exact declared shape.
-4. If a report is not valid, inspect `violations()`, `skipped()`, and `is_truncated()`; a truncated report is not exhaustive.
-5. If the global registry fails to initialize, inspect duplicate registration IDs and use `try_global()` to retain the structured error.
+- **`MissingRule`**: verify the stable ID and that the registration was included
+  in the selected local registry. For a global registry, enable `inventory` and
+  ensure the registering crate is linked.
+- **`UnsupportedInput` or `InputTypeMismatch`**: bind and invoke using the exact
+  `InputType` declared by the selected signature. Text and typed values are not
+  implicitly converted.
+- **Dependency declaration errors**: compare the supplied dependency slice with
+  `BoundValidator::dependency_specs`; order is significant.
+- **`UnknownParameter`**: consume every configured parameter, then call
+  `ArgumentReader::finish`. Remove misspelled or unsupported names.
+- **`ParameterAlreadyConsumed`**: decode each present parameter exactly once and
+  store the decoded value in the prepared validator.
+- **`AdapterContractViolation`**: check custom `PreparedValidator`
+  implementations. An invalid outcome must contain at least one draft, and
+  skipped outcomes must satisfy the prerequisite rules documented by the API.
 
-## Limitations and best practices
+## Limitations and Best Practices
 
-`qubit-validator` does not traverse models, compile property paths, schedule rules, or provide a built-in set of domain rules. It intentionally supports only borrowed text and exact `TypeId`-based typed values at the erased boundary. Prepared validators must be `Send + Sync`; their implementations should therefore keep shared state immutable or synchronize it explicitly. The crate does not promise that a truncated report contains every violation.
+- The crate does not discover fields, traverse objects, compile paths, or
+  schedule multiple rules. Keep those policies in the caller.
+- Keep validator IDs and violation codes stable. Treat changes as protocol
+  changes for downstream consumers.
+- Prefer local registries unless process-wide discovery is a real requirement.
+- Treat dependency order as an ABI-like contract. Append or reorder slots only
+  with coordinated callers and implementations.
+- Use the provided text and typed adapters for ordinary `Validator`
+  implementations. A custom prepared adapter must uphold the outcome contract.
+- Match public non-exhaustive enums with a wildcard arm so minor releases can
+  add variants.
+- Put only presentation-safe values in `ViolationParam`; never add the rejected
+  input to an error message or structured parameter.
+- Use `ValidationReport::with_limits` when accepting untrusted or very large
+  collections of validation work.
 
-## Further reading
+## Further Reading
 
-- [README](../README.md) · [中文 README](../README.zh_CN.md)
-- [中文用户手册](user_guide.zh_CN.md)
+- [Design and invariants](design.md)
+- [Runnable local-registry example](../examples/local_registry.rs)
 - [API documentation](https://docs.rs/qubit-validator)
+- [Project README](../README.md)
+- [中文文档](../README.zh_CN.md)
