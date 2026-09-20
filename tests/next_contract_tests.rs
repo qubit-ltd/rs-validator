@@ -626,3 +626,8 @@ fn protocol_and_enum_display_values_are_stable() {
     assert_eq!(ViolationCode::try_new("a.b_2").unwrap().as_str(), "a.b_2");
     assert_eq!(InputType::of::<u32>(), InputType::Typed(TypeId::of::<u32>()));
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

@@ -67,6 +67,7 @@ impl<'a> ArgumentReader<'a> {
         Ok(())
     }
 
+    /// Reads an unsigned integer and applies the required/optional policy.
     fn u32_value(&mut self, name: &str, required: bool) -> Result<Option<u32>, BindError> {
         let Some(value) = self.take_optional(name)? else {
             if required {
@@ -86,6 +87,7 @@ impl<'a> ArgumentReader<'a> {
         Ok(Some(value))
     }
 
+    /// Consumes a named argument when it exists.
     fn take_optional(&mut self, name: &str) -> Result<Option<ValidationArgument<'a>>, BindError> {
         let Some(index) = self.args.iter().position(|argument| argument.name() == name) else {
             return Ok(None);
@@ -94,15 +96,18 @@ impl<'a> ArgumentReader<'a> {
         Ok(Some(self.args[index].value()))
     }
 
+    /// Consumes a required named argument.
     fn take(&mut self, name: &str) -> Result<ValidationArgument<'a>, BindError> {
         self.take_optional(name)?
             .ok_or_else(|| BindError::new(BindErrorKind::MissingParameter).with_parameter(name))
     }
 
+    /// Creates a type-mismatch error for one parameter.
     fn type_error(name: &str) -> BindError {
         BindError::new(BindErrorKind::ParameterTypeMismatch).with_parameter(name)
     }
 
+    /// Creates a range error for one parameter.
     fn range_error(name: &str) -> BindError {
         BindError::new(BindErrorKind::ParameterOutOfRange).with_parameter(name)
     }
@@ -116,3 +121,8 @@ impl std::fmt::Debug for ArgumentReader<'_> {
             .finish()
     }
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

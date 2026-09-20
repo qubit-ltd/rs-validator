@@ -48,6 +48,7 @@ impl Borrow<str> for ValidatorId {
 }
 
 /// Validates one point-separated ASCII identifier.
+/// Checks the complete point-separated identifier protocol.
 const fn validate(value: &str) -> Result<(), ValidatorIdError> {
     let bytes = value.as_bytes();
     if bytes.is_empty() {
@@ -71,6 +72,7 @@ const fn validate(value: &str) -> Result<(), ValidatorIdError> {
 }
 
 /// Validates one non-empty identifier segment.
+/// Checks one identifier segment using the ASCII naming protocol.
 const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), ValidatorIdError> {
     if start == end || !bytes[start].is_ascii_alphabetic() {
         return Err(ValidatorIdError::InvalidSegment);
@@ -85,3 +87,8 @@ const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), 
     }
     Ok(())
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

@@ -23,6 +23,7 @@ pub struct BoundValidator {
 }
 
 impl BoundValidator {
+    /// Creates a bound validator from a prepared instance and signature.
     pub(crate) fn new(
         prepared: Arc<dyn PreparedValidator>,
         signature: ValidatorSignature,
@@ -96,6 +97,7 @@ impl BoundValidator {
         self.rule_id
     }
 
+    /// Verifies that the supplied value matches the selected input shape.
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.signature.input().accepts(value) {
             return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule(self.rule_id));
@@ -103,12 +105,14 @@ impl BoundValidator {
         Ok(())
     }
 
+    /// Verifies dependency count, optionality, and input shapes.
     fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
         context
             .check_specs(self.signature.dependencies())
             .map_err(|error| error.with_rule(self.rule_id))
     }
 
+    /// Creates an error for an invalid prepared-validator outcome.
     fn contract_error(&self) -> ExecutionError {
         ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id)
     }
@@ -123,3 +127,8 @@ impl std::fmt::Debug for BoundValidator {
             .finish_non_exhaustive()
     }
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

@@ -64,3 +64,8 @@ fn registry_registration() -> ValidatorRegistration {
         RegistrationSource::new("test", "inventory", "inventory_registry_tests.rs", 1),
     )
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

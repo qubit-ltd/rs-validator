@@ -37,6 +37,7 @@ impl ViolationDraft {
         self.params.insert(name, value);
         self
     }
+    /// Splits the draft into the fields needed to create a final violation.
     pub(crate) fn parts(self) -> (ViolationCode, ValidationPath, BTreeMap<&'static str, ViolationParam>) {
         (self.code, self.path, self.params)
     }

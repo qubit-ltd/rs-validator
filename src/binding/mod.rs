@@ -35,3 +35,8 @@ pub use violation_draft::ViolationDraft;
 
 pub(crate) use crate::registry::ValidatorSignature;
 pub(crate) use crate::report::ValidationPath;
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

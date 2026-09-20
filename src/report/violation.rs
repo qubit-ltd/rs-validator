@@ -23,6 +23,7 @@ pub struct Violation {
 }
 
 impl Violation {
+    /// Attaches a rule identity to a prepared violation draft.
     #[allow(dead_code)]
     pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
         let (code, path, params) = draft.parts();

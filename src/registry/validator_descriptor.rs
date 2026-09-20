@@ -89,6 +89,7 @@ impl ValidatorDescriptor {
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
+    /// Validates that all declared signatures and dependencies are coherent.
     pub(crate) fn validate_definition(&self) -> Result<(), BindError> {
         if self.signatures.is_empty() {
             return Err(BindError::new(BindErrorKind::InvalidDeclaration));
@@ -121,6 +122,7 @@ impl ValidatorDescriptor {
     }
 }
 
+/// Validates the caller's dependency declarations against a signature.
 fn validate_dependencies(
     expected: &[super::DependencySpec],
     declared: &[super::DependencySpec],
@@ -158,3 +160,8 @@ impl std::fmt::Debug for ValidatorDescriptor {
             .finish()
     }
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

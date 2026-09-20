@@ -107,6 +107,7 @@ impl ValidatorRegistry {
             .map_err(|error| error.with_rule(registration.id()))
     }
 
+    /// Sorts, validates, and indexes owned registrations.
     fn build(mut registrations: Vec<ValidatorRegistration>) -> Result<Self, ValidatorRegistryError> {
         registrations.sort_by_key(|registration| (registration.id(), registration.source()));
         let mut index = 0;
@@ -156,3 +157,8 @@ impl From<&ValidatorRegistration> for ValidatorRegistration {
         *value
     }
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

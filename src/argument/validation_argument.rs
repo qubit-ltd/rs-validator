@@ -20,3 +20,8 @@ pub enum ValidationArgument<'a> {
     /// A string list.
     StringList(&'a [&'a str]),
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

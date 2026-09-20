@@ -41,3 +41,8 @@ fn report_without_limits_accepts_both_kinds() {
     assert!(report.push_skipped(skipped()));
     assert!(!report.is_truncated());
 }
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+// =============================================================================

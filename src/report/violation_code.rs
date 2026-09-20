@@ -79,6 +79,7 @@ impl std::fmt::Display for ViolationCode {
     }
 }
 
+/// Checks one violation-code segment using the ASCII naming protocol.
 const fn valid_segment(bytes: &[u8], start: usize, end: usize) -> bool {
     if start == end || !bytes[start].is_ascii_alphabetic() {
         return false;
