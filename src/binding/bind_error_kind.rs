@@ -16,6 +16,8 @@ pub enum BindErrorKind {
     DuplicateParameter,
     /// A required parameter is absent.
     MissingParameter,
+    /// A parameter has already been consumed by this reader.
+    ParameterAlreadyConsumed,
     /// A parameter has the wrong value type.
     ParameterTypeMismatch,
     /// A parameter is outside the supported range.
@@ -56,6 +58,7 @@ impl std::fmt::Display for BindErrorKind {
             Self::UnknownParameter => "unknown parameter",
             Self::DuplicateParameter => "duplicate parameter",
             Self::MissingParameter => "missing parameter",
+            Self::ParameterAlreadyConsumed => "parameter already consumed",
             Self::ParameterTypeMismatch => "parameter type mismatch",
             Self::ParameterOutOfRange => "parameter out of range",
             Self::InvalidBounds => "invalid bounds",

@@ -5,8 +5,13 @@ use super::BindErrorKind;
 use crate::NamedValidationArgument;
 use crate::ValidationArgument;
 
-/// Reads declared arguments while rejecting duplicates, unknown names, and
-/// lossy numeric conversions.
+/// Reads declared arguments exactly once while rejecting duplicates, unknown
+/// names, and lossy numeric conversions.
+///
+/// A present parameter can be read at most once. A typed read consumes the
+/// parameter before decoding it, so type and range errors also complete that
+/// parameter's consumption. Call [`Self::finish`] to reject parameters that
+/// were never read.
 pub struct ArgumentReader<'a> {
     args: &'a [NamedValidationArgument<'a>],
     consumed: Vec<bool>,
@@ -30,17 +35,36 @@ impl<'a> ArgumentReader<'a> {
         })
     }
 
-    /// Reads a required unsigned 32-bit integer.
+    /// Reads a required unsigned 32-bit integer once.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MissingParameter` when the parameter is absent,
+    /// `ParameterAlreadyConsumed` when it was previously read,
+    /// `ParameterTypeMismatch` when it is not an integer, or
+    /// `ParameterOutOfRange` when its value cannot be represented as a `u32`.
     pub fn required_u32(&mut self, name: &str) -> Result<u32, BindError> {
         self.u32_value(name, true).map(|value| value.expect("required value"))
     }
 
-    /// Reads an optional unsigned 32-bit integer.
+    /// Reads an optional unsigned 32-bit integer once.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParameterAlreadyConsumed` when the present parameter was
+    /// previously read, `ParameterTypeMismatch` when it is not an integer, or
+    /// `ParameterOutOfRange` when its value cannot be represented as a `u32`.
     pub fn optional_u32(&mut self, name: &str) -> Result<Option<u32>, BindError> {
         self.u32_value(name, false)
     }
 
-    /// Reads a required string argument.
+    /// Reads a required string argument once.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MissingParameter` when the parameter is absent,
+    /// `ParameterAlreadyConsumed` when it was previously read, or
+    /// `ParameterTypeMismatch` when it is not a string.
     pub fn required_str(&mut self, name: &str) -> Result<&'a str, BindError> {
         match self.take(name)? {
             ValidationArgument::String(value) => Ok(value),
@@ -48,7 +72,12 @@ impl<'a> ArgumentReader<'a> {
         }
     }
 
-    /// Reads an optional boolean argument.
+    /// Reads an optional boolean argument once.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParameterAlreadyConsumed` when the present parameter was
+    /// previously read or `ParameterTypeMismatch` when it is not a boolean.
     pub fn optional_bool(&mut self, name: &str) -> Result<Option<bool>, BindError> {
         let Some(value) = self.take_optional(name)? else {
             return Ok(None);
@@ -60,6 +89,10 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Rejects every argument which was not consumed by a typed reader.
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnknownParameter` for the first argument that was never read.
     pub fn finish(&self) -> Result<(), BindError> {
         if let Some((_index, argument)) = self.args.iter().enumerate().find(|(index, _)| !self.consumed[*index]) {
             return Err(BindError::new(BindErrorKind::UnknownParameter).with_parameter(argument.name()));
@@ -90,6 +123,11 @@ impl<'a> ArgumentReader<'a> {
         let Some(index) = self.args.iter().position(|argument| argument.name() == name) else {
             return Ok(None);
         };
+        if self.consumed[index] {
+            return Err(
+                BindError::new(BindErrorKind::ParameterAlreadyConsumed).with_parameter(name)
+            );
+        }
         self.consumed[index] = true;
         Ok(Some(self.args[index].value()))
     }
