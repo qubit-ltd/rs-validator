@@ -1,3 +1,5 @@
+#![deny(unreachable_patterns)]
+
 use qubit_validator::InputType;
 use qubit_validator::RegistrationSource;
 use qubit_validator::ValidatorDescriptor;
@@ -23,6 +25,7 @@ fn test_public_enum_matching_allows_future_variants() {
 
     let label = match input {
         InputType::Text => "text",
+        InputType::Typed(_) => "typed",
         _ => "other",
     };
 
