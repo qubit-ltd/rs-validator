@@ -5,18 +5,10 @@ use qubit_validator::ValidationArgument;
 
 #[test]
 fn test_required_parameter_cannot_be_read_twice() {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Unsigned(10),
-    )];
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::Unsigned(10))];
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
 
-    assert_eq!(
-        reader
-            .required_u32("limit")
-            .expect("first read should succeed"),
-        10
-    );
+    assert_eq!(reader.required_u32("limit").expect("first read should succeed"), 10);
     let error = reader
         .required_u32("limit")
         .expect_err("second read should be rejected");
@@ -27,16 +19,11 @@ fn test_required_parameter_cannot_be_read_twice() {
 
 #[test]
 fn test_present_optional_parameter_cannot_be_read_twice() {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Unsigned(10),
-    )];
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::Unsigned(10))];
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
 
     assert_eq!(
-        reader
-            .optional_u32("limit")
-            .expect("first read should succeed"),
+        reader.optional_u32("limit").expect("first read should succeed"),
         Some(10)
     );
     let error = reader
@@ -68,10 +55,7 @@ fn test_missing_parameter_keeps_required_and_optional_semantics() {
 
 #[test]
 fn test_type_error_consumes_parameter() {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::String("ten"),
-    )];
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::String("ten"))];
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
 
     assert_eq!(
@@ -91,10 +75,7 @@ fn test_type_error_consumes_parameter() {
 
 #[test]
 fn test_range_error_consumes_parameter() {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Integer(-1),
-    )];
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::Integer(-1))];
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
 
     assert_eq!(

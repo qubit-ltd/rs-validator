@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use qubit_validator::prepare_text_validator;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::InputType;
@@ -23,6 +22,7 @@ use qubit_validator::ViolationCode;
 use qubit_validator::ViolationCodeError;
 use qubit_validator::ViolationDraft;
 use qubit_validator::ViolationParam;
+use qubit_validator::prepare_text_validator;
 
 const SENSITIVE_VALUE: &str = "raw-password-do-not-log";
 
@@ -40,16 +40,11 @@ impl Validator<str> for RejectSensitiveText {
     }
 }
 
-fn prepare_sensitive_text(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_sensitive_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_validator(RejectSensitiveText, |_| {
         ViolationDraft::new(ViolationCode::new("credentials.rejected"))
             .with_param("retry_after", ViolationParam::Unsigned(3))
-            .with_param(
-                "message_key",
-                ViolationParam::Token("validation.credentials.rejected"),
-            )
+            .with_param("message_key", ViolationParam::Token("validation.credentials.rejected"))
             .with_param("minimum", ViolationParam::Signed(-2))
             .with_param("is_blocked", ViolationParam::Bool(true))
             .with_path(
@@ -62,18 +57,12 @@ fn prepare_sensitive_text(
     }))
 }
 
-static SENSITIVE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_sensitive_text,
-)];
+static SENSITIVE_SIGNATURES: &[ValidatorSignature] =
+    &[ValidatorSignature::new(InputType::Text, &[], prepare_sensitive_text)];
 static SENSITIVE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SENSITIVE_SIGNATURES);
 
 fn violation() -> Violation {
-    Violation::new(
-        ValidatorId::new("test.protocol"),
-        ViolationCode::new("test.rejected"),
-    )
+    Violation::new(ValidatorId::new("test.protocol"), ViolationCode::new("test.rejected"))
 }
 
 fn skipped() -> SkippedValidation {
@@ -117,8 +106,7 @@ fn test_validator_id_protocol_boundaries_and_error_contract() {
     }
 
     let shortest = ValidatorId::try_new("a").expect("single-letter validator ID is valid");
-    let namespaced =
-        ValidatorId::try_new("qubit.rules_2.text3").expect("namespaced validator ID is valid");
+    let namespaced = ValidatorId::try_new("qubit.rules_2.text3").expect("namespaced validator ID is valid");
 
     assert_eq!(shortest.as_str(), "a");
     assert_eq!(namespaced.as_str(), "qubit.rules_2.text3");
@@ -149,8 +137,7 @@ fn test_violation_code_protocol_boundaries_and_error_contract() {
             "InvalidSegment",
         ),
     ] {
-        let error =
-            ViolationCode::try_new(value).expect_err("invalid violation code must be rejected");
+        let error = ViolationCode::try_new(value).expect_err("invalid violation code must be rejected");
 
         assert_eq!(error, expected);
         assert!(error.to_string().contains("violation code"));
@@ -160,8 +147,7 @@ fn test_violation_code_protocol_boundaries_and_error_contract() {
     }
 
     let shortest = ViolationCode::try_new("a").expect("single-letter violation code is valid");
-    let namespaced = ViolationCode::try_new("text.length_2.minimum")
-        .expect("namespaced violation code is valid");
+    let namespaced = ViolationCode::try_new("text.length_2.minimum").expect("namespaced violation code is valid");
 
     assert_eq!(shortest.as_str(), "a");
     assert_eq!(namespaced.as_str(), "text.length_2.minimum");
@@ -186,15 +172,10 @@ fn test_adapter_converts_draft_without_leaking_or_bypassing_report_limits() {
         panic!("rejected sensitive text must produce an invalid outcome");
     };
     assert_eq!(violations.len(), 1);
-    let final_violation = violations
-        .pop()
-        .expect("invalid outcome contains the mapped violation");
+    let final_violation = violations.pop().expect("invalid outcome contains the mapped violation");
 
     assert_eq!(final_violation.rule_id(), rule_id);
-    assert_eq!(
-        final_violation.code(),
-        ViolationCode::new("credentials.rejected")
-    );
+    assert_eq!(final_violation.code(), ViolationCode::new("credentials.rejected"));
     assert_eq!(
         final_violation.path(),
         &ValidationPath::root()
@@ -212,10 +193,7 @@ fn test_adapter_converts_draft_without_leaking_or_bypassing_report_limits() {
         params,
         [
             ("is_blocked", ViolationParam::Bool(true)),
-            (
-                "message_key",
-                ViolationParam::Token("validation.credentials.rejected"),
-            ),
+            ("message_key", ViolationParam::Token("validation.credentials.rejected"),),
             ("minimum", ViolationParam::Signed(-2)),
             ("retry_after", ViolationParam::Unsigned(3)),
         ],

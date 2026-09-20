@@ -11,8 +11,7 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(&[]);
 #[test]
 fn test_registration_constructors_are_public() {
     let source = RegistrationSource::new("consumer", "consumer::rules", "rules.rs", 17);
-    let registration =
-        ValidatorRegistration::new(ValidatorId::new("consumer.non_blank"), &DESCRIPTOR, source);
+    let registration = ValidatorRegistration::new(ValidatorId::new("consumer.non_blank"), &DESCRIPTOR, source);
 
     assert_eq!(registration.id().as_str(), "consumer.non_blank");
     assert_eq!(registration.source().crate_name(), "consumer");

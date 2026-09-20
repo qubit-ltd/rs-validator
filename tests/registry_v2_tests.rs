@@ -90,11 +90,7 @@ fn test_duplicate_signatures_are_rejected_when_binding() {
 
 #[test]
 fn test_descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
-    static TEXT_DEPS: &[DependencySpec] = &[DependencySpec::new(
-        "credential",
-        InputType::Text,
-        false,
-    )];
+    static TEXT_DEPS: &[DependencySpec] = &[DependencySpec::new("credential", InputType::Text, false)];
     static DUPLICATE: &[ValidatorSignature] = &[
         ValidatorSignature::new(InputType::Text, &[], prepare),
         ValidatorSignature::new(InputType::Text, TEXT_DEPS, prepare),

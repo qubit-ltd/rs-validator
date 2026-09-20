@@ -59,20 +59,14 @@ impl Validator<str> for NonBlank {
     }
 }
 
-fn prepare_non_blank(
-    params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_non_blank(params: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
 }
 
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_non_blank,
-)];
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_non_blank)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 #[cfg(feature = "inventory")]
@@ -98,10 +92,7 @@ fn assert_dependency_order_is_checked() {
 }
 
 fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Unsigned(10),
-    )];
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::Unsigned(10))];
     let mut reader = ArgumentReader::new(&args)?;
     assert_eq!(reader.required_u32("limit")?, 10);
     let error = reader
