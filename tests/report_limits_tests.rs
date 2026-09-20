@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use qubit_validator::SkipReason;
 use qubit_validator::SkippedValidation;
 use qubit_validator::ValidationLimits;
@@ -20,7 +28,7 @@ fn skipped() -> SkippedValidation {
 }
 
 #[test]
-fn report_limits_reject_and_mark_truncation() {
+fn test_report_limits_reject_and_mark_truncation() {
     let mut report = ValidationReport::with_limits(ValidationLimits {
         max_violations: Some(1),
         max_skipped: Some(0),
@@ -35,7 +43,7 @@ fn report_limits_reject_and_mark_truncation() {
 }
 
 #[test]
-fn report_without_limits_accepts_both_kinds() {
+fn test_report_without_limits_accepts_both_kinds() {
     let mut report = ValidationReport::new();
     assert!(report.push_violation(violation()));
     assert!(report.push_skipped(skipped()));

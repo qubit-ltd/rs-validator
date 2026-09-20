@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::convert::Infallible;
 
 use qubit_validator::BindError;
@@ -28,12 +36,12 @@ impl Validator<str> for NonEmpty {
 }
 
 #[test]
-fn validator_uses_shared_immutable_context() {
+fn test_validator_uses_shared_immutable_context() {
     NonEmpty.validate("value", &()).expect("value is valid");
 }
 
 #[test]
-fn violation_code_accepts_stable_dot_separated_names() {
+fn test_violation_code_accepts_stable_dot_separated_names() {
     let code = ViolationCode::try_new("text.too_short").expect("valid code");
 
     assert_eq!(code.as_str(), "text.too_short");
@@ -41,7 +49,7 @@ fn violation_code_accepts_stable_dot_separated_names() {
 }
 
 #[test]
-fn path_builders_preserve_segments_without_map_keys() {
+fn test_path_builders_preserve_segments_without_map_keys() {
     let path = ValidationPath::root()
         .with_field("people")
         .with_index(2)
@@ -62,7 +70,7 @@ fn path_builders_preserve_segments_without_map_keys() {
 }
 
 #[test]
-fn violation_and_report_keep_structured_safe_data() {
+fn test_violation_and_report_keep_structured_safe_data() {
     let violation = Violation::new(
         ValidatorId::new("qubit.rules.text"),
         ViolationCode::new("text.too_short"),
@@ -86,7 +94,7 @@ fn violation_and_report_keep_structured_safe_data() {
 }
 
 #[test]
-fn failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
+fn test_failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
     let mut report = ValidationReport::new();
     assert!(report.push_skipped(SkippedValidation::new(
         2,
@@ -108,7 +116,7 @@ fn failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
 }
 
 #[test]
-fn execution_and_bind_errors_expose_kind_without_source_or_values() {
+fn test_execution_and_bind_errors_expose_kind_without_source_or_values() {
     let execution = ExecutionError::new(ExecutionErrorKind::ExternalFailure)
         .with_rule(ValidatorId::new("qubit.rules.remote"))
         .with_source(std::io::Error::other("secret input"));

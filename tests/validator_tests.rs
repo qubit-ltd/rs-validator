@@ -1,3 +1,11 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::convert::Infallible;
 use std::sync::Arc;
 
@@ -17,6 +25,7 @@ use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
+use qubit_validator::ViolationParam;
 use qubit_validator::prepare_text_validator;
 
 struct Minimum;
@@ -45,10 +54,10 @@ impl Validator<str> for TextRule {
 }
 
 #[test]
-fn typed_adapter_preserves_structured_violation_drafts() {
+fn test_typed_adapter_preserves_structured_violation_drafts() {
     let prepared = prepare_text_validator(TextRule, |_| {
         ViolationDraft::new(ViolationCode::new("test.rejected"))
-            .with_param("bound", qubit_validator::ViolationParam::Unsigned(3))
+            .with_param("bound", ViolationParam::Unsigned(3))
     });
     let outcome = prepared
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
@@ -57,7 +66,7 @@ fn typed_adapter_preserves_structured_violation_drafts() {
 }
 
 #[test]
-fn typed_validator_uses_an_immutable_context() {
+fn test_typed_validator_uses_an_immutable_context() {
     Minimum.validate(&5, &()).expect("value is valid");
 }
 
@@ -83,7 +92,7 @@ static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 #[test]
-fn prepared_descriptor_preserves_structured_rule_failures() {
+fn test_prepared_descriptor_preserves_structured_rule_failures() {
     let bound = DESCRIPTOR
         .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
         .expect("valid descriptor");
@@ -97,7 +106,7 @@ fn prepared_descriptor_preserves_structured_rule_failures() {
 }
 
 #[test]
-fn prepared_descriptor_rejects_wrong_input_shape() {
+fn test_prepared_descriptor_rejects_wrong_input_shape() {
     let bound = DESCRIPTOR
         .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
         .expect("valid descriptor");

@@ -1,8 +1,17 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::sync::Arc;
 
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
@@ -46,7 +55,7 @@ fn registration(
 }
 
 #[test]
-fn duplicate_id_reports_every_source_independent_of_input_order() {
+fn test_duplicate_id_reports_every_source_independent_of_input_order() {
     let one = registration("test.same", "one.rs", &D_A);
     let two = registration("test.same", "two.rs", &D_A);
     let three = registration("test.same", "three.rs", &D_A);
@@ -56,7 +65,7 @@ fn duplicate_id_reports_every_source_independent_of_input_order() {
 }
 
 #[test]
-fn one_id_can_expose_multiple_input_signatures() {
+fn test_one_id_can_expose_multiple_input_signatures() {
     let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
         ValidatorSignature::new(InputType::Text, &[], prepare),
         ValidatorSignature::new(InputType::Typed(std::any::TypeId::of::<u32>()), &[], prepare),
@@ -67,7 +76,7 @@ fn one_id_can_expose_multiple_input_signatures() {
 }
 
 #[test]
-fn duplicate_signatures_are_rejected_when_binding() {
+fn test_duplicate_signatures_are_rejected_when_binding() {
     let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
         ValidatorSignature::new(InputType::Text, &[], prepare),
         ValidatorSignature::new(InputType::Text, &[], prepare),
@@ -80,8 +89,8 @@ fn duplicate_signatures_are_rejected_when_binding() {
 }
 
 #[test]
-fn descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
-    static TEXT_DEPS: &[qubit_validator::DependencySpec] = &[qubit_validator::DependencySpec::new(
+fn test_descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
+    static TEXT_DEPS: &[DependencySpec] = &[DependencySpec::new(
         "credential",
         InputType::Text,
         false,
