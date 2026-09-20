@@ -8,6 +8,7 @@
 
 /// Why a rule did not run.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum SkipReason {
     /// The target was explicitly absent and optional.
     MissingOptional,

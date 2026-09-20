@@ -8,6 +8,7 @@
 
 /// A configuration or declaration error found while binding a rule.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum BindErrorKind {
     /// A parameter name is not known to the rule.
     UnknownParameter,

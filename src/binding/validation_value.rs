@@ -4,6 +4,7 @@ use std::any::Any;
 
 /// A value view that deliberately avoids implicit stringification and cloning.
 #[derive(Clone, Copy)]
+#[non_exhaustive]
 pub enum ValidationValue<'a> {
     /// A borrowed UTF-8 string slice.
     Text(&'a str),

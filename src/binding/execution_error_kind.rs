@@ -8,6 +8,7 @@
 
 /// A failure in the validation execution infrastructure.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ExecutionErrorKind {
     /// The supplied input has the wrong erased type.
     InputTypeMismatch,

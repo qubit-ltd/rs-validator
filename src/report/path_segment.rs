@@ -10,6 +10,7 @@ use std::borrow::Cow;
 
 /// One location segment in a validation path.
 #[derive(Clone, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum PathSegment {
     /// A declared field name.
     Field(Cow<'static, str>),

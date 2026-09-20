@@ -4,6 +4,7 @@ use thiserror::Error;
 
 /// A stable validator ID protocol violation.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+#[non_exhaustive]
 pub enum ValidatorIdError {
     /// The complete ID is empty.
     #[error("validator ID cannot be empty")]

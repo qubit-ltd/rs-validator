@@ -2,6 +2,7 @@
 
 /// One statically typed validator parameter value.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ValidationArgument<'a> {
     /// A Boolean value.
     Bool(bool),

@@ -10,6 +10,7 @@ use thiserror::Error;
 
 /// A violation code protocol error.
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
+#[non_exhaustive]
 pub enum ViolationCodeError {
     /// The complete code is empty.
     #[error("violation code cannot be empty")]

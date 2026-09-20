@@ -8,6 +8,7 @@ use crate::ValidatorId;
 
 /// Failure while freezing a validator registry.
 #[derive(Clone, Debug, Error)]
+#[non_exhaustive]
 pub enum ValidatorRegistryError {
     /// Multiple registrations claim one stable ID.
     #[error("duplicate validator ID {id} from {sources:?}")]

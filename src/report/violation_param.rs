@@ -8,6 +8,7 @@
 
 /// A parameter that is safe to carry in a public violation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum ViolationParam {
     /// A boolean parameter.
     Bool(bool),
