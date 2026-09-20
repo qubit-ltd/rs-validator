@@ -54,8 +54,7 @@ impl Validator<str> for TextRule {
 #[test]
 fn typed_adapter_preserves_structured_violation_drafts() {
     let prepared = prepare_text_validator(TextRule, |_| {
-        ViolationDraft::new(ViolationCode::new("test.rejected"))
-            .with_param("bound", ViolationParam::Unsigned(3))
+        ViolationDraft::new(ViolationCode::new("test.rejected")).with_param("bound", ViolationParam::Unsigned(3))
     });
     let outcome = prepared
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
