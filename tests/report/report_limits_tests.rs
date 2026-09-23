@@ -24,17 +24,29 @@ fn test_report_limits_reject_and_mark_truncation() {
         max_violations: Some(1),
         max_skipped: Some(0),
     });
-    assert!(report
-        .record_outcome(0, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
-            .expect("a violation is present"))
-        .expect("first violation fits"));
-    assert!(!report
-        .record_outcome(1, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
-            .expect("a violation is present"))
-        .expect("capacity truncation is an incomplete record"));
-    assert!(!report
-        .record_outcome(2, ValidationPath::root(), ValidationOutcome::missing_optional())
-        .expect("missing optional is a valid outcome"));
+    assert!(
+        report
+            .record_outcome(
+                0,
+                ValidationPath::root(),
+                ValidationOutcome::invalid(vec![violation()]).expect("a violation is present")
+            )
+            .expect("first violation fits")
+    );
+    assert!(
+        !report
+            .record_outcome(
+                1,
+                ValidationPath::root(),
+                ValidationOutcome::invalid(vec![violation()]).expect("a violation is present")
+            )
+            .expect("capacity truncation is an incomplete record")
+    );
+    assert!(
+        !report
+            .record_outcome(2, ValidationPath::root(), ValidationOutcome::missing_optional())
+            .expect("missing optional is a valid outcome")
+    );
     assert_eq!(report.violations().len(), 1);
     assert!(report.skipped().is_empty());
     assert!(report.is_truncated());
@@ -44,12 +56,27 @@ fn test_report_limits_reject_and_mark_truncation() {
 #[test]
 fn test_report_without_limits_accepts_both_kinds() {
     let mut report = ValidationReport::new();
-    assert!(report
-        .record_outcome(0, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
-            .expect("a violation is present"))
-        .expect("violation is accepted"));
-    assert!(report
-        .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional())
-        .expect("skipped occurrence is accepted"));
+    assert!(
+        report
+            .record_outcome(
+                0,
+                ValidationPath::root(),
+                ValidationOutcome::invalid(vec![violation()]).expect("a violation is present")
+            )
+            .expect("violation is accepted")
+    );
+    assert!(
+        report
+            .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional())
+            .expect("skipped occurrence is accepted")
+    );
     assert!(!report.is_truncated());
+}
+
+#[test]
+fn test_caller_can_mark_early_stopping_as_truncated() {
+    let mut report = ValidationReport::new();
+    report.mark_truncated();
+    assert!(report.is_truncated());
+    assert!(!report.is_valid());
 }

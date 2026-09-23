@@ -110,8 +110,11 @@ impl ValidationReport {
         true
     }
 
-    /// Marks that validation stopped before it was exhaustive.
-    pub(crate) fn mark_truncated(&mut self) {
+    /// Marks that a caller stopped validation before it was exhaustive.
+    ///
+    /// Use this when the execution policy stopped before the report's own
+    /// collection limits rejected an outcome.
+    pub fn mark_truncated(&mut self) {
         self.truncated = true;
     }
 

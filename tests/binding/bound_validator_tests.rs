@@ -15,9 +15,11 @@ use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationOutcome;
+use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
@@ -114,4 +116,27 @@ fn test_prepared_descriptor_rejects_wrong_input_shape() {
         .expect_err("wrong input shape must fail");
 
     assert_eq!(error.kind(), ExecutionErrorKind::InputTypeMismatch);
+}
+
+#[test]
+fn test_prepared_outcome_binds_rule_identity_and_preserves_draft_metadata() {
+    let rule_id = ValidatorId::new("test.bound_rule");
+    let outcome = PreparedOutcome::Invalid(vec![
+        ViolationDraft::new(ViolationCode::new("test.rejected"))
+            .with_path(ValidationPath::root().with_field("name"))
+            .with_param("minimum", ViolationParam::Unsigned(3)),
+    ])
+    .into_bound(rule_id)
+    .expect("one draft makes a valid bound outcome");
+
+    let ValidationOutcome::Invalid(violations) = outcome else {
+        panic!("an invalid draft must remain invalid");
+    };
+    assert_eq!(violations[0].rule_id(), rule_id);
+    assert_eq!(violations[0].code().as_str(), "test.rejected");
+    assert!(matches!(
+        violations[0].path().as_segments(),
+        [PathSegment::Field(name)] if name == "name"
+    ));
+    assert_eq!(violations[0].params()["minimum"], ViolationParam::Unsigned(3));
 }

@@ -10,7 +10,9 @@
 
 use super::ViolationDraft;
 use crate::SkipReason;
+use crate::ValidationOutcome;
 use crate::ValidationOutcomeError;
+use crate::ValidatorId;
 use crate::Violation;
 /// The type-erased result produced before rule identity is attached.
 ///
@@ -89,5 +91,32 @@ impl PreparedOutcome {
             reason: SkipReason::FailedPrerequisite,
             prerequisites,
         })
+    }
+
+    /// Attaches a bound rule identity to draft violations.
+    ///
+    /// # Errors
+    ///
+    /// Returns an outcome contract error when an invalid result is empty or
+    /// a skipped result has prerequisites inconsistent with its reason.
+    pub fn into_bound(self, rule_id: ValidatorId) -> Result<ValidationOutcome, ValidationOutcomeError> {
+        match self {
+            Self::Valid => Ok(ValidationOutcome::Valid),
+            Self::Invalid(drafts) => ValidationOutcome::invalid(
+                drafts
+                    .into_iter()
+                    .map(|draft| Violation::from_draft(rule_id, draft))
+                    .collect(),
+            ),
+            Self::Skipped { reason, prerequisites } => match reason {
+                SkipReason::MissingOptional if !prerequisites.is_empty() => {
+                    Err(ValidationOutcomeError::UnexpectedPrerequisites)
+                }
+                SkipReason::FailedPrerequisite if prerequisites.is_empty() => {
+                    Err(ValidationOutcomeError::EmptyPrerequisites)
+                }
+                _ => Ok(ValidationOutcome::Skipped { reason, prerequisites }),
+            },
+        }
     }
 }
