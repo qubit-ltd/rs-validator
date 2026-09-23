@@ -18,6 +18,38 @@ use super::ValidationValue;
 use crate::NamedValidationArgument;
 
 /// A configured, immutable validator instance safe to share between calls.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use qubit_validator::{
+///     BoundValidationContext, ExecutionError, NamedValidationArgument, PreparedOutcome,
+///     PreparedValidator, ValidationValue,
+/// };
+///
+/// struct Accept;
+/// impl PreparedValidator for Accept {
+///     fn validate(
+///         &self,
+///         _: ValidationValue<'_>,
+///         _: &BoundValidationContext<'_>,
+///     ) -> Result<PreparedOutcome, ExecutionError> {
+///         Ok(PreparedOutcome::valid())
+///     }
+/// }
+///
+/// let prepared: Arc<dyn PreparedValidator> = Arc::new(Accept);
+/// let arguments: &[NamedValidationArgument<'_>] = &[];
+/// let result = prepared.validate(
+///     ValidationValue::Text("ready"),
+///     &BoundValidationContext::new(&[]),
+/// );
+/// assert_eq!(result?, PreparedOutcome::valid());
+/// let _ = arguments;
+/// # Ok::<(), ExecutionError>(())
+/// ```
 pub trait PreparedValidator: Send + Sync {
     /// Validates one erased input with its ordered dependency context.
     ///

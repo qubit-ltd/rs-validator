@@ -9,7 +9,9 @@
 //! Explicitly skipped validation occurrences.
 
 use super::SkipReason;
+use super::ValidationOutcomeError;
 use super::ValidationPath;
+use super::Violation;
 
 /// One validation occurrence that was skipped by the executor.
 ///
@@ -18,10 +20,9 @@ use super::ValidationPath;
 /// ```
 /// use qubit_validator::{SkipReason, SkippedValidation, ValidationPath};
 ///
-/// let skipped = SkippedValidation::new(
+/// let skipped = SkippedValidation::missing_optional(
 ///     0,
 ///     ValidationPath::root().with_field("optional"),
-///     SkipReason::MissingOptional,
 /// );
 /// assert_eq!(skipped.reason(), SkipReason::MissingOptional);
 /// ```
@@ -34,17 +35,43 @@ pub struct SkippedValidation {
     path: ValidationPath,
     /// Policy reason the occurrence did not execute.
     reason: SkipReason,
+    /// Evidence violations for a failed prerequisite, empty for an absent
+    /// optional target.
+    prerequisites: Vec<Violation>,
 }
 
 impl SkippedValidation {
-    /// Creates a skipped validation record.
+    /// Creates a record for an absent optional target.
     #[inline]
-    pub const fn new(occurrence: usize, path: ValidationPath, reason: SkipReason) -> Self {
+    pub fn missing_optional(occurrence: usize, path: ValidationPath) -> Self {
         Self {
             occurrence,
             path,
-            reason,
+            reason: SkipReason::MissingOptional,
+            prerequisites: Vec::new(),
         }
+    }
+
+    /// Creates a record for an occurrence skipped after prerequisite
+    /// violations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmptyPrerequisites` when no failed prerequisite is supplied.
+    pub fn failed_prerequisite(
+        occurrence: usize,
+        path: ValidationPath,
+        prerequisites: Vec<Violation>,
+    ) -> Result<Self, ValidationOutcomeError> {
+        if prerequisites.is_empty() {
+            return Err(ValidationOutcomeError::EmptyPrerequisites);
+        }
+        Ok(Self {
+            occurrence,
+            path,
+            reason: SkipReason::FailedPrerequisite,
+            prerequisites,
+        })
     }
 
     /// Returns the declaration occurrence.
@@ -66,5 +93,11 @@ impl SkippedValidation {
     #[inline]
     pub const fn reason(&self) -> SkipReason {
         self.reason
+    }
+
+    /// Returns violations from prerequisites that prevented this occurrence.
+    #[inline]
+    pub fn prerequisites(&self) -> &[Violation] {
+        &self.prerequisites
     }
 }

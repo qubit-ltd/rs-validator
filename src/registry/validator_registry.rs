@@ -45,7 +45,8 @@ impl ValidatorRegistry {
     ///
     /// # Errors
     ///
-    /// Returns every source which declared a duplicated stable ID.
+    /// Returns every source which declared a duplicated stable ID, or the
+    /// identifier and cause of the first invalid descriptor.
     pub fn from_registrations<I>(registrations: I) -> Result<Self, ValidatorRegistryError>
     where
         I: IntoIterator,
@@ -67,8 +68,9 @@ impl ValidatorRegistry {
     ///
     /// # Errors
     ///
-    /// Returns the cached duplicate-ID error when linked registrations
-    /// conflict. This method is available only with the `inventory` feature.
+    /// Returns the cached error when linked registrations contain a duplicate
+    /// ID or an invalid descriptor. This method is available only with the
+    /// `inventory` feature.
     #[cfg(feature = "inventory")]
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
         static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
@@ -88,8 +90,8 @@ impl ValidatorRegistry {
     ///
     /// # Panics
     ///
-    /// Panics when linked registrations contain duplicate IDs. This method is
-    /// available only with the `inventory` feature.
+    /// Panics when linked registrations contain duplicate IDs or an invalid
+    /// descriptor. This method is available only with the `inventory` feature.
     #[cfg(feature = "inventory")]
     #[must_use]
     pub fn global() -> &'static Self {

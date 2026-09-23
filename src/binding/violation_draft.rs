@@ -14,6 +14,17 @@ use crate::ValidationPath;
 use crate::ViolationCode;
 use crate::ViolationParam;
 /// A safe violation without a rule identity or raw rejected value.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ViolationCode, ViolationDraft, ViolationParam};
+///
+/// let draft = ViolationDraft::new(ViolationCode::new("text.too_short"))
+///     .with_param("minimum", ViolationParam::Unsigned(3));
+/// assert!(format!("{draft:?}").contains("text.too_short"));
+/// assert!(!format!("{draft:?}").contains("secret input"));
+/// ```
 #[must_use]
 #[derive(Eq, PartialEq)]
 pub struct ViolationDraft {

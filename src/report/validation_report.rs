@@ -11,6 +11,7 @@
 use super::SkipReason;
 use super::SkippedValidation;
 use super::ValidationLimits;
+use super::ValidationOutcomeError;
 use super::Violation;
 
 /// A bounded collection of validation violations and skipped occurrences.
@@ -24,15 +25,23 @@ use super::Violation;
 /// use qubit_validator::ValidatorId;
 /// use qubit_validator::Violation;
 /// use qubit_validator::ViolationCode;
+/// use qubit_validator::ValidationOutcome;
+/// use qubit_validator::ValidationOutcomeError;
+/// use qubit_validator::ValidationPath;
 ///
 /// let mut report = ValidationReport::new();
 /// let violation = Violation::new(
 ///     ValidatorId::new("example.non_empty"),
 ///     ViolationCode::new("text.empty"),
 /// );
-/// assert!(report.push_violation(violation));
+/// assert!(report.record_outcome(
+///     0,
+///     ValidationPath::root(),
+///     ValidationOutcome::invalid(vec![violation])?,
+/// )?);
 /// assert!(!report.is_valid());
 /// assert_eq!(report.violations().len(), 1);
+/// # Ok::<(), ValidationOutcomeError>(())
 /// ```
 #[must_use]
 pub struct ValidationReport {
@@ -73,7 +82,7 @@ impl ValidationReport {
     ///
     /// Returns `true` when the violation was stored and `false` when the limit
     /// rejected it and marked the report as truncated.
-    pub fn push_violation(&mut self, violation: Violation) -> bool {
+    pub(crate) fn push_violation(&mut self, violation: Violation) -> bool {
         if self
             .limits
             .max_violations
@@ -92,7 +101,7 @@ impl ValidationReport {
     ///
     /// Returns `true` when the entry was stored and `false` when the limit
     /// rejected it and marked the report as truncated.
-    pub fn push_skipped(&mut self, skipped: SkippedValidation) -> bool {
+    pub(crate) fn push_skipped(&mut self, skipped: SkippedValidation) -> bool {
         if self.limits.max_skipped.is_some_and(|limit| self.skipped.len() >= limit) {
             self.mark_truncated();
             return false;
@@ -102,8 +111,65 @@ impl ValidationReport {
     }
 
     /// Marks that validation stopped before it was exhaustive.
-    pub fn mark_truncated(&mut self) {
+    pub(crate) fn mark_truncated(&mut self) {
         self.truncated = true;
+    }
+
+    /// Adds the result of one validation occurrence while preserving its
+    /// invariants.
+    ///
+    /// Violations and skipped entries are stored in occurrence order and obey
+    /// their respective report limits. Failed-prerequisite violations remain
+    /// nested in the skipped entry and are not added to the top-level list.
+    ///
+    /// # Errors
+    ///
+    /// Returns an outcome shape error for an empty invalid result, an empty
+    /// failed-prerequisite result, or a missing-optional result with
+    /// prerequisite violations. Such an error leaves this report unchanged.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` when the whole outcome fits the configured limits and
+    /// `false` when a limit rejects any part and marks the report truncated.
+    pub fn record_outcome(
+        &mut self,
+        occurrence: usize,
+        path: super::ValidationPath,
+        outcome: crate::ValidationOutcome,
+    ) -> Result<bool, ValidationOutcomeError> {
+        match outcome {
+            crate::ValidationOutcome::Valid => Ok(true),
+            crate::ValidationOutcome::Invalid(violations) => {
+                if violations.is_empty() {
+                    return Err(ValidationOutcomeError::EmptyViolations);
+                }
+                let mut complete = true;
+                for violation in violations {
+                    if !self.push_violation(violation) {
+                        complete = false;
+                    }
+                }
+                Ok(complete)
+            }
+            crate::ValidationOutcome::Skipped {
+                reason: SkipReason::MissingOptional,
+                prerequisites,
+            } => {
+                if !prerequisites.is_empty() {
+                    return Err(ValidationOutcomeError::UnexpectedPrerequisites);
+                }
+                let skipped = SkippedValidation::missing_optional(occurrence, path);
+                Ok(self.push_skipped(skipped))
+            }
+            crate::ValidationOutcome::Skipped {
+                reason: SkipReason::FailedPrerequisite,
+                prerequisites,
+            } => {
+                let skipped = SkippedValidation::failed_prerequisite(occurrence, path, prerequisites)?;
+                Ok(self.push_skipped(skipped))
+            }
+        }
     }
 
     /// Returns whether validation completed with no failures.

@@ -13,6 +13,43 @@ use crate::RegistrationSource;
 use crate::ValidatorId;
 
 /// One validator definition associated with a stable identifier.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use qubit_validator::{
+///     BindError, BoundValidationContext, ExecutionError, InputType, NamedValidationArgument,
+///     PreparedOutcome, PreparedValidator, RegistrationSource, ValidationValue, ValidatorDescriptor,
+///     ValidatorId, ValidatorRegistration, ValidatorSignature,
+/// };
+///
+/// struct Accept;
+/// impl PreparedValidator for Accept {
+///     fn validate(
+///         &self,
+///         _: ValidationValue<'_>,
+///         _: &BoundValidationContext<'_>,
+///     ) -> Result<PreparedOutcome, ExecutionError> {
+///         Ok(PreparedOutcome::valid())
+///     }
+/// }
+/// fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(Arc::new(Accept))
+/// }
+/// static SIGNATURES: &[ValidatorSignature] = &[
+///     ValidatorSignature::new(InputType::Text, &[], prepare),
+/// ];
+/// static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+///
+/// let registration = ValidatorRegistration::new(
+///     ValidatorId::new("text.non_blank"),
+///     &DESCRIPTOR,
+///     RegistrationSource::new("rules", "rules::text", "src/text.rs", 12),
+/// );
+/// assert_eq!(registration.id().as_str(), "text.non_blank");
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct ValidatorRegistration {
     /// Stable identifier claimed by the registration.

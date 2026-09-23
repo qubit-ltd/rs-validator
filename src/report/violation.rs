@@ -29,7 +29,7 @@ use crate::ValidatorId;
 /// assert_eq!(violation.code().as_str(), "text.blank");
 /// ```
 #[must_use]
-#[derive(Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Violation {
     /// Stable identifier of the rule which rejected the value.
     rule_id: ValidatorId,
@@ -42,17 +42,6 @@ pub struct Violation {
 }
 
 impl Violation {
-    /// Assigns a rule identifier to a safe adapter-produced draft.
-    #[allow(dead_code)]
-    pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
-        let (code, path, params) = draft.parts();
-        Self {
-            rule_id,
-            code,
-            path,
-            params,
-        }
-    }
     /// Creates a violation at the root path.
     #[inline]
     pub fn new(rule_id: ValidatorId, code: ViolationCode) -> Self {
@@ -107,6 +96,17 @@ impl Violation {
     #[inline]
     pub const fn params(&self) -> &BTreeMap<&'static str, ViolationParam> {
         &self.params
+    }
+
+    /// Assigns the bound rule identity to a safe adapter-produced draft.
+    pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
+        let (code, path, params) = draft.parts();
+        Self {
+            rule_id,
+            code,
+            path,
+            params,
+        }
     }
 }
 

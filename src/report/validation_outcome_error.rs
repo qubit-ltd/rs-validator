@@ -1,0 +1,36 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
+//! Construction and recording errors for validation outcomes.
+
+/// An outcome violates the invariant required by its declared variant.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ValidationOutcome, ValidationOutcomeError};
+///
+/// assert_eq!(
+///     ValidationOutcome::invalid(Vec::new()),
+///     Err(ValidationOutcomeError::EmptyViolations),
+/// );
+/// ```
+#[must_use]
+#[derive(Clone, Copy, Debug, Eq, thiserror::Error, PartialEq)]
+#[non_exhaustive]
+pub enum ValidationOutcomeError {
+    /// An invalid outcome contains no violations.
+    #[error("an invalid outcome must contain at least one violation")]
+    EmptyViolations,
+    /// A failed-prerequisite outcome contains no prerequisite violations.
+    #[error("a failed-prerequisite outcome must contain at least one prerequisite violation")]
+    EmptyPrerequisites,
+    /// A missing-optional outcome contains prerequisite violations.
+    #[error("a missing-optional outcome cannot contain prerequisite violations")]
+    UnexpectedPrerequisites,
+}

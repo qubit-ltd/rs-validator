@@ -13,6 +13,35 @@ use super::InputType;
 use super::PrepareFn;
 
 /// One statically declared way to bind a validator.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use qubit_validator::{
+///     BindError, BoundValidationContext, ExecutionError, InputType, NamedValidationArgument,
+///     PreparedOutcome, PreparedValidator, ValidationValue, ValidatorSignature,
+/// };
+///
+/// struct Accept;
+/// impl PreparedValidator for Accept {
+///     fn validate(
+///         &self,
+///         _: ValidationValue<'_>,
+///         _: &BoundValidationContext<'_>,
+///     ) -> Result<PreparedOutcome, ExecutionError> {
+///         Ok(PreparedOutcome::valid())
+///     }
+/// }
+/// fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(Arc::new(Accept))
+/// }
+///
+/// let signature = ValidatorSignature::new(InputType::Text, &[], prepare);
+/// assert_eq!(signature.input(), InputType::Text);
+/// assert!(signature.dependencies().is_empty());
+/// ```
 #[derive(Clone, Copy)]
 pub struct ValidatorSignature {
     /// Erased input shape accepted by this signature.

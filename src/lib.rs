@@ -13,6 +13,7 @@
 
 mod argument;
 mod binding;
+mod internal;
 mod registry;
 mod report;
 mod validator;
@@ -43,6 +44,8 @@ pub use binding::PreparedValidator;
 pub use binding::ValidationOutcome;
 pub use binding::ValidationValue;
 pub use binding::ViolationDraft;
+pub use binding::prepare_contextual_text_validator;
+pub use binding::prepare_contextual_typed_validator;
 pub use binding::prepare_text_validator;
 pub use binding::prepare_typed_validator;
 pub use registry::RegistrationSource;
@@ -57,6 +60,7 @@ pub use report::PathSegment;
 pub use report::SkipReason;
 pub use report::SkippedValidation;
 pub use report::ValidationLimits;
+pub use report::ValidationOutcomeError;
 pub use report::ValidationPath;
 pub use report::ValidationReport;
 pub use report::Violation;

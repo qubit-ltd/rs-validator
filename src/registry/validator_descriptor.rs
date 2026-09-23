@@ -76,7 +76,9 @@ impl ValidatorDescriptor {
     ///
     /// # Errors
     ///
-    /// Returns `AmbiguousSignature` when the definition contains duplicates.
+    /// Returns `InvalidDeclaration` when there are no signatures or a
+    /// dependency name is empty or repeated. Returns `AmbiguousSignature` when
+    /// two signatures accept the same input shape.
     pub fn try_new(signatures: &'static [ValidatorSignature]) -> Result<Self, BindError> {
         let descriptor = Self::new(signatures);
         descriptor.validate_definition()?;

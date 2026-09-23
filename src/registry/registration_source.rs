@@ -9,6 +9,16 @@
 //! Linked registration source locations.
 
 /// Source location for one linked registration.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::RegistrationSource;
+///
+/// let source = RegistrationSource::new("rules", "rules::text", "src/text.rs", 12);
+/// assert_eq!(source.crate_name(), "rules");
+/// assert_eq!(source.line(), 12);
+/// ```
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct RegistrationSource {
     /// Cargo package which declared the registration.
