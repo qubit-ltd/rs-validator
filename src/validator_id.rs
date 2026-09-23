@@ -11,6 +11,8 @@
 use core::borrow::Borrow;
 
 use crate::ValidatorIdError;
+use crate::internal::DottedIdentifierError;
+use crate::internal::validate_dotted_identifier;
 
 /// A validated, process-independent validator identifier.
 ///
@@ -54,9 +56,11 @@ impl ValidatorId {
     /// Returns the exact protocol violation for an invalid ID.
     #[inline]
     pub const fn try_new(value: &'static str) -> Result<Self, ValidatorIdError> {
-        match validate(value) {
+        match validate_dotted_identifier(value) {
             Ok(()) => Ok(Self(value)),
-            Err(error) => Err(error),
+            Err(DottedIdentifierError::Empty) => Err(ValidatorIdError::Empty),
+            Err(DottedIdentifierError::EmptySegment) => Err(ValidatorIdError::EmptySegment),
+            Err(DottedIdentifierError::InvalidSegment) => Err(ValidatorIdError::InvalidSegment),
         }
     }
 
@@ -74,45 +78,4 @@ impl Borrow<str> for ValidatorId {
     fn borrow(&self) -> &str {
         self.0
     }
-}
-
-/// Validates one point-separated ASCII identifier.
-#[inline]
-const fn validate(value: &str) -> Result<(), ValidatorIdError> {
-    let bytes = value.as_bytes();
-    if bytes.is_empty() {
-        return Err(ValidatorIdError::Empty);
-    }
-    let mut segment_start = 0;
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'.' {
-            if segment_start == index || index + 1 == bytes.len() {
-                return Err(ValidatorIdError::EmptySegment);
-            }
-            if let Err(error) = validate_segment(bytes, segment_start, index) {
-                return Err(error);
-            }
-            segment_start = index + 1;
-        }
-        index += 1;
-    }
-    validate_segment(bytes, segment_start, bytes.len())
-}
-
-/// Validates one non-empty identifier segment.
-#[inline]
-const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), ValidatorIdError> {
-    if start == end || !bytes[start].is_ascii_alphabetic() {
-        return Err(ValidatorIdError::InvalidSegment);
-    }
-    let mut index = start + 1;
-    while index < end {
-        let byte = bytes[index];
-        if !(byte.is_ascii_alphanumeric() || byte == b'_') {
-            return Err(ValidatorIdError::InvalidSegment);
-        }
-        index += 1;
-    }
-    Ok(())
 }

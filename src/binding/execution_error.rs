@@ -8,14 +8,14 @@
 
 //! Structured validation execution failures.
 
-use std::error::Error;
-
 use super::ExecutionErrorKind;
 use crate::ValidatorId;
 
 /// An execution error with a safe public diagnostic surface.
 ///
-/// Its public formatting and metadata never include raw validation input.
+/// Its public formatting and metadata never include raw validation input. The
+/// error stores no underlying source, and its standard error chain is always
+/// empty.
 #[must_use]
 pub struct ExecutionError {
     /// Stable category describing the execution failure.
@@ -26,8 +26,6 @@ pub struct ExecutionError {
     rule_id: Option<ValidatorId>,
     /// Optional dependency name associated with the failure.
     dependency: Option<&'static str>,
-    /// Internal source error retained for programmatic inspection.
-    source: Option<Box<dyn Error + Send + Sync + 'static>>,
 }
 
 impl ExecutionError {
@@ -39,7 +37,6 @@ impl ExecutionError {
             path: super::ValidationPath::root(),
             rule_id: None,
             dependency: None,
-            source: None,
         }
     }
 
@@ -60,15 +57,6 @@ impl ExecutionError {
     /// Associates a structured path with this error.
     pub fn with_path(mut self, path: super::ValidationPath) -> Self {
         self.path = path;
-        self
-    }
-
-    /// Retains an internal source error without exposing its text publicly.
-    pub fn with_source<E>(mut self, source: E) -> Self
-    where
-        E: Error + Send + Sync + 'static,
-    {
-        self.source = Some(Box::new(source));
         self
     }
 
@@ -109,18 +97,6 @@ impl ExecutionError {
     pub const fn path(&self) -> &super::ValidationPath {
         &self.path
     }
-
-    /// Returns the retained internal source error.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Some` when an internal source was retained, or `None`
-    /// otherwise.
-    #[must_use]
-    #[inline]
-    pub fn source(&self) -> Option<&(dyn Error + Send + Sync + 'static)> {
-        self.source.as_deref()
-    }
 }
 
 impl std::fmt::Debug for ExecutionError {
@@ -142,9 +118,4 @@ impl std::fmt::Display for ExecutionError {
     }
 }
 
-impl Error for ExecutionError {
-    /// Returns the retained internal source through the standard error chain.
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.source.as_deref().map(|source| source as &(dyn Error + 'static))
-    }
-}
+impl std::error::Error for ExecutionError {}
