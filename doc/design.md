@@ -1,5 +1,9 @@
 # qubit-validator Design
 
+[简体中文](design.zh_CN.md)
+
+Applies to `qubit-validator` 0.1.x · Minimum supported Rust: 1.94
+
 ## Goals and Non-Goals
 
 The crate has four goals:
@@ -59,7 +63,9 @@ values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
 
 `ValidationReport` is downstream of execution: a caller decides occurrence
-order, report limits, and whether to continue after an outcome or error.
+order, report limits, and whether to continue after an outcome or error. Its
+only public aggregation entry point is `record_outcome`, which preserves
+occurrence order and enforces the configured violation/skip capacity.
 
 ## Descriptor, Signature, and Slot Invariants
 
@@ -131,8 +137,9 @@ reports shape rather than field contents. A trusted caller explicitly chooses
 
 `ValidationValue` is a borrowed view and redacts its contents in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.
-`ExecutionError` may retain an internal source for programmatic chaining, but
-its public `Display` and `Debug` formatting omit source text. Violation
+`ExecutionError` stores no source error, so lower-level errors must be handled
+or logged at the trusted conversion boundary. Its public `Display` and `Debug`
+formatting expose only structured safe metadata. Violation
 parameters are restricted to the public `ViolationParam` vocabulary.
 
 The original rejected input must never be copied into a violation, retained by

@@ -15,6 +15,18 @@ use super::ValidationPath;
 use super::ValidationValue;
 
 /// Borrowed dependency slots used during a synchronous validation call.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{BoundValidationContext, ValidationValue};
+///
+/// let owner = String::from("member@example.test");
+/// let values = [ValidationValue::Text(&owner)];
+/// let context = BoundValidationContext::new(&values);
+/// assert_eq!(context.text(0)?, "member@example.test");
+/// # Ok::<(), qubit_validator::ExecutionError>(())
+/// ```
 pub struct BoundValidationContext<'a> {
     /// Values stored in signature slot order.
     values: &'a [ValidationValue<'a>],

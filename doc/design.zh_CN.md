@@ -1,5 +1,9 @@
 # qubit-validator 设计
 
+[English](design.md)
+
+适用版本：`qubit-validator` 0.1.x · 最低 Rust 版本：1.94
+
 ## 目标与非目标
 
 本 crate 有四个目标：
@@ -38,7 +42,7 @@ flowchart LR
 
 准备函数解码 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名、验证调用方的依赖声明，并在已绑定验证器中存储签名、预备实例和规则 ID。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
 
-`ValidationReport` 位于执行的下游：调用方决定出现顺序、报告限制，以及得到验证结果或错误后是否继续。
+`ValidationReport` 位于执行的下游：调用方决定出现顺序、报告限制，以及得到验证结果或错误后是否继续。唯一公开的汇总入口是 `record_outcome`，它保留出现顺序并执行违规项/跳过记录容量限制。
 
 ## 描述符、签名和槽位不变量
 
@@ -77,7 +81,7 @@ API 将预期的无效数据与配置或执行失败分开：
 
 `ValidationPath` 存储结构化的 `PathSegment` 值。字段名和 map 位置对受信任的展示层可能有用，但默认格式化会刻意保持保守：`Display` 输出占位符，`Debug` 只报告形状而不报告字段内容。只有在适合披露时，受信任的调用方才显式选择 `ValidationPath::render`。
 
-`ValidationValue` 是借用视图，其内容在 `Debug` 中经过脱敏。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 可以保留内部源错误供程序化错误链使用，但其公共 `Display` 和 `Debug` 格式化会省略源错误文本。违规项参数仅限于公共的 `ViolationParam` 词汇。
+`ValidationValue` 是借用视图，其内容在 `Debug` 中经过脱敏。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 不保存底层 source error，因此低层错误必须在可信转换边界处理或记录；其公共 `Display` 和 `Debug` 仅暴露结构化安全元数据。违规项参数仅限于公共的 `ViolationParam` 词汇。
 
 原始被拒绝输入绝不能复制到违规项中、由执行错误保留，或插入公共错误格式化内容。适配器应把领域错误映射为稳定代码和适合展示的安全参数。
 

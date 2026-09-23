@@ -1,325 +1,172 @@
 # qubit-validator 用户指南
 
+[English](user_guide.md)
+
+适用版本：`qubit-validator` 0.1.x · 最低 Rust 版本：1.94
+
 ## 手册目标与读者
 
-`qubit-validator` 面向同时需要常规类型化验证，以及通过稳定规则 ID 配置查找验证器的 Rust 库与应用。本指南假定读者了解 Rust trait 和错误处理的基础知识，重点介绍公共 API，不要求使用模型框架、代码生成器或调度器。
+本指南面向 Rust 库和应用的开发者：他们既要直接调用类型化规则，也需要按稳定 ID 配置和查找规则。本文介绍公共 API，不要求项目使用特定模型框架、代码生成器或调度器。
 
 ## 概念模型
 
-API 有意区分以下六个概念：
-
 | 概念 | 含义 |
 | --- | --- |
-| 直接类型化验证 | 使用具体 Rust 类型调用 `Validator<T, C>::validate`，并接收规则的领域错误。 |
-| 预备验证器 | 配置参数完成解码后生成的可复用、类型擦除的规则实例。它返回 `PreparedOutcome` 草稿或执行错误。 |
-| 已绑定验证器 | 与选定签名及稳定规则 ID 配对的预备验证器。它在执行前检查输入和有序依赖槽位。 |
-| 验证结果 | 一次成功调用的结果：`Valid`、`Invalid` 或 `Skipped`。输入无效属于数据，不是执行失败。 |
-| 执行错误 | 输入不匹配、缺少必需依赖或违反适配器契约等基础设施或契约失败，以 `Err` 返回。 |
-| 报告 | 由调用方组装的 `ValidationReport`，汇总最终的 `Violation` 与 `SkippedValidation` 值，并可选择设置限制。 |
+| `Validator<T, C>` | 带具体输入和上下文类型的规则，可直接调用并返回领域错误。 |
+| `PreparedValidator` | 配置解码后创建的可复用类型擦除实例。 |
+| `BoundValidator` | 将预备实例与稳定规则 ID、选定签名绑定起来；执行前检查输入和依赖形状。 |
+| `ValidationOutcome` | 一次验证完成后的结果：有效、无效或跳过。输入无效不等于执行错误。 |
+| `ExecutionError` | 输入或依赖类型不符、适配器契约错误、外部执行失败等，以 `Err` 返回；不保留底层 source。 |
+| `ValidationReport` | 由调用方拥有的违规项和跳过记录集合，可设置数量上限。 |
 
-在直接调用时，规则可以保留领域专用错误；只有越过预备边界时，才会把该错误映射为稳定的 `ViolationDraft`。
+适配器负责把规则的领域错误映射为安全的 `ViolationDraft`。绑定后的验证器再附加稳定规则 ID，返回最终 `Violation`。
 
-## 场景：验证配置化的显示名称
+## 场景：检查配置的显示名称
 
-贯穿本指南的场景使用 `NonBlank` 规则验证显示名称。直接类型化验证通过 `Result<(), BlankText>` 回答一个简单问题。配置化验证则将同一规则以 `text.non_blank` 注册，把 `BlankText` 映射为公共违规项代码 `text.blank`，再通过注册表调用规则。
+本指南以 `NonBlank` 规则检查显示名称。规则用 `text.non_blank` 注册，领域错误映射为 `text.blank`，随后绑定一次并重复使用，分别检查有效和无效输入。完整的可运行代码在 [`examples/local_registry.rs`](../examples/local_registry.rs)，运行命令：
 
-完整可运行源码位于 [`examples/local_registry.rs`](../examples/local_registry.rs)。下一节也完整展示了这份源码，方便直接复制为程序。
+```bash
+cargo run --example local_registry --locked
+```
 
 ## 安装与最小配置
 
-如需直接验证和局部注册表，不必启用可选 feature，直接添加依赖：
+直接验证和局部注册表不需要启用可选 feature：
 
 ```toml
 [dependencies]
 qubit-validator = "0.1"
 ```
 
-默认 feature 集已经支持局部注册。以下是完整的 `examples/local_registry.rs` 程序：
+默认配置就支持局部注册表。准备函数解码参数并返回 `Arc<dyn PreparedValidator>`；静态 `ValidatorSignature` 与 `ValidatorDescriptor` 描述规则的输入和依赖。完整定义见上方链接的示例。调用点可以这样绑定和执行：
 
 ```rust
-// =============================================================================
-//    Copyright (c) 2025 - 2026 Haixing Hu.
-//
-//    SPDX-License-Identifier: Apache-2.0
-//
-//    Licensed under the Apache License, Version 2.0.
-// =============================================================================
+let registry = ValidatorRegistry::from_registrations([registration])?;
+let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
+let context = BoundValidationContext::new(&[]);
 
-use std::error::Error;
-use std::fmt;
-use std::sync::Arc;
+let accepted = validator.validate(ValidationValue::Text("Ada"), &context)?;
+assert_eq!(accepted, ValidationOutcome::valid());
 
-use qubit_validator::ArgumentReader;
-use qubit_validator::BindError;
-use qubit_validator::BindErrorKind;
-use qubit_validator::BoundValidationContext;
-use qubit_validator::DependencySpec;
-use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
-use qubit_validator::PreparedValidator;
-use qubit_validator::RegistrationSource;
-use qubit_validator::ValidationArgument;
-use qubit_validator::ValidationOutcome;
-use qubit_validator::ValidationValue;
-use qubit_validator::Validator;
-use qubit_validator::ValidatorDescriptor;
-use qubit_validator::ValidatorId;
-use qubit_validator::ValidatorRegistration;
-use qubit_validator::ValidatorRegistry;
-use qubit_validator::ValidatorSignature;
-use qubit_validator::ViolationCode;
-use qubit_validator::ViolationDraft;
-use qubit_validator::prepare_text_validator;
-#[cfg(feature = "inventory")]
-use qubit_validator::register_validator;
-
-#[derive(Debug)]
-struct BlankText;
-
-impl fmt::Display for BlankText {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("text must not be blank")
-    }
-}
-
-impl Error for BlankText {}
-
-struct NonBlank;
-
-impl Validator<str> for NonBlank {
-    type Error = BlankText;
-
-    fn validate(&self, value: &str, _context: &()) -> Result<(), Self::Error> {
-        if value.trim().is_empty() {
-            Err(BlankText)
-        } else {
-            Ok(())
-        }
-    }
-}
-
-fn prepare_non_blank(
-    params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    ArgumentReader::new(params)?.finish()?;
-    Ok(prepare_text_validator(NonBlank, |_| {
-        ViolationDraft::new(ViolationCode::new("text.blank"))
-    }))
-}
-
-static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_non_blank,
-)];
-static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
-
-#[cfg(feature = "inventory")]
-register_validator!(id = "text.non_blank.global", descriptor = &DESCRIPTOR);
-
-static DEPENDENCIES: &[DependencySpec] = &[
-    DependencySpec::new("minimum", InputType::Text, false),
-    DependencySpec::new("maximum", InputType::Text, false),
-];
-static DEPENDENCY_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    DEPENDENCIES,
-    prepare_non_blank,
-)];
-static DEPENDENCY_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(DEPENDENCY_SIGNATURES);
-
-fn assert_dependency_order_is_checked() {
-    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
-    let error = DEPENDENCY_DESCRIPTOR
-        .bind(ValidatorId::new("text.dependent"), 0, &[], &declared)
-        .expect_err("swapped dependency slots must fail during binding");
-    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
-}
-
-fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Unsigned(10),
-    )];
-    let mut reader = ArgumentReader::new(&args)?;
-    assert_eq!(reader.required_u32("limit")?, 10);
-    let error = reader
-        .required_u32("limit")
-        .expect_err("a parameter cannot be read twice");
-    assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
-    Ok(())
-}
-
-fn main() -> Result<(), Box<dyn Error>> {
-    let registration = ValidatorRegistration::new(
-        ValidatorId::new("text.non_blank"),
-        &DESCRIPTOR,
-        RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
-    );
-    let registry = ValidatorRegistry::from_registrations([registration])?;
-
-    assert!(registry.get("text.non_blank").is_some());
-    let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
-    let context = BoundValidationContext::new(&[]);
-
-    let valid = validator.validate(ValidationValue::Text("Ada"), &context)?;
-    assert_eq!(valid, ValidationOutcome::Valid);
-
-    let invalid = validator.validate(ValidationValue::Text("   "), &context)?;
-    let ValidationOutcome::Invalid(violations) = invalid else {
-        panic!("blank text must be invalid");
-    };
-    assert_eq!(violations.len(), 1);
-    assert_eq!(violations[0].code(), ViolationCode::new("text.blank"));
-
-    assert_dependency_order_is_checked();
-    assert_parameters_are_consumed_once()?;
-
-    #[cfg(feature = "inventory")]
-    {
-        let global = ValidatorRegistry::try_global()?;
-        assert!(global.get("text.non_blank.global").is_some());
-    }
-
-    Ok(())
-}
-```
-
-运行这份权威示例源码：
-
-```bash
-cargo run --example local_registry --locked
+let rejected = validator.validate(ValidationValue::Text("  "), &context)?;
+let mut report = ValidationReport::new();
+assert!(report.record_outcome(0, ValidationPath::root(), rejected)?);
+assert!(!report.is_valid());
 ```
 
 ## 核心工作流
 
-1. 为类型化规则实现 `Validator<T, C>`。不需要运行时查找时，直接调用即可。
-2. 使用 `prepare_text_validator` 或 `prepare_typed_validator` 适配规则。映射器把领域错误转换为带稳定代码和安全参数的 `ViolationDraft`。
-3. 将准备函数放入一个或多个静态 `ValidatorSignature`。每个签名固定其接受的输入形状及有序依赖槽位。
-4. 将签名放入静态 `ValidatorDescriptor`，再把描述符与 `ValidatorId` 和 `RegistrationSource` 关联起来。
-5. 把注册冻结为局部注册表，查找或绑定规则，然后复用生成的 `BoundValidator`。
-6. 每次调用时传入借用的 `ValidationValue` 和 `BoundValidationContext`。处理非穷尽的 `ValidationOutcome` 时保留后备分支。
-7. 验证多次出现的值时，把验证结果转换为调用方拥有的 `ValidationReport`。本 crate 不会代替调用方调度或遍历这些验证任务。
+1. 为规则实现 `Validator<T, C>`。如果不需要运行时选择，直接调用它即可。
+2. 没有依赖槽位时，使用 `prepare_text_validator` 或 `prepare_typed_validator`。映射器把领域错误转换为稳定违规代码和安全参数。
+3. 用 `ValidatorSignature` 声明输入形状及有序依赖，再将签名放入 `ValidatorDescriptor`，并关联 `ValidatorId` 和 `RegistrationSource`。
+4. 创建局部 `ValidatorRegistry`，绑定规则并复用生成的 `BoundValidator`。准备函数只在绑定时执行一次。
+5. 每次调用传入借用的 `ValidationValue` 和 `BoundValidationContext`。匹配非穷尽公共 enum 时保留兜底分支。
+6. 需要汇总多次结果时，将每个 `ValidationOutcome` 交给 `ValidationReport::record_outcome`。本 crate 不负责遍历对象或调度规则组。
 
-准备工作发生在绑定期间，而不是每次验证调用时。`BoundValidator` 通过 `Arc` 持有预备验证器实例，因此可以克隆。
+## 进阶用法：读取依赖的适配器
 
-## 进阶用法：局部注册表与 inventory 注册表
+当规则需要将目标值与已选择的依赖值比较时，使用 context-aware adapter。签名声明依赖槽位，`BoundValidator` 会先检查顺序、输入形状以及必需/可选属性，再调用类型化验证器。
 
-使用 `ValidatorRegistry::from_registrations` 可以进行确定、显式的组合。该 API 始终可用，适合测试，也允许同一进程使用不同注册表。
+假设 `DependencyMismatch` 是规则自己定义并实现 `std::error::Error` 的领域错误：
 
-进程级发现是可选能力，需要显式启用：
+```rust
+struct MatchesExpected;
+
+impl<'a> Validator<str, BoundValidationContext<'a>> for MatchesExpected {
+    type Error = DependencyMismatch;
+
+    fn validate(
+        &self,
+        value: &str,
+        context: &BoundValidationContext<'a>,
+    ) -> Result<(), Self::Error> {
+        let expected = context.text(0).map_err(|_| DependencyMismatch)?;
+        if value == expected { Ok(()) } else { Err(DependencyMismatch) }
+    }
+}
+
+let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
+    ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
+});
+```
+
+映射器不应把两个文本值写入错误或违规参数。可选类型槽位可通过 `context.optional_typed::<T>(index)` 读取；只有显式的 `ValidationValue::Missing` 会得到 `None`，错误类型仍会作为执行错误处理。
+
+文本规则使用 `prepare_contextual_text_validator`，类型化规则使用 `prepare_contextual_typed_validator::<T, _, _, _>`。不需要读取上下文时，原有简单 adapter 仍是更直接的选择。
+
+## 汇总验证结果与先决条件
+
+`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会重复计入报告顶层违规项。
+
+```rust
+let rule_id = ValidatorId::new("text.required");
+let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
+let mut report = ValidationReport::new();
+assert!(report.record_outcome(
+    0,
+    ValidationPath::root().with_field("password"),
+    ValidationOutcome::invalid(vec![earlier.clone()])?,
+)?);
+assert!(report.record_outcome(
+    1,
+    ValidationPath::root().with_field("confirmation"),
+    ValidationOutcome::failed_prerequisite(vec![earlier])?,
+)?);
+assert_eq!(report.violations().len(), 1);
+assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+```
+
+返回的 `bool` 表示本次结果是否完整放入报告，不表示验证是否通过。若容量不足，API 返回 `Ok(false)` 并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。
+
+## 局部注册表与 inventory
+
+`ValidatorRegistry::from_registrations` 构造显式局部注册表，行为确定，适合测试，也允许一个进程使用多组规则。只有确实需要链接 crate 自动注册时，才启用 `inventory`：
 
 ```toml
 [dependencies]
 qubit-validator = { version = "0.1", features = ["inventory"] }
 ```
 
-之后即可提交静态描述符并获得全局注册表。以下两段代码都来自 `examples/local_registry.rs`：
-
-```rust
-#[cfg(feature = "inventory")]
-register_validator!(id = "text.non_blank.global", descriptor = &DESCRIPTOR);
-```
-
-```rust
-#[cfg(feature = "inventory")]
-{
-    let global = ValidatorRegistry::try_global()?;
-    assert!(global.get("text.non_blank.global").is_some());
-}
-```
-
-使用以下命令编译并执行这些受 feature 控制的路径：
-
-```bash
-cargo run --example local_registry --all-features --locked
-```
-
-ID 重复会导致注册表构造失败，并返回 `ValidatorRegistryError::DuplicateId`。如果必须处理该失败，请优先使用 `try_global`；当链接得到的注册表无效时，`global` 会 panic。
-
-## 依赖槽位
-
-依赖签名是 `DependencySpec` 值的有序列表。名称让诊断信息更易理解，但不会把列表变成 map：位置、`InputType` 和可选性共同组成契约。如果调用方声明了正确的依赖，却采用了错误顺序，绑定仍会被拒绝。
-
-下面的聚焦示例直接取自 `examples/local_registry.rs`：
-
-```rust
-fn assert_dependency_order_is_checked() {
-    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
-    let error = DEPENDENCY_DESCRIPTOR
-        .bind(ValidatorId::new("text.dependent"), 0, &[], &declared)
-        .expect_err("swapped dependency slots must fail during binding");
-    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
-}
-```
-
-使用以下命令运行该源码：
-
-```bash
-cargo run --example local_registry --locked
-```
-
-执行时，`BoundValidationContext` 必须包含数量和形状均一致的值。只有可选槽位才能使用 `ValidationValue::Missing`。`new_with_paths` 可以为每个槽位关联结构化依赖路径，以便诊断。
+使用 `ValidatorRegistry::try_global` 可以处理重复 ID 和无效描述符；`global` 遇到这两类注册错误都会 panic。该 feature 只改变发现方式，不改变规则绑定和执行契约。
 
 ## 错误与诊断
 
-- 规则的领域错误属于直接类型化验证。适配器映射器将其转换为 `ViolationDraft`；已绑定验证器附加规则 ID，并在 `ValidationOutcome::Invalid` 中返回最终 `Violation` 值。
-- `BindError` 报告配置失败，例如缺少规则、不支持的输入、格式错误的参数以及依赖声明不匹配。
-- `ValidatorRegistryError` 报告注册表冻结期间遇到的重复 ID 或无效描述符。
-- `ExecutionError` 报告基础设施和适配器失败，与业务值无效分开表示。
-- `ValidationReport` 是由调用方选择的聚合结果。它可以限制存储的违规项和跳过项数量，并记录截断状态。
+- 类型化规则返回领域错误，适配器映射器将其转换为 `ViolationDraft`。
+- `BindError` 表示配置问题，例如规则缺失、输入不支持、参数格式不符或依赖声明不匹配。
+- `ValidatorRegistryError` 报告重复 ID 和无效描述符。
+- `ExecutionError` 表示输入/依赖形状错误、适配器契约问题或外部执行失败。`Display`、`Debug` 和标准错误链都不会保留或暴露底层 source error。
+- `ValidationOutcome::Invalid` 是验证已完成的结果，不是 `ExecutionError`。
 
-参数通过 `ArgumentReader` 解码。当前参数第一次被类型化读取时即被消耗，即使该读取因类型转换或范围转换而失败也是如此。再次读取会返回 `ParameterAlreadyConsumed`。以下代码直接取自 `examples/local_registry.rs`：
+`ArgumentReader` 在参数第一次被类型化读取时就会消费它，即使类型或范围转换失败也一样。再次读取会返回 `ParameterAlreadyConsumed`。读取完支持的参数后调用 `finish`，以拒绝未消费的名称。
 
-```rust
-fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
-    let args = [NamedValidationArgument::new(
-        "limit",
-        ValidationArgument::Unsigned(10),
-    )];
-    let mut reader = ArgumentReader::new(&args)?;
-    assert_eq!(reader.required_u32("limit")?, 10);
-    let error = reader
-        .required_u32("limit")
-        .expect_err("a parameter cannot be read twice");
-    assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
-    Ok(())
-}
-```
-
-使用以下命令运行该源码：
-
-```bash
-cargo run --example local_registry --locked
-```
-
-公共诊断信息有意省略原始输入和原始参数值。`ExecutionError` 可以在内部保留源错误，但其 `Display` 和 `Debug` 输出不会暴露源错误文本。`ValidationPath::Display` 同样经过脱敏；受信任的展示代码必须显式选择调用 `ValidationPath::render`。
+`ValidationPath` 始终以结构化形式保存。默认 `Display` 和 `Debug` 不显示字段名及 map 位置；只有受信任的展示层在适合披露时才显式调用 `ValidationPath::render`。不要把原始输入放入错误或 `ViolationParam`。
 
 ## 排障
 
-- **`MissingRule`**：核对稳定 ID，并确认所选局部注册表包含该注册。使用全局注册表时，请启用 `inventory`，并确保注册规则的 crate 已链接。
-- **`UnsupportedInput` 或 `InputTypeMismatch`**：绑定和调用时必须使用所选签名声明的确切 `InputType`。文本值和类型化值不会隐式转换。
-- **依赖声明错误**：将提供的依赖切片与 `BoundValidator::dependency_specs` 对照；顺序很重要。
-- **`UnknownParameter`**：消耗每个配置参数，再调用 `ArgumentReader::finish`。移除拼写错误或不受支持的名称。
-- **`ParameterAlreadyConsumed`**：每个当前参数只解码一次，并将解码结果存入预备验证器。
-- **`AdapterContractViolation`**：检查自定义 `PreparedValidator` 实现。无效结果必须至少包含一个草稿；跳过结果必须满足 API 文档规定的先决条件规则。
+| 现象 | 检查方法 |
+| --- | --- |
+| `MissingRule` | 确认选用的局部注册表包含该 ID。使用全局注册时启用 `inventory`，并确保注册所在 crate 已链接。 |
+| `UnsupportedInput` 或 `InputTypeMismatch` | 使用签名声明的确切 `InputType`；不会自动把文本转换为类型化值。 |
+| 依赖声明错误 | 对照签名检查顺序、输入形状和可选性。 |
+| 执行时缺少依赖 | 检查必需槽位是否提供值；可选缺失必须使用 `ValidationValue::Missing`。 |
+| `UnknownParameter` | 读取所有支持的参数后调用 `ArgumentReader::finish`。 |
+| `ParameterAlreadyConsumed` | 每个参数只解码一次，并把结果保存在预备验证器中。 |
+| `AdapterContractViolation` | 检查自定义 `PreparedValidator`。无效结果必须有违规项，skip 结果必须符合原因对应的先决条件规则。 |
+| `record_outcome` 返回 `Ok(false)` | 报告容量拒收了部分或全部结果；检查 `is_truncated()` 并按实际负载配置上限。 |
 
 ## 限制与最佳实践
 
-- 本 crate 不发现字段、不遍历对象、不编译路径，也不调度多条规则。这些策略应由调用方实现。
-- 保持验证器 ID 和违规项代码稳定。下游消费者应把这类变更视为协议变更。
-- 除非确实需要进程级发现，否则优先使用局部注册表。
-- 将依赖顺序视为类似 ABI 的契约。只有在调用方和实现完成协调后，才能追加或重排槽位。
-- 普通 `Validator` 实现应使用项目提供的文本适配器或类型化适配器。自定义预备适配器必须遵守验证结果契约。
-- 匹配公共非穷尽 enum 时保留通配分支，以便次要版本添加 variant。
-- `ViolationParam` 中只能放适合展示的安全值；绝不能把被拒绝的输入加入错误消息或结构化参数。
-- 接收不受信任或规模很大的验证任务集合时，使用 `ValidationReport::with_limits`。
+- 本 crate 不发现字段、不遍历对象、不编译模型路径，也不调度多条规则；这些逻辑留给调用方。
+- 稳定规则 ID 和违规代码会被下游使用，变更时要协调消费者。
+- 没有进程级发现需求时优先使用局部注册表。
+- 把依赖顺序视为类似 ABI 的契约；修改槽位前要同步所有调用方和规则实现。
+- 面向不受信任或大型任务集时，使用 `ValidationReport::with_limits`。该限制约束顶层违规项和跳过条目数；已保留的 skipped entry 会拥有完整 prerequisite 列表，因此调用方也应限制前置规则生成数量。
+- 验证是同步的，输入只在调用期间借用。预备验证器必须满足 `Send + Sync`；本 crate 不创建线程，也不要求异步运行时。
 
 ## 延伸阅读
 
 - [设计与不变量](design.zh_CN.md)
-- [可运行的局部注册表示例](../examples/local_registry.rs)
+- [完整局部注册表示例](../examples/local_registry.rs)
 - [API 文档](https://docs.rs/qubit-validator)
-- [项目中文 README](../README.zh_CN.md)
+- [中文 README](../README.zh_CN.md)
 - [English User Guide](user_guide.md)
-- [English README](../README.md)
