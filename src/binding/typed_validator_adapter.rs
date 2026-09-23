@@ -10,48 +10,27 @@
 
 use std::sync::Arc;
 
-use super::BoundValidationContext;
-use super::ExecutionError;
-use super::PreparedOutcome;
 use super::PreparedValidator;
-use super::ValidationValue;
+use super::internal::TypedValidatorAdapter;
 use crate::Validator;
 use crate::ViolationDraft;
-/// Owns a typed validator and the mapper for its domain errors.
-struct TypedValidatorAdapter<T, V, M>(
-    /// Typed validator invoked after the erased input is checked.
-    V,
-    /// Mapper which converts a domain error into a safe violation draft.
-    M,
-    /// Function-shaped marker preserving `T` without claiming ownership.
-    std::marker::PhantomData<fn() -> T>,
-);
-impl<T: 'static, V, M> PreparedValidator for TypedValidatorAdapter<T, V, M>
-where
-    V: Validator<T, ()> + Send + Sync + 'static,
-    V::Error: Send + Sync,
-    M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
-{
-    /// Validates a checked typed value and maps a domain error into a draft.
-    fn validate(
-        &self,
-        value: ValidationValue<'_>,
-        _: &BoundValidationContext<'_>,
-    ) -> Result<PreparedOutcome, ExecutionError> {
-        let typed = value
-            .typed::<T>()
-            .ok_or_else(|| ExecutionError::new(super::ExecutionErrorKind::InputTypeMismatch))?;
-        match self.0.validate(typed, &()) {
-            Ok(()) => Ok(PreparedOutcome::Valid),
-            Err(e) => Ok(PreparedOutcome::Invalid(vec![(self.1)(e)])),
-        }
-    }
-}
+
 /// Prepares a typed validator using a domain-error mapper.
 ///
 /// The returned adapter rejects erased inputs whose exact concrete type differs
 /// from `T` and converts each domain error with `map_error`; callers should
 /// ensure the mapper does not retain raw input in the resulting draft.
+///
+/// # Type Parameters
+///
+/// - `T`: Borrowed value type expected by the validator.
+/// - `V`: Validator of `T` with unit context.
+/// - `M`: Mapper from the validator error to a safe violation draft.
+///
+/// # Panics
+///
+/// This function does not panic. The prepared adapter reports an input-shape
+/// error if it receives a value with a different concrete type.
 #[must_use]
 pub fn prepare_typed_validator<T: 'static, V, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where
@@ -59,5 +38,5 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(TypedValidatorAdapter(validator, map_error, std::marker::PhantomData))
+    Arc::new(TypedValidatorAdapter::new(validator, map_error))
 }
