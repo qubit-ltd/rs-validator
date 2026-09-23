@@ -259,8 +259,16 @@ fn test_context_checks_paths_shapes_and_dependencies() {
         ExecutionErrorKind::DependencyTypeMismatch
     );
     assert_eq!(
+        context.typed::<u32>(1).unwrap_err().kind(),
+        ExecutionErrorKind::MissingRequiredDependencyValue
+    );
+    assert_eq!(
         context.text(1).unwrap_err().kind(),
         ExecutionErrorKind::MissingRequiredDependencyValue
+    );
+    assert_eq!(
+        context.text(0).unwrap_err().kind(),
+        ExecutionErrorKind::DependencyTypeMismatch
     );
     assert_eq!(
         context.optional_typed::<u32>(2).unwrap_err().kind(),
@@ -472,14 +480,13 @@ fn test_errors_reports_violations_and_registries_expose_structured_data() {
 
     let execution = ExecutionError::new(ExecutionErrorKind::ExternalFailure)
         .with_rule(ValidatorId::new("test.rule"))
-        .with_path(ValidationPath::root().with_field("secret"))
-        .with_source(std::io::Error::other("private"));
+        .with_path(ValidationPath::root().with_field("secret"));
     assert_eq!(execution.rule_id(), Some(ValidatorId::new("test.rule")));
-    assert!(execution.source().is_some());
+    assert!(Error::source(&execution).is_none());
     assert!(!execution.to_string().contains("private"));
     assert!(format!("{execution:?}").contains("ExecutionError"));
 
-    let skipped = SkippedValidation::new(3, ValidationPath::root(), SkipReason::MissingOptional);
+    let skipped = SkippedValidation::missing_optional(3, ValidationPath::root());
     assert_eq!(
         (skipped.occurrence(), skipped.reason()),
         (3, SkipReason::MissingOptional)
@@ -498,14 +505,15 @@ fn test_errors_reports_violations_and_registries_expose_structured_data() {
 
     let mut report = ValidationReport::default();
     assert!(report.is_valid());
-    assert!(report.push_skipped(skipped));
+    assert!(
+        report
+            .record_outcome(3, ValidationPath::root(), ValidationOutcome::missing_optional())
+            .unwrap()
+    );
     assert!(report.is_valid());
-    report.mark_truncated();
-    assert!(!report.is_valid());
-    assert!(report.is_truncated());
-    assert!(report.push_violation(violation));
-    assert_eq!(report.violations().len(), 1);
-    assert!(report.to_string().contains("1 violation"));
+    assert!(!report.is_truncated());
+    assert!(report.violations().is_empty());
+    assert!(report.to_string().contains("0 violation"));
     assert!(format!("{report:?}").contains("violation_count"));
 
     let registry = ValidatorRegistry::from_registrations([registration("test.registry")]).unwrap();
@@ -545,8 +553,8 @@ fn test_debug_and_error_trait_surfaces_are_covered() {
     let bound = descriptor.bind(ValidatorId::new("test.rule"), 0, &[], &[]).unwrap();
     assert!(format!("{bound:?}").contains("BoundValidator"));
 
-    let error = ExecutionError::new(ExecutionErrorKind::ExternalFailure).with_source(std::io::Error::other("private"));
-    assert!(Error::source(&error).is_some());
+    let error = ExecutionError::new(ExecutionErrorKind::ExternalFailure);
+    assert!(Error::source(&error).is_none());
 
     for segment in [
         PathSegment::Field("field".into()),

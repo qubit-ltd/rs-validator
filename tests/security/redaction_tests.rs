@@ -10,18 +10,22 @@ use std::convert::Infallible;
 
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
+use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
+use qubit_validator::InputType;
 use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
-use qubit_validator::SkippedValidation;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationReport;
+use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorId;
 use qubit_validator::Violation;
 use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
 use qubit_validator::ViolationParam;
 
 struct NonEmpty;
@@ -38,6 +42,21 @@ impl Validator<str> for NonEmpty {
 #[test]
 fn test_validator_uses_shared_immutable_context() {
     NonEmpty.validate("value", &()).expect("value is valid");
+}
+
+#[test]
+fn test_debug_surfaces_redact_values_and_show_safe_shapes() {
+    let secret = "sensitive-input";
+    let value = ValidationValue::Text(secret);
+    let values = [value];
+    let context = BoundValidationContext::new(&values);
+    let draft =
+        ViolationDraft::new(ViolationCode::new("text.invalid")).with_path(ValidationPath::root().with_field(secret));
+
+    for debug in [format!("{value:?}"), format!("{context:?}"), format!("{draft:?}")] {
+        assert!(!debug.contains(secret));
+    }
+    assert_eq!(InputType::Text, value.input_type().expect("text has an input type"));
 }
 
 #[test]
@@ -79,12 +98,24 @@ fn test_violation_and_report_keep_structured_safe_data() {
     .with_param("min", ViolationParam::Unsigned(2));
 
     let mut report = ValidationReport::new();
-    assert!(report.push_violation(violation));
-    assert!(report.push_skipped(SkippedValidation::new(
-        1,
-        ValidationPath::root().with_field("optional"),
-        SkipReason::MissingOptional,
-    )));
+    assert!(
+        report
+            .record_outcome(
+                0,
+                ValidationPath::root(),
+                ValidationOutcome::invalid(vec![violation]).expect("a violation is present")
+            )
+            .expect("violation is accepted")
+    );
+    assert!(
+        report
+            .record_outcome(
+                1,
+                ValidationPath::root().with_field("optional"),
+                ValidationOutcome::missing_optional()
+            )
+            .expect("missing optional is a valid outcome")
+    );
 
     assert!(!report.is_valid());
     assert_eq!(report.violations().len(), 1);
@@ -96,11 +127,19 @@ fn test_violation_and_report_keep_structured_safe_data() {
 #[test]
 fn test_failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
     let mut report = ValidationReport::new();
-    assert!(report.push_skipped(SkippedValidation::new(
-        2,
-        ValidationPath::root(),
-        SkipReason::FailedPrerequisite,
-    )));
+    assert!(
+        report
+            .record_outcome(
+                2,
+                ValidationPath::root(),
+                ValidationOutcome::failed_prerequisite(vec![Violation::new(
+                    ValidatorId::new("qubit.rules.credential"),
+                    ViolationCode::new("credential.invalid"),
+                ),])
+                .expect("a failed prerequisite is present")
+            )
+            .expect("failed prerequisite is stored")
+    );
 
     assert!(!report.is_valid());
     assert!(matches!(
@@ -117,10 +156,10 @@ fn test_failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
 
 #[test]
 fn test_execution_and_bind_errors_expose_kind_without_source_or_values() {
-    let execution = ExecutionError::new(ExecutionErrorKind::ExternalFailure)
-        .with_rule(ValidatorId::new("qubit.rules.remote"))
-        .with_source(std::io::Error::other("secret input"));
+    let execution =
+        ExecutionError::new(ExecutionErrorKind::ExternalFailure).with_rule(ValidatorId::new("qubit.rules.remote"));
     assert_eq!(execution.kind(), ExecutionErrorKind::ExternalFailure);
+    assert!(std::error::Error::source(&execution).is_none());
     assert!(!execution.to_string().contains("secret input"));
     assert!(!format!("{execution:?}").contains("secret input"));
 

@@ -6,9 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use qubit_validator::SkipReason;
-use qubit_validator::SkippedValidation;
 use qubit_validator::ValidationLimits;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationReport;
 use qubit_validator::ValidatorId;
@@ -19,23 +18,23 @@ fn violation() -> Violation {
     Violation::new(ValidatorId::new("test.rule"), ViolationCode::new("test.invalid"))
 }
 
-fn skipped() -> SkippedValidation {
-    SkippedValidation::new(
-        1,
-        ValidationPath::root().with_field("value"),
-        SkipReason::MissingOptional,
-    )
-}
-
 #[test]
 fn test_report_limits_reject_and_mark_truncation() {
     let mut report = ValidationReport::with_limits(ValidationLimits {
         max_violations: Some(1),
         max_skipped: Some(0),
     });
-    assert!(report.push_violation(violation()));
-    assert!(!report.push_violation(violation()));
-    assert!(!report.push_skipped(skipped()));
+    assert!(report
+        .record_outcome(0, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
+            .expect("a violation is present"))
+        .expect("first violation fits"));
+    assert!(!report
+        .record_outcome(1, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
+            .expect("a violation is present"))
+        .expect("capacity truncation is an incomplete record"));
+    assert!(!report
+        .record_outcome(2, ValidationPath::root(), ValidationOutcome::missing_optional())
+        .expect("missing optional is a valid outcome"));
     assert_eq!(report.violations().len(), 1);
     assert!(report.skipped().is_empty());
     assert!(report.is_truncated());
@@ -45,7 +44,12 @@ fn test_report_limits_reject_and_mark_truncation() {
 #[test]
 fn test_report_without_limits_accepts_both_kinds() {
     let mut report = ValidationReport::new();
-    assert!(report.push_violation(violation()));
-    assert!(report.push_skipped(skipped()));
+    assert!(report
+        .record_outcome(0, ValidationPath::root(), ValidationOutcome::invalid(vec![violation()])
+            .expect("a violation is present"))
+        .expect("violation is accepted"));
+    assert!(report
+        .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional())
+        .expect("skipped occurrence is accepted"));
     assert!(!report.is_truncated());
 }

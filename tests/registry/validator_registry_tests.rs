@@ -81,3 +81,13 @@ fn test_empty_registry_has_no_rules() {
     assert!(registry.registrations().is_empty());
     assert!(registry.get("missing").is_none());
 }
+
+#[test]
+fn test_registry_accepts_borrowed_registration_and_debug_is_available() {
+    let registration = registration("example.borrowed", "borrowed.rs");
+    let registry = ValidatorRegistry::from_registrations([&registration])
+        .expect("borrowed registration is copied into the registry");
+
+    assert!(registry.get("example.borrowed").is_some());
+    assert!(format!("{registry:?}").contains("example.borrowed"));
+}
