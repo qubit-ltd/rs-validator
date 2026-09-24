@@ -14,13 +14,11 @@ use super::BoundValidationContext;
 use super::ExecutionError;
 use super::ExecutionErrorKind;
 use super::InputType;
-use super::PreparedOutcome;
 use super::PreparedValidator;
 use super::ValidationOutcome;
 use super::ValidationValue;
 use super::ValidatorSignature;
 use crate::ValidatorId;
-use crate::Violation;
 
 /// A bound occurrence that owns a reusable prepared validator instance.
 ///
@@ -112,31 +110,9 @@ impl BoundValidator {
             .prepared
             .validate(value, context)
             .map_err(|error| error.with_rule(self.rule_id))?;
-        match outcome {
-            PreparedOutcome::Invalid(drafts) if drafts.is_empty() => Err(self.contract_error()),
-            PreparedOutcome::Skipped {
-                reason,
-                ref prerequisites,
-            } if matches!(reason, crate::SkipReason::MissingOptional) && !prerequisites.is_empty() => {
-                Err(self.contract_error())
-            }
-            PreparedOutcome::Skipped {
-                reason,
-                ref prerequisites,
-            } if matches!(reason, crate::SkipReason::FailedPrerequisite) && prerequisites.is_empty() => {
-                Err(self.contract_error())
-            }
-            PreparedOutcome::Valid => Ok(ValidationOutcome::Valid),
-            PreparedOutcome::Invalid(drafts) => Ok(ValidationOutcome::Invalid(
-                drafts
-                    .into_iter()
-                    .map(|draft| Violation::from_draft(self.rule_id, draft))
-                    .collect(),
-            )),
-            PreparedOutcome::Skipped { reason, prerequisites } => {
-                Ok(ValidationOutcome::Skipped { reason, prerequisites })
-            }
-        }
+        outcome
+            .into_bound(self.rule_id)
+            .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id))
     }
 
     /// Returns the selected input shape.
@@ -173,12 +149,6 @@ impl BoundValidator {
         context
             .check_specs(self.signature.dependencies())
             .map_err(|error| error.with_rule(self.rule_id))
-    }
-
-    /// Builds an adapter contract error tagged with this rule identifier.
-    #[inline]
-    fn contract_error(&self) -> ExecutionError {
-        ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id)
     }
 }
 
