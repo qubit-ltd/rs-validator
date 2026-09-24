@@ -65,7 +65,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
-    #[must_use]
+    #[must_use = "inspect the dependency value"]
     #[inline]
     pub fn value(&self, index: usize) -> Result<ValidationValue<'a>, ExecutionError> {
         self.values
@@ -79,7 +79,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
-    #[must_use]
+    #[must_use = "inspect the dependency path"]
     #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
@@ -96,7 +96,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
-    #[must_use]
+    #[must_use = "inspect the required typed dependency"]
     #[inline]
     pub fn typed<T: 'static>(&self, index: usize) -> Result<&'a T, ExecutionError> {
         match self.value(index)? {
@@ -119,7 +119,7 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// Returns a shape or slot error. A wrong concrete type is never treated
     /// as an absent optional value.
-    #[must_use]
+    #[must_use = "inspect the optional typed dependency"]
     #[inline]
     pub fn optional_typed<T: 'static>(&self, index: usize) -> Result<Option<&'a T>, ExecutionError> {
         match self.value(index)? {
@@ -137,7 +137,7 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
-    #[must_use]
+    #[must_use = "inspect the text dependency"]
     #[inline]
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {

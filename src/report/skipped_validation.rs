@@ -96,7 +96,7 @@ impl SkippedValidation {
     }
 
     /// Returns violations from prerequisites that prevented this occurrence.
-    #[must_use]
+    #[must_use = "inspect the prerequisite violations"]
     #[inline]
     pub fn prerequisites(&self) -> &[Violation] {
         &self.prerequisites

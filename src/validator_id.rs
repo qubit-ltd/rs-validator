@@ -74,7 +74,6 @@ impl ValidatorId {
 
 impl Borrow<str> for ValidatorId {
     /// Borrows the complete validated identifier as text.
-    #[must_use]
     #[inline]
     fn borrow(&self) -> &str {
         self.0
