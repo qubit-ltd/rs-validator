@@ -20,7 +20,7 @@ use std::borrow::Cow;
 /// let field = PathSegment::Field("profile".into());
 /// assert_eq!(format!("{field:?}"), "Field(<redacted>)");
 /// ```
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum PathSegment {
     /// A declared field name.

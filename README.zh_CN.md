@@ -61,7 +61,7 @@ assert_eq!(report.violations()[0].code().as_str(), "text.blank");
 
 默认不启用任何 feature。直接验证、适配器、描述符和局部 `ValidatorRegistry` 都可直接使用。只有需要通过 `register_validator!` 与 `ValidatorRegistry::try_global` 进行进程级注册时才启用 `inventory`。
 
-依赖以有序槽位声明。context-aware adapter 执行前，绑定边界会检查槽位顺序、类型和可选性。`ExecutionError` 只保存结构化类别和安全元数据，不保留 source error。违规参数不得包含被拒绝的输入。由于先决条件失败而跳过时，前置违规项保存在该 skipped entry 中，不会重复计入报告顶层违规列表。
+依赖以有序槽位声明。context-aware adapter 执行前，绑定边界会检查槽位顺序、类型和可选性。`ExecutionError` 只保存结构化类别和安全元数据，不保留 source error。违规参数不得包含被拒绝的输入。由于先决条件失败而跳过时，前置违规项保存在该 skipped entry 中，不会重复计入报告顶层违规列表。报告的违规项限额同时计算保留的顶层违规项和先决条件证据；`record_outcome` 会给违规项相对路径添加出现路径前缀。
 
 ## 延伸阅读
 

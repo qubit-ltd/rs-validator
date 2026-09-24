@@ -78,7 +78,9 @@ order, shape, and optionality before a contextual adapter runs. `ExecutionError`
 contains only structured categories and safe metadata; it stores no source
 error. Violation parameters must not contain rejected input. Skipped outcomes
 retain prerequisite violations within their skipped entry, without adding them
-again to the report's top-level violation list.
+again to the report's top-level violation list. The report's violation limit
+counts retained prerequisite evidence as well as top-level violations, and
+`record_outcome` prefixes relative violation paths with the occurrence path.
 
 ## Learn More
 

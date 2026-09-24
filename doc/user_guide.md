@@ -125,7 +125,9 @@ adapters remain available for rules that do not use context.
 `record_outcome` centralizes occurrence ordering and report limits. An invalid
 outcome must contain at least one violation. A failed-prerequisite skip must
 contain at least one prerequisite violation, which stays nested in the skipped
-entry instead of being counted again among top-level violations.
+entry instead of appearing among top-level violations. The occurrence path is
+prefixed once to each violation's relative path; a root violation path uses
+the occurrence path itself. This also applies to prerequisite evidence.
 
 ```rust
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
@@ -142,12 +144,17 @@ assert!(report.record_outcome(
 )?);
 assert_eq!(report.violations().len(), 1);
 assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+assert_eq!(report.failure_count(), 2);
 ```
 
 The returned `bool` means the complete outcome fit its configured limit; it
 does not mean the validation passed. A capacity rejection returns `Ok(false)`
 and marks the report truncated. An invalid outcome shape returns
-`ValidationOutcomeError` and leaves the report unchanged.
+`ValidationOutcomeError` and leaves the report unchanged. `max_violations`
+bounds the sum of retained top-level violations and prerequisite evidence.
+If no failure capacity remains, a failed-prerequisite skip is not stored with
+an empty evidence list. A skip rejected by `max_skipped` consumes no failure
+capacity.
 
 ## Local and Inventory Registries
 
@@ -208,9 +215,9 @@ out of errors and `ViolationParam` values.
 - Treat dependency order as an ABI-like contract; coordinate slot changes with
   every caller and validator implementation.
 - Use `ValidationReport::with_limits` for untrusted or large workloads.
-  Limits bound top-level violations and skipped occurrences. A retained
-  failed-prerequisite skip owns its full prerequisite list, so callers should
-  also bound prerequisite production.
+  `max_violations` bounds retained top-level violations and prerequisite
+  evidence together; `max_skipped` bounds skipped occurrences. Collection
+  stops retaining excess evidence and marks the report truncated.
 - Validation is synchronous and borrows values for each call. Prepared
   validators require `Send + Sync`; the crate does not create threads or assume
   an async runtime.

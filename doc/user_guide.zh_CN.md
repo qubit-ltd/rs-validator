@@ -96,7 +96,7 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 
 ## 汇总验证结果与先决条件
 
-`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会重复计入报告顶层违规项。
+`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。传入的出现路径会给每个违规项的相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据也遵循此规则。
 
 ```rust
 let rule_id = ValidatorId::new("text.required");
@@ -114,9 +114,10 @@ assert!(report.record_outcome(
 )?);
 assert_eq!(report.violations().len(), 1);
 assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+assert_eq!(report.failure_count(), 2);
 ```
 
-返回的 `bool` 表示本次结果是否完整放入报告，不表示验证是否通过。若容量不足，API 返回 `Ok(false)` 并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。
+返回的 `bool` 表示本次结果是否完整放入报告，不表示验证是否通过。若容量不足，API 返回 `Ok(false)` 并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。`max_violations` 约束顶层违规项与先决条件证据的保留总数。失败容量耗尽时，不会留下证据列表为空的先决条件失败跳过记录；若跳过记录被 `max_skipped` 拒绝，其先决条件证据也不占失败容量。
 
 ## 局部注册表与 inventory
 
@@ -160,7 +161,7 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 - 稳定规则 ID 和违规代码会被下游使用，变更时要协调消费者。
 - 没有进程级发现需求时优先使用局部注册表。
 - 把依赖顺序视为类似 ABI 的契约；修改槽位前要同步所有调用方和规则实现。
-- 面向不受信任或大型任务集时，使用 `ValidationReport::with_limits`。该限制约束顶层违规项和跳过条目数；已保留的 skipped entry 会拥有完整 prerequisite 列表，因此调用方也应限制前置规则生成数量。
+- 面向不受信任或大型任务集时，使用 `ValidationReport::with_limits`。`max_violations` 共同约束保留的顶层违规项和先决条件证据，`max_skipped` 约束跳过条目数。超出容量的证据不会保留，报告会标记为已截断。
 - 验证是同步的，输入只在调用期间借用。预备验证器必须满足 `Send + Sync`；本 crate 不创建线程，也不要求异步运行时。
 
 ## 延伸阅读

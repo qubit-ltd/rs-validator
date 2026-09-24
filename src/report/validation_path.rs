@@ -27,7 +27,7 @@ use super::PathSegment;
 /// assert_eq!(path.render(), "profile[2]");
 /// assert_eq!(path.as_segments().len(), 2);
 /// ```
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ValidationPath {
     /// Segments stored from the root toward the validated value.
     segments: Vec<PathSegment>,
@@ -81,6 +81,18 @@ impl ValidationPath {
     #[inline]
     pub fn as_segments(&self) -> &[PathSegment] {
         &self.segments
+    }
+
+    /// Appends a relative path to this path without rendering either one.
+    ///
+    /// Returns a new path and leaves both inputs unchanged. Segments from
+    /// `relative` follow this path's segments in their original order.
+    #[must_use]
+    pub fn concat(&self, relative: &Self) -> Self {
+        let mut segments = Vec::with_capacity(self.segments.len() + relative.segments.len());
+        segments.extend_from_slice(&self.segments);
+        segments.extend_from_slice(&relative.segments);
+        Self { segments }
     }
 
     /// Explicitly renders this path for a trusted presentation layer.

@@ -42,7 +42,7 @@ flowchart LR
 
 准备函数解码 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名、验证调用方的依赖声明，并在已绑定验证器中存储签名、预备实例和规则 ID。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
 
-`ValidationReport` 位于执行的下游：调用方决定出现顺序、报告限制，以及得到验证结果或错误后是否继续。唯一公开的汇总入口是 `record_outcome`，它保留出现顺序并执行违规项/跳过记录容量限制。
+`ValidationReport` 位于执行的下游：调用方决定出现顺序、报告限制，以及得到验证结果或错误后是否继续。唯一公开的汇总入口是 `record_outcome`，它保留出现顺序并执行总失败数及跳过记录的容量限制。传入的出现路径会为每个保留的违规项相对路径添加一次前缀，包括嵌套在跳过记录中的先决条件证据。
 
 ## 描述符、签名和槽位不变量
 
@@ -73,13 +73,14 @@ API 将预期的无效数据与配置或执行失败分开：
 - `ValidationOutcome::Invalid` 携带最终 `Violation` 值，它是成功的执行结果，而不是 `ExecutionError`。
 - `ValidationOutcome::Skipped` 使用 `SkipReason` 和必需的先决条件详情记录有意不执行的情况。
 - `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败。
-- `ValidationReport` 汇总违规项与跳过记录，并记录配置限制是否截断了收集过程。
+- `ValidationReport` 汇总违规项与跳过记录，并记录配置限制是否截断了收集过程。`failure_count()` 包括顶层违规项及保留的先决条件证据。
 
 不包含任何违规项草稿的无效预备结果属于适配器契约失败。跳过 variant 也有形状不变量：`MissingOptional` 不携带先决条件违规项，而 `FailedPrerequisite` 至少携带一个违规项。
 
 ## 路径与脱敏
 
 `ValidationPath` 存储结构化的 `PathSegment` 值。字段名和 map 位置对受信任的展示层可能有用，但默认格式化会刻意保持保守：`Display` 输出占位符，`Debug` 只报告形状而不报告字段内容。只有在适合披露时，受信任的调用方才显式选择 `ValidationPath::render`。
+`ValidationPath::concat` 直接拼接路径片段，不渲染或解析字符串。传给 `record_outcome` 的出现路径是各违规项路径的基路径；违规项的根路径表示出现位置本身。
 
 `ValidationValue` 是借用视图，其内容在 `Debug` 中经过脱敏。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 不保存底层 source error，因此低层错误必须在可信转换边界处理或记录；其公共 `Display` 和 `Debug` 仅暴露结构化安全元数据。违规项参数仅限于公共的 `ViolationParam` 词汇。
 
