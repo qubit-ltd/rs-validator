@@ -9,6 +9,15 @@
 //! Binding error kinds.
 
 /// A configuration or declaration error found while binding a rule.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::BindErrorKind;
+///
+/// let kind = BindErrorKind::MissingParameter;
+/// assert_eq!(kind.to_string(), "missing parameter");
+/// ```
 #[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]

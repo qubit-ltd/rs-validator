@@ -11,6 +11,15 @@
 use thiserror::Error;
 
 /// A stable validator ID protocol violation.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ValidatorId, ValidatorIdError};
+///
+/// let error = ValidatorId::try_new("rules..required").unwrap_err();
+/// assert_eq!(error, ValidatorIdError::EmptySegment);
+/// ```
 #[must_use]
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[non_exhaustive]

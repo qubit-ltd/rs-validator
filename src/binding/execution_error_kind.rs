@@ -9,6 +9,15 @@
 //! Execution error kinds.
 
 /// A failure in the validation execution infrastructure.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::ExecutionErrorKind;
+///
+/// let kind = ExecutionErrorKind::InputTypeMismatch;
+/// assert_eq!(kind.to_string(), "input type mismatch");
+/// ```
 #[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]

@@ -9,6 +9,15 @@
 //! Reasons for skipping a validation occurrence.
 
 /// Why a rule did not run.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::SkipReason;
+///
+/// let reason = SkipReason::MissingOptional;
+/// assert_eq!(reason, SkipReason::MissingOptional);
+/// ```
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum SkipReason {

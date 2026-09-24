@@ -11,6 +11,15 @@
 use std::borrow::Cow;
 
 /// One location segment in a validation path.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::PathSegment;
+///
+/// let field = PathSegment::Field("profile".into());
+/// assert_eq!(format!("{field:?}"), "Field(<redacted>)");
+/// ```
 #[derive(Clone, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum PathSegment {

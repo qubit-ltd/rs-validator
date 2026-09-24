@@ -11,6 +11,15 @@
 use thiserror::Error;
 
 /// The reason a candidate string violates the stable violation-code protocol.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ViolationCode, ViolationCodeError};
+///
+/// let error = ViolationCode::try_new("text..blank").unwrap_err();
+/// assert_eq!(error, ViolationCodeError::EmptySegment);
+/// ```
 #[must_use]
 #[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[non_exhaustive]

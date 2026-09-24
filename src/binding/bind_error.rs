@@ -12,6 +12,16 @@ use super::BindErrorKind;
 use crate::ValidatorId;
 
 /// A binding error that does not retain raw parameter values.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{BindError, BindErrorKind};
+///
+/// let error = BindError::new(BindErrorKind::MissingParameter).with_parameter("minimum");
+/// assert_eq!(error.parameter(), Some("minimum"));
+/// assert!(!error.to_string().contains("secret value"));
+/// ```
 #[must_use]
 pub struct BindError {
     /// Stable category describing the failed binding operation.

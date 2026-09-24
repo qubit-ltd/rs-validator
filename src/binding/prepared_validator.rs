@@ -68,4 +68,38 @@ pub trait PreparedValidator: Send + Sync {
 ///
 /// The function returns a binding error when parameters are missing, unknown,
 /// duplicated, or cannot be decoded by the validator implementation.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+///
+/// use qubit_validator::{
+///     BindError, BoundValidationContext, ExecutionError, NamedValidationArgument,
+///     PrepareFn, PreparedOutcome, PreparedValidator, ValidationValue,
+/// };
+///
+/// struct Accept;
+/// impl PreparedValidator for Accept {
+///     fn validate(
+///         &self,
+///         _: ValidationValue<'_>,
+///         _: &BoundValidationContext<'_>,
+///     ) -> Result<PreparedOutcome, ExecutionError> {
+///         Ok(PreparedOutcome::valid())
+///     }
+/// }
+///
+/// fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(Arc::new(Accept))
+/// }
+///
+/// let factory: PrepareFn = prepare;
+/// let prepared = factory(&[])?;
+/// assert_eq!(prepared.validate(
+///     ValidationValue::Text("ready"),
+///     &BoundValidationContext::new(&[]),
+/// )?, PreparedOutcome::valid());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub type PrepareFn = fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;

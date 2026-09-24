@@ -16,6 +16,16 @@ use crate::ValidatorId;
 /// Its public formatting and metadata never include raw validation input. The
 /// error stores no underlying source, and its standard error chain is always
 /// empty.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{ExecutionError, ExecutionErrorKind};
+///
+/// let error = ExecutionError::new(ExecutionErrorKind::InputTypeMismatch);
+/// assert_eq!(error.kind(), ExecutionErrorKind::InputTypeMismatch);
+/// assert!(std::error::Error::source(&error).is_none());
+/// ```
 #[must_use]
 pub struct ExecutionError {
     /// Stable category describing the execution failure.

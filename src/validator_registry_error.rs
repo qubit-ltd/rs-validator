@@ -15,6 +15,19 @@ use crate::RegistrationSource;
 use crate::ValidatorId;
 
 /// Failure while freezing a validator registry.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{BindErrorKind, RegistrationSource, ValidatorId, ValidatorRegistryError};
+///
+/// let error = ValidatorRegistryError::InvalidDescriptor {
+///     id: ValidatorId::new("text.required"),
+///     registration_source: RegistrationSource::new("rules", "rules::text", "src/text.rs", 12),
+///     kind: BindErrorKind::InvalidDeclaration,
+/// };
+/// assert!(error.to_string().contains("invalid descriptor"));
+/// ```
 #[must_use]
 #[derive(Clone, Debug, Error)]
 #[non_exhaustive]
