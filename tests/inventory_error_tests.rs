@@ -20,6 +20,7 @@ use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorRegistry;
+use qubit_validator::ValidatorRegistryError;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::register_validator;
 
@@ -48,16 +49,10 @@ register_validator!(id = "test.inventory.duplicate", descriptor = &DESCRIPTOR);
 #[test]
 fn test_global_registry_caches_duplicate_registration_error() {
     let first = ValidatorRegistry::try_global().expect_err("duplicate inventory IDs are rejected");
-    assert!(matches!(
-        first,
-        qubit_validator::ValidatorRegistryError::DuplicateId { .. }
-    ));
+    assert!(matches!(first, ValidatorRegistryError::DuplicateId { .. }));
 
     let second = ValidatorRegistry::try_global().expect_err("the failed result is cached");
-    assert!(matches!(
-        second,
-        qubit_validator::ValidatorRegistryError::DuplicateId { .. }
-    ));
+    assert!(matches!(second, ValidatorRegistryError::DuplicateId { .. }));
 
     let panic =
         std::panic::catch_unwind(ValidatorRegistry::global).expect_err("global panics when initialization failed");
