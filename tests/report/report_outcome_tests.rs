@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
 use qubit_validator::SkippedValidation;
@@ -32,6 +33,32 @@ fn create_violation(index: usize) -> Violation {
 
 fn create_draft() -> ViolationDraft {
     ViolationDraft::new(ViolationCode::new("test.invalid"))
+}
+
+#[test]
+fn test_validation_path_concat_preserves_segment_order_and_inputs() {
+    let prefix = ValidationPath::root().with_field("person").with_index(2);
+    let relative = ValidationPath::root().with_field("name");
+    let combined = prefix.concat(&relative);
+
+    assert_eq!(
+        combined.as_segments(),
+        &[
+            PathSegment::Field("person".into()),
+            PathSegment::Index(2),
+            PathSegment::Field("name".into()),
+        ],
+    );
+    assert_eq!(prefix.as_segments().len(), 2);
+    assert_eq!(relative.as_segments().len(), 1);
+    assert_eq!(
+        prefix.concat(&ValidationPath::root()).as_segments(),
+        prefix.as_segments()
+    );
+    assert_eq!(
+        ValidationPath::root().concat(&relative).as_segments(),
+        relative.as_segments()
+    );
 }
 
 #[test]
@@ -90,6 +117,50 @@ fn test_record_outcome_stores_invalid_violations_in_order() {
 }
 
 #[test]
+fn test_record_outcome_prefixes_relative_invalid_paths_once() {
+    let mut report = ValidationReport::new();
+    let prefix = ValidationPath::root().with_field("person");
+    let outcome = ValidationOutcome::invalid(vec![
+        create_violation(0),
+        create_violation(1).with_path(ValidationPath::root().with_field("name")),
+    ])
+    .expect("invalid outcomes require violations");
+
+    assert!(report.record_outcome(0, prefix, outcome).expect("outcome fits"));
+    assert_eq!(
+        report.violations()[0].path().as_segments(),
+        ValidationPath::root().with_field("person").as_segments(),
+    );
+    assert_eq!(
+        report.violations()[1].path().as_segments(),
+        ValidationPath::root()
+            .with_field("person")
+            .with_field("name")
+            .as_segments(),
+    );
+}
+
+#[test]
+fn test_record_outcome_prefixes_relative_prerequisite_path_once() {
+    let mut report = ValidationReport::new();
+    let evidence = create_violation(0).with_path(ValidationPath::root().with_field("credential"));
+    let outcome = ValidationOutcome::failed_prerequisite(vec![evidence]).expect("failed prerequisite has evidence");
+
+    assert!(
+        report
+            .record_outcome(0, ValidationPath::root().with_field("person"), outcome)
+            .expect("outcome fits")
+    );
+    assert_eq!(
+        report.skipped()[0].prerequisites()[0].path().as_segments(),
+        ValidationPath::root()
+            .with_field("person")
+            .with_field("credential")
+            .as_segments(),
+    );
+}
+
+#[test]
 fn test_record_outcome_keeps_skipped_prerequisites_nested() {
     let prerequisite = create_violation(0);
     let outcome = ValidationOutcome::failed_prerequisite(vec![prerequisite]).expect("failed prerequisite has evidence");
@@ -105,6 +176,23 @@ fn test_record_outcome_keeps_skipped_prerequisites_nested() {
     assert_eq!(report.skipped()[0].occurrence(), 8);
     assert_eq!(report.skipped()[0].prerequisites().len(), 1);
     assert!(!report.is_valid());
+}
+
+#[test]
+fn test_report_format_counts_failed_prerequisite_violations() {
+    let mut report = ValidationReport::new();
+    report
+        .record_outcome(
+            0,
+            ValidationPath::root(),
+            ValidationOutcome::failed_prerequisite(vec![create_violation(0)])
+                .expect("failed prerequisite has evidence"),
+        )
+        .expect("report records the prerequisite failure");
+
+    assert_eq!(report.failure_count(), 1);
+    assert!(format!("{report:?}").contains("violation_count: 1"));
+    assert!(report.to_string().contains("1 violation(s)"));
 }
 
 #[test]

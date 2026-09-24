@@ -65,7 +65,9 @@ turns violation drafts into final violations by attaching its rule ID.
 `ValidationReport` is downstream of execution: a caller decides occurrence
 order, report limits, and whether to continue after an outcome or error. Its
 only public aggregation entry point is `record_outcome`, which preserves
-occurrence order and enforces the configured violation/skip capacity.
+occurrence order and enforces the configured total failure and skip capacities.
+The supplied occurrence path prefixes each retained violation's relative path
+once, including prerequisite evidence nested in a skipped entry.
 
 ## Descriptor, Signature, and Slot Invariants
 
@@ -120,7 +122,8 @@ execution:
 - `ExecutionError` represents erased-shape, dependency-value, external, or
   adapter-contract failures.
 - `ValidationReport` aggregates violations and skips and records whether
-  configured limits truncated collection.
+  configured limits truncated collection. `failure_count()` includes both
+  top-level violations and retained prerequisite evidence.
 
 An invalid prepared outcome with no violation drafts is an adapter contract
 failure. The skipped variants also have shape invariants: `MissingOptional`
@@ -134,6 +137,9 @@ positions can be useful to a trusted presentation layer, but default formatting
 is deliberately conservative: `Display` emits a placeholder and `Debug`
 reports shape rather than field contents. A trusted caller explicitly chooses
 `ValidationPath::render` when disclosure is appropriate.
+`ValidationPath::concat` joins segment sequences without rendering or parsing
+them. The occurrence path passed to `record_outcome` is the base for each
+violation path; a root violation path means the occurrence itself.
 
 `ValidationValue` is a borrowed view and redacts its contents in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.
