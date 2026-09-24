@@ -179,6 +179,23 @@ fn test_record_outcome_keeps_skipped_prerequisites_nested() {
 }
 
 #[test]
+fn test_report_format_counts_failed_prerequisite_violations() {
+    let mut report = ValidationReport::new();
+    report
+        .record_outcome(
+            0,
+            ValidationPath::root(),
+            ValidationOutcome::failed_prerequisite(vec![create_violation(0)])
+                .expect("failed prerequisite has evidence"),
+        )
+        .expect("report records the prerequisite failure");
+
+    assert_eq!(report.failure_count(), 1);
+    assert!(format!("{report:?}").contains("violation_count: 1"));
+    assert!(report.to_string().contains("1 violation(s)"));
+}
+
+#[test]
 fn test_record_outcome_valid_and_missing_optional_are_complete() {
     let mut report = ValidationReport::new();
     assert!(

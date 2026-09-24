@@ -265,7 +265,7 @@ impl std::fmt::Debug for ValidationReport {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ValidationReport")
-            .field("violation_count", &self.violations.len())
+            .field("violation_count", &self.failure_count())
             .field("skipped_count", &self.skipped.len())
             .field("truncated", &self.truncated)
             .finish()
@@ -278,7 +278,7 @@ impl std::fmt::Display for ValidationReport {
         write!(
             formatter,
             "validation report: {} violation(s), {} skipped, truncated={}",
-            self.violations.len(),
+            self.failure_count(),
             self.skipped.len(),
             self.truncated,
         )
