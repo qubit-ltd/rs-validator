@@ -90,6 +90,35 @@ impl<'a> ArgumentReader<'a> {
         self.u32_value(name, false)
     }
 
+    /// Reads an optional platform-sized unsigned integer once.
+    ///
+    /// The representable range depends on the target architecture, commonly
+    /// 32 or 64 bits.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` with the decoded value when the parameter is present,
+    /// or `None` when it is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParameterAlreadyConsumed` when the present parameter was
+    /// previously read, `ParameterTypeMismatch` when it is not an integer, or
+    /// `ParameterOutOfRange` when it is negative or cannot be represented as
+    /// a `usize`. Each error includes the parameter name.
+    pub fn optional_usize(&mut self, name: &str) -> Result<Option<usize>, BindError> {
+        let Some(value) = self.take_optional(name)? else {
+            return Ok(None);
+        };
+        let converted = match value {
+            ValidationArgument::Unsigned(value) => usize::try_from(value),
+            ValidationArgument::Integer(value) if value >= 0 => usize::try_from(value as u128),
+            ValidationArgument::Integer(_) => return Err(Self::range_error(name)),
+            _ => return Err(Self::type_error(name)),
+        };
+        converted.map(Some).map_err(|_| Self::range_error(name))
+    }
+
     /// Reads a required string argument once.
     ///
     /// # Errors

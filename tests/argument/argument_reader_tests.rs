@@ -100,3 +100,74 @@ fn test_range_error_consumes_parameter() {
     assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
     assert_eq!(error.parameter(), Some("limit"));
 }
+
+#[test]
+fn test_optional_usize_decodes_values_and_reports_errors() {
+    let cases: [(&str, ValidationArgument<'_>, Option<usize>, Option<BindErrorKind>); 5] = [
+        (
+            "unsigned usize max",
+            ValidationArgument::Unsigned(usize::MAX as u128),
+            Some(usize::MAX),
+            None,
+        ),
+        (
+            "integer usize max",
+            ValidationArgument::Integer(usize::MAX as i128),
+            Some(usize::MAX),
+            None,
+        ),
+        (
+            "unsigned overflow",
+            ValidationArgument::Unsigned((usize::MAX as u128) + 1),
+            None,
+            Some(BindErrorKind::ParameterOutOfRange),
+        ),
+        (
+            "negative integer",
+            ValidationArgument::Integer(-1),
+            None,
+            Some(BindErrorKind::ParameterOutOfRange),
+        ),
+        (
+            "boolean",
+            ValidationArgument::Bool(true),
+            None,
+            Some(BindErrorKind::ParameterTypeMismatch),
+        ),
+    ];
+
+    for (case, value, expected, expected_error) in cases {
+        let args = [NamedValidationArgument::new("limit", value)];
+        let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
+        match reader.optional_usize("limit") {
+            Ok(actual) => assert_eq!(actual, expected, "{case}"),
+            Err(error) => {
+                assert_eq!(error.kind(), expected_error.expect("case expects an error"), "{case}");
+                assert_eq!(error.parameter(), Some("limit"), "{case}");
+            }
+        }
+    }
+}
+
+#[test]
+fn test_optional_usize_handles_missing_and_repeated_reads() {
+    let mut empty_reader = ArgumentReader::new(&[]).expect("empty arguments should be valid");
+    assert_eq!(
+        empty_reader
+            .optional_usize("limit")
+            .expect("missing value should be accepted"),
+        None
+    );
+
+    let args = [NamedValidationArgument::new("limit", ValidationArgument::Unsigned(10))];
+    let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
+    assert_eq!(
+        reader.optional_usize("limit").expect("first read should succeed"),
+        Some(10)
+    );
+    let error = reader
+        .optional_usize("limit")
+        .expect_err("second read should be rejected");
+    assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    assert_eq!(error.parameter(), Some("limit"));
+}
