@@ -18,7 +18,6 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
-use qubit_validator::SkipReason;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
@@ -26,7 +25,6 @@ use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
-use qubit_validator::Violation;
 use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
 use qubit_validator::ViolationParam;
@@ -138,7 +136,7 @@ fn test_prepared_outcome_binds_rule_identity_and_preserves_draft_metadata() {
     assert_eq!(violations[0].code().as_str(), "test.rejected");
     assert!(matches!(
         violations[0].path().as_segments(),
-        [PathSegment::Field(name)] if name == "name"
+        [PathSegment::Field(name)] if *name == "name"
     ));
     assert_eq!(violations[0].params()["minimum"], ViolationParam::Unsigned(3));
 }
@@ -163,65 +161,22 @@ fn prepare_empty_invalid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn Pr
     }))
 }
 
-fn prepare_empty_failed_prerequisite(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(Arc::new(FixedOutcome {
-        make: || PreparedOutcome::Skipped {
-            reason: SkipReason::FailedPrerequisite,
-            prerequisites: Vec::new(),
-        },
-    }))
-}
-
-fn prepare_populated_missing_optional(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(Arc::new(FixedOutcome {
-        make: || PreparedOutcome::Skipped {
-            reason: SkipReason::MissingOptional,
-            prerequisites: vec![Violation::new(
-                ValidatorId::new("test.prerequisite"),
-                ViolationCode::new("test.failed"),
-            )],
-        },
-    }))
-}
-
 static EMPTY_INVALID_SIGNATURES: &[ValidatorSignature] =
     &[ValidatorSignature::new(InputType::Text, &[], prepare_empty_invalid)];
-static EMPTY_FAILED_PREREQUISITE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_empty_failed_prerequisite,
-)];
-static POPULATED_MISSING_OPTIONAL_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-    InputType::Text,
-    &[],
-    prepare_populated_missing_optional,
-)];
 
 #[test]
-fn test_bound_validate_rejects_malformed_prepared_outcomes_with_bound_rule() {
+fn test_bound_validate_rejects_empty_prepared_outcome_with_bound_rule() {
     let rule_id = ValidatorId::new("test.bound_contract");
-    let cases = [
-        ("empty invalid", EMPTY_INVALID_SIGNATURES),
-        ("empty failed prerequisite", EMPTY_FAILED_PREREQUISITE_SIGNATURES),
-        ("populated missing optional", POPULATED_MISSING_OPTIONAL_SIGNATURES),
-    ];
-
-    for (name, signatures) in cases {
-        let bound = ValidatorDescriptor::new(signatures)
-            .bind(rule_id, 0, &[], &[])
-            .expect("valid test descriptor");
-        let error = bound
-            .validate(ValidationValue::Text("secret input"), &BoundValidationContext::new(&[]))
-            .expect_err(name);
-        assert_eq!(error.kind(), ExecutionErrorKind::AdapterContractViolation, "{name}");
-        assert_eq!(error.rule_id(), Some(rule_id), "{name}");
-        assert!(!format!("{error:?}").contains("secret input"), "{name}");
-        assert!(!error.to_string().contains("secret input"), "{name}");
-    }
+    let bound = ValidatorDescriptor::new(EMPTY_INVALID_SIGNATURES)
+        .bind(rule_id, 0, &[], &[])
+        .expect("valid test descriptor");
+    let error = bound
+        .validate(ValidationValue::Text("secret input"), &BoundValidationContext::new(&[]))
+        .expect_err("an empty invalid result violates the prepared contract");
+    assert_eq!(error.kind(), ExecutionErrorKind::AdapterContractViolation);
+    assert_eq!(error.rule_id(), Some(rule_id));
+    assert!(!format!("{error:?}").contains("secret input"));
+    assert!(!error.to_string().contains("secret input"));
 }
 
 fn prepare_draft_with_metadata(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
@@ -258,7 +213,7 @@ fn test_bound_validate_binds_draft_metadata() {
     let violation = &violations[0];
     assert_eq!(violation.rule_id(), rule_id);
     assert_eq!(violation.code().as_str(), "test.rejected");
-    assert!(matches!(violation.path().as_segments(), [PathSegment::Field(name)] if name == "name"));
+    assert!(matches!(violation.path().as_segments(), [PathSegment::Field(name)] if *name == "name"));
     assert_eq!(violation.params()["minimum"], ViolationParam::Unsigned(3));
     assert!(!format!("{violation:?}").contains("secret input"));
     assert!(!violation.to_string().contains("secret input"));

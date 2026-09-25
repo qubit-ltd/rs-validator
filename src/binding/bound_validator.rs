@@ -22,6 +22,10 @@ use crate::ValidatorId;
 
 /// A bound occurrence that owns a reusable prepared validator instance.
 ///
+/// A prepared validator reports only whether its execution was valid or
+/// invalid. Callers decide whether an occurrence should be skipped and build
+/// the corresponding [`ValidationOutcome`] themselves.
+///
 /// # Examples
 ///
 /// ```

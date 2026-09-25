@@ -38,11 +38,12 @@ pub enum ValidationOutcome {
         /// One or more safe violations carrying no raw rejected value.
         Vec<Violation>,
     ),
-    /// Execution was skipped.
+    /// Execution was skipped by the caller's orchestration policy.
     Skipped {
         /// Reason for skipping.
         reason: SkipReason,
-        /// Prerequisite violations.
+        /// Prerequisite violations with absolute paths to their original
+        /// failure locations.
         prerequisites: Vec<Violation>,
     },
 }
@@ -76,6 +77,9 @@ impl ValidationOutcome {
     }
 
     /// Creates an outcome skipped after at least one prerequisite failed.
+    ///
+    /// `prerequisites` must carry absolute paths to the original failures;
+    /// report recording does not prefix the skipped target path to them.
     ///
     /// # Errors
     ///

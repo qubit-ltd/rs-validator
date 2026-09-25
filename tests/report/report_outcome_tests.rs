@@ -44,9 +44,9 @@ fn test_validation_path_concat_preserves_segment_order_and_inputs() {
     assert_eq!(
         combined.as_segments(),
         &[
-            PathSegment::Field("person".into()),
+            PathSegment::Field("person"),
             PathSegment::Index(2),
-            PathSegment::Field("name".into()),
+            PathSegment::Field("name"),
         ],
     );
     assert_eq!(prefix.as_segments().len(), 2);
@@ -73,10 +73,6 @@ fn test_outcome_constructors_reject_empty_failure_data() {
     );
     assert_eq!(
         ValidationOutcome::failed_prerequisite(Vec::new()),
-        Err(ValidationOutcomeError::EmptyPrerequisites),
-    );
-    assert_eq!(
-        PreparedOutcome::failed_prerequisite(Vec::new()),
         Err(ValidationOutcomeError::EmptyPrerequisites),
     );
 }
@@ -141,23 +137,20 @@ fn test_record_outcome_prefixes_relative_invalid_paths_once() {
 }
 
 #[test]
-fn test_record_outcome_prefixes_relative_prerequisite_path_once() {
+fn test_record_outcome_preserves_absolute_prerequisite_path() {
     let mut report = ValidationReport::new();
-    let evidence = create_violation(0).with_path(ValidationPath::root().with_field("credential"));
+    let evidence_path = ValidationPath::root().with_field("person").with_field("password");
+    let skipped_path = ValidationPath::root().with_field("person").with_field("confirmation");
+    let evidence = create_violation(0).with_path(evidence_path.clone());
     let outcome = ValidationOutcome::failed_prerequisite(vec![evidence]).expect("failed prerequisite has evidence");
 
     assert!(
         report
-            .record_outcome(0, ValidationPath::root().with_field("person"), outcome)
+            .record_outcome(0, skipped_path.clone(), outcome)
             .expect("outcome fits")
     );
-    assert_eq!(
-        report.skipped()[0].prerequisites()[0].path().as_segments(),
-        ValidationPath::root()
-            .with_field("person")
-            .with_field("credential")
-            .as_segments(),
-    );
+    assert_eq!(report.skipped()[0].path(), &skipped_path);
+    assert_eq!(report.skipped()[0].prerequisites()[0].path(), &evidence_path);
 }
 
 #[test]
@@ -302,12 +295,5 @@ fn test_prepared_outcome_constructors_create_valid_outcomes() {
     assert_eq!(
         PreparedOutcome::invalid(vec![create_draft()]),
         Ok(PreparedOutcome::Invalid(vec![create_draft()])),
-    );
-    assert_eq!(
-        PreparedOutcome::missing_optional(),
-        PreparedOutcome::Skipped {
-            reason: SkipReason::MissingOptional,
-            prerequisites: Vec::new(),
-        },
     );
 }

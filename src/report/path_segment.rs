@@ -8,8 +8,6 @@
 
 //! Segments of a safe validation path.
 
-use std::borrow::Cow;
-
 /// One location segment in a validation path.
 ///
 /// Segments sort by variant in the order listed below, then by their field
@@ -20,7 +18,7 @@ use std::borrow::Cow;
 /// ```
 /// use qubit_validator::PathSegment;
 ///
-/// let field = PathSegment::Field("profile".into());
+/// let field = PathSegment::Field("profile");
 /// assert_eq!(format!("{field:?}"), "Field(<redacted>)");
 /// ```
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -29,7 +27,7 @@ pub enum PathSegment {
     /// A declared field name.
     Field(
         /// Program-supplied field label; debug formatting redacts it.
-        Cow<'static, str>,
+        &'static str,
     ),
     /// A sequence element index.
     Index(
@@ -74,10 +72,10 @@ mod tests {
         let mut segments = vec![
             PathSegment::MapValue,
             PathSegment::Index(2),
-            PathSegment::Field("zeta".into()),
+            PathSegment::Field("zeta"),
             PathSegment::MapKey,
             PathSegment::MapEntry(3),
-            PathSegment::Field("alpha".into()),
+            PathSegment::Field("alpha"),
             PathSegment::Index(1),
             PathSegment::MapEntry(1),
         ];
@@ -87,8 +85,8 @@ mod tests {
         assert_eq!(
             segments,
             vec![
-                PathSegment::Field("alpha".into()),
-                PathSegment::Field("zeta".into()),
+                PathSegment::Field("alpha"),
+                PathSegment::Field("zeta"),
                 PathSegment::Index(1),
                 PathSegment::Index(2),
                 PathSegment::MapEntry(1),
@@ -99,19 +97,18 @@ mod tests {
         );
     }
 
-    /// Checks equal field labels hash equally across borrowed and owned
-    /// storage.
+    /// Checks equal declared field labels hash equally.
     #[test]
     fn test_path_segment_hash_matches_equality() {
-        let borrowed = PathSegment::Field("name".into());
-        let owned = PathSegment::Field(String::from("name").into());
-        assert_eq!(borrowed, owned);
+        let first = PathSegment::Field("name");
+        let second = PathSegment::Field("name");
+        assert_eq!(first, second);
 
         let hash = |segment: &PathSegment| {
             let mut hasher = DefaultHasher::new();
             segment.hash(&mut hasher);
             hasher.finish()
         };
-        assert_eq!(hash(&borrowed), hash(&owned));
+        assert_eq!(hash(&first), hash(&second));
     }
 }

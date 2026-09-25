@@ -9,7 +9,6 @@
 //! Type-erased results produced by prepared validators.
 
 use super::ViolationDraft;
-use crate::SkipReason;
 use crate::ValidationOutcome;
 use crate::ValidationOutcomeError;
 use crate::ValidatorId;
@@ -40,13 +39,6 @@ pub enum PreparedOutcome {
         /// One or more safe draft violations produced by the validator.
         Vec<ViolationDraft>,
     ),
-    /// Execution was skipped.
-    Skipped {
-        /// Reason for skipping.
-        reason: SkipReason,
-        /// Prerequisite violations.
-        prerequisites: Vec<Violation>,
-    },
 }
 
 impl PreparedOutcome {
@@ -68,37 +60,11 @@ impl PreparedOutcome {
         Ok(Self::Invalid(violations))
     }
 
-    /// Creates a prepared outcome skipped because the optional target is
-    /// absent.
-    #[inline]
-    pub fn missing_optional() -> Self {
-        Self::Skipped {
-            reason: SkipReason::MissingOptional,
-            prerequisites: Vec::new(),
-        }
-    }
-
-    /// Creates a prepared outcome skipped after a prerequisite failed.
-    ///
-    /// # Errors
-    ///
-    /// Returns `EmptyPrerequisites` when `prerequisites` is empty.
-    pub fn failed_prerequisite(prerequisites: Vec<Violation>) -> Result<Self, ValidationOutcomeError> {
-        if prerequisites.is_empty() {
-            return Err(ValidationOutcomeError::EmptyPrerequisites);
-        }
-        Ok(Self::Skipped {
-            reason: SkipReason::FailedPrerequisite,
-            prerequisites,
-        })
-    }
-
     /// Attaches a bound rule identity to draft violations.
     ///
     /// # Errors
     ///
-    /// Returns an outcome contract error when an invalid result is empty or
-    /// a skipped result has prerequisites inconsistent with its reason.
+    /// Returns an outcome contract error when an invalid result is empty.
     pub fn into_bound(self, rule_id: ValidatorId) -> Result<ValidationOutcome, ValidationOutcomeError> {
         match self {
             Self::Valid => Ok(ValidationOutcome::Valid),
@@ -108,15 +74,6 @@ impl PreparedOutcome {
                     .map(|draft| Violation::from_draft(rule_id, draft))
                     .collect(),
             ),
-            Self::Skipped { reason, prerequisites } => match reason {
-                SkipReason::MissingOptional if !prerequisites.is_empty() => {
-                    Err(ValidationOutcomeError::UnexpectedPrerequisites)
-                }
-                SkipReason::FailedPrerequisite if prerequisites.is_empty() => {
-                    Err(ValidationOutcomeError::EmptyPrerequisites)
-                }
-                _ => Ok(ValidationOutcome::Skipped { reason, prerequisites }),
-            },
         }
     }
 }

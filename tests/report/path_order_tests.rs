@@ -22,8 +22,8 @@ fn hash(value: &impl Hash) -> u64 {
 #[test]
 fn path_segment_order_is_consistent_with_equality() {
     let segments = [
-        PathSegment::Field("a".into()),
-        PathSegment::Field("b".into()),
+        PathSegment::Field("a"),
+        PathSegment::Field("b"),
         PathSegment::Index(0),
         PathSegment::Index(1),
         PathSegment::MapEntry(0),

@@ -15,7 +15,6 @@ use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::PathSegment;
-use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
@@ -51,12 +50,16 @@ fn test_debug_surfaces_redact_values_and_show_safe_shapes() {
     let values = [value];
     let context = BoundValidationContext::new(&values);
     let draft =
-        ViolationDraft::new(ViolationCode::new("text.invalid")).with_path(ValidationPath::root().with_field(secret));
+        ViolationDraft::new(ViolationCode::new("text.invalid")).with_path(ValidationPath::root().with_field("value"));
 
     for debug in [format!("{value:?}"), format!("{context:?}"), format!("{draft:?}")] {
         assert!(!debug.contains(secret));
     }
     assert_eq!(InputType::Text, value.input_type().expect("text has an input type"));
+
+    let dynamic_entry = ValidationPath::root().with_map_entry(0).with_map_value();
+    assert_eq!(dynamic_entry.render(), ".<map-entry:0>.<map-value>");
+    assert!(!dynamic_entry.render().contains(secret));
 }
 
 #[test]
@@ -78,7 +81,7 @@ fn test_path_builders_preserve_segments_without_map_keys() {
     assert_eq!(
         path.as_segments(),
         &[
-            PathSegment::Field("people".into()),
+            PathSegment::Field("people"),
             PathSegment::Index(2),
             PathSegment::MapEntry(4),
             PathSegment::MapKey,
@@ -142,16 +145,8 @@ fn test_failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
     );
 
     assert!(!report.is_valid());
-    assert!(matches!(
-        PreparedOutcome::Skipped {
-            reason: SkipReason::FailedPrerequisite,
-            prerequisites: vec![Violation::new(
-                ValidatorId::new("qubit.rules.credential"),
-                ViolationCode::new("credential.invalid"),
-            )],
-        },
-        PreparedOutcome::Skipped { .. }
-    ));
+    assert_eq!(report.skipped()[0].reason(), SkipReason::FailedPrerequisite);
+    assert_eq!(report.skipped()[0].prerequisites().len(), 1);
 }
 
 #[test]

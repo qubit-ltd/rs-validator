@@ -8,8 +8,6 @@
 
 //! Safe validation paths.
 
-use std::borrow::Cow;
-
 use super::PathSegment;
 
 /// A structured path to a value being validated.
@@ -17,6 +15,9 @@ use super::PathSegment;
 /// `Debug` and `Display` do not reveal field labels. Call [`Self::render`]
 /// explicitly only in a trusted presentation layer; even rendered map entries
 /// contain opaque positions rather than raw map keys.
+///
+/// Field labels are static program declarations. Runtime map keys must be
+/// represented by opaque map-entry segments.
 ///
 /// # Examples
 ///
@@ -26,6 +27,15 @@ use super::PathSegment;
 /// let path = ValidationPath::root().with_field("profile").with_index(2);
 /// assert_eq!(path.render(), "profile[2]");
 /// assert_eq!(path.as_segments().len(), 2);
+/// ```
+///
+/// Runtime field names cannot be retained in a path. Represent dynamic map
+/// entries with [`Self::with_map_entry`] instead.
+///
+/// ```compile_fail
+/// use qubit_validator::ValidationPath;
+/// let runtime_name = String::from("user supplied key");
+/// let _ = ValidationPath::root().with_field(runtime_name);
 /// ```
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ValidationPath {
@@ -43,8 +53,8 @@ impl ValidationPath {
 
     /// Appends a field segment.
     #[must_use]
-    pub fn with_field(mut self, field: impl Into<Cow<'static, str>>) -> Self {
-        self.segments.push(PathSegment::Field(field.into()));
+    pub fn with_field(mut self, field: &'static str) -> Self {
+        self.segments.push(PathSegment::Field(field));
         self
     }
 

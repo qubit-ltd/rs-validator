@@ -69,26 +69,6 @@ fn invalid_empty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedVa
     Ok(Arc::new(Invalid))
 }
 
-fn skipped_missing(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    struct Skipped;
-    impl PreparedValidator for Skipped {
-        fn validate(
-            &self,
-            _: ValidationValue<'_>,
-            _: &BoundValidationContext<'_>,
-        ) -> Result<PreparedOutcome, ExecutionError> {
-            Ok(PreparedOutcome::Skipped {
-                reason: SkipReason::MissingOptional,
-                prerequisites: vec![Violation::new(
-                    ValidatorId::new("test.prerequisite"),
-                    ViolationCode::new("test.failed"),
-                )],
-            })
-        }
-    }
-    Ok(Arc::new(Skipped))
-}
-
 fn invalid_nonempty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Invalid;
     impl PreparedValidator for Invalid {
@@ -103,26 +83,6 @@ fn invalid_nonempty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn Prepare
         }
     }
     Ok(Arc::new(Invalid))
-}
-
-fn skipped_prerequisite(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    struct Skipped;
-    impl PreparedValidator for Skipped {
-        fn validate(
-            &self,
-            _: ValidationValue<'_>,
-            _: &BoundValidationContext<'_>,
-        ) -> Result<PreparedOutcome, ExecutionError> {
-            Ok(PreparedOutcome::Skipped {
-                reason: SkipReason::FailedPrerequisite,
-                prerequisites: vec![Violation::new(
-                    ValidatorId::new("test.prerequisite"),
-                    ViolationCode::new("test.failed"),
-                )],
-            })
-        }
-    }
-    Ok(Arc::new(Skipped))
 }
 
 fn prepared_error(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
@@ -235,7 +195,7 @@ fn test_values_paths_and_input_shapes_are_safe() {
         .with_map_key()
         .with_map_value();
     assert_eq!(path.render(), "user[2].<map-entry:3>.<map-key>.<map-value>");
-    assert_eq!(path.as_segments()[0], PathSegment::Field("user".into()));
+    assert_eq!(path.as_segments()[0], PathSegment::Field("user"));
     assert_eq!(path.to_string(), "<validation-path>");
     assert!(format!("{path:?}").contains("segment_count"));
 }
@@ -419,18 +379,6 @@ fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
             .kind(),
         ExecutionErrorKind::AdapterContractViolation
     );
-
-    static SKIPPED_SIGNATURE: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], skipped_missing)];
-    let skipped = ValidatorDescriptor::new(SKIPPED_SIGNATURE)
-        .bind(ValidatorId::new("test.rule"), 0, &[], &[])
-        .unwrap();
-    assert_eq!(
-        skipped
-            .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
-            .unwrap_err()
-            .kind(),
-        ExecutionErrorKind::AdapterContractViolation
-    );
 }
 
 #[test]
@@ -557,7 +505,7 @@ fn test_debug_and_error_trait_surfaces_are_covered() {
     assert!(Error::source(&error).is_none());
 
     for segment in [
-        PathSegment::Field("field".into()),
+        PathSegment::Field("field"),
         PathSegment::Index(1),
         PathSegment::MapEntry(2),
         PathSegment::MapKey,
@@ -568,22 +516,14 @@ fn test_debug_and_error_trait_surfaces_are_covered() {
 }
 
 #[test]
-fn test_bound_validator_accepts_valid_nonempty_and_prerequisite_outcomes() {
+fn test_bound_validator_accepts_valid_and_nonempty_invalid_outcomes() {
     static INVALID: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_nonempty)];
-    static PREREQUISITE: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], skipped_prerequisite)];
     let invalid = ValidatorDescriptor::new(INVALID)
-        .bind(ValidatorId::new("test.rule"), 0, &[], &[])
-        .unwrap();
-    let prerequisite = ValidatorDescriptor::new(PREREQUISITE)
         .bind(ValidatorId::new("test.rule"), 0, &[], &[])
         .unwrap();
     assert!(matches!(
         invalid.validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[])).unwrap(),
         ValidationOutcome::Invalid(issues) if issues.len() == 1 && issues[0].rule_id() == ValidatorId::new("test.rule")
-    ));
-    assert!(matches!(
-        prerequisite.validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[])).unwrap(),
-        ValidationOutcome::Skipped { reason: SkipReason::FailedPrerequisite, prerequisites } if prerequisites.len() == 1 && prerequisites[0].rule_id() == ValidatorId::new("test.prerequisite")
     ));
 }
 

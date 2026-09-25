@@ -35,8 +35,8 @@ pub struct SkippedValidation {
     path: ValidationPath,
     /// Policy reason the occurrence did not execute.
     reason: SkipReason,
-    /// Evidence violations for a failed prerequisite, empty for an absent
-    /// optional target.
+    /// Evidence violations for a failed prerequisite, with absolute paths to
+    /// original failures; empty for an absent optional target.
     prerequisites: Vec<Violation>,
 }
 

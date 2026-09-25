@@ -92,8 +92,10 @@ impl ValidationReport {
     ///
     /// Violations and skipped entries are stored in occurrence order and obey
     /// their respective report limits. The violation limit counts both
-    /// top-level violations and nested failed-prerequisite evidence. The
-    /// supplied path prefixes each retained violation's relative path once.
+    /// top-level violations and nested failed-prerequisite evidence. For an
+    /// invalid outcome, `path` prefixes each relative violation path once.
+    /// Failed-prerequisite evidence already carries absolute paths and is not
+    /// rewritten; `path` locates only the skipped target.
     ///
     /// # Errors
     ///
@@ -162,14 +164,7 @@ impl ValidationReport {
                     return Ok(false);
                 }
                 let complete = retained == prerequisites.len();
-                let evidence = prerequisites
-                    .into_iter()
-                    .take(retained)
-                    .map(|violation| {
-                        let full_path = path.concat(violation.path());
-                        violation.with_path(full_path)
-                    })
-                    .collect();
+                let evidence = prerequisites.into_iter().take(retained).collect();
                 let skipped = SkippedValidation::failed_prerequisite(occurrence, path, evidence)?;
                 self.skipped.push(skipped);
                 self.failure_count += retained;
