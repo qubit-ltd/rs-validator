@@ -213,6 +213,23 @@ impl ValidationReport {
         &self.violations
     }
 
+    /// Iterates over top-level violations and failed-prerequisite evidence.
+    ///
+    /// Top-level violations are yielded first, followed by prerequisite
+    /// evidence in skipped-entry order. Evidence is not deduplicated, and this
+    /// order does not represent global occurrence order.
+    ///
+    /// # Returns
+    ///
+    /// Every retained failure in the same total count reported by
+    /// [`Self::failure_count`].
+    #[must_use = "inspect all retained failure evidence"]
+    pub fn failures(&self) -> impl Iterator<Item = &Violation> + '_ {
+        self.violations
+            .iter()
+            .chain(self.skipped.iter().flat_map(|skip| skip.prerequisites().iter()))
+    }
+
     /// Returns the total retained failure count, including prerequisite
     /// violations nested in skipped entries.
     #[must_use]

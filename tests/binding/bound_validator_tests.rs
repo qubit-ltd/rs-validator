@@ -8,9 +8,12 @@
 
 use std::convert::Infallible;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::BoundValidator;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
@@ -143,10 +146,8 @@ fn test_prepared_outcome_binds_rule_identity_and_preserves_draft_metadata() {
 }
 
 #[test]
-fn test_prepared_outcome_preserves_skip_reason_and_prerequisite_evidence() {
-    let missing = PreparedOutcome::missing_optional()
-        .into_bound(ValidatorId::new("test.optional"))
-        .expect("missing optional target is a valid skip");
+fn test_validation_outcome_constructs_skips_with_consistent_evidence() {
+    let missing = ValidationOutcome::missing_optional();
     assert!(matches!(missing, ValidationOutcome::Skipped {
         reason: SkipReason::MissingOptional,
         prerequisites,
@@ -156,10 +157,8 @@ fn test_prepared_outcome_preserves_skip_reason_and_prerequisite_evidence() {
         ValidatorId::new("test.prerequisite"),
         ViolationCode::new("test.prerequisite_failed"),
     );
-    let failed = PreparedOutcome::failed_prerequisite(vec![prerequisite.clone()])
-        .expect("failed prerequisites require evidence")
-        .into_bound(ValidatorId::new("test.dependent"))
-        .expect("failed prerequisite skip is a valid outcome");
+    let failed = ValidationOutcome::failed_prerequisite(vec![prerequisite.clone()])
+        .expect("failed prerequisites require evidence");
     assert!(matches!(failed, ValidationOutcome::Skipped {
         reason: SkipReason::FailedPrerequisite,
         prerequisites,
@@ -167,11 +166,59 @@ fn test_prepared_outcome_preserves_skip_reason_and_prerequisite_evidence() {
 }
 
 #[test]
-fn test_prepared_outcome_rejects_failed_prerequisite_without_evidence() {
+fn test_validation_outcome_rejects_failed_prerequisite_without_evidence() {
     assert!(matches!(
-        PreparedOutcome::failed_prerequisite(Vec::new()),
+        ValidationOutcome::failed_prerequisite(Vec::new()),
         Err(qubit_validator::ValidationOutcomeError::EmptyPrerequisites)
     ));
+    assert!(matches!(
+        PreparedOutcome::Invalid(Vec::new()).into_bound(ValidatorId::new("test.empty")),
+        Err(qubit_validator::ValidationOutcomeError::EmptyViolations)
+    ));
+}
+
+struct CountingPrepared(AtomicUsize);
+
+impl PreparedValidator for CountingPrepared {
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        self.0.fetch_add(1, Ordering::Relaxed);
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+#[test]
+fn test_prepared_bound_validator_checks_input_and_empty_dependencies() {
+    let rule_id = ValidatorId::new("test.model_rule");
+    let prepared = Arc::new(CountingPrepared(AtomicUsize::new(0)));
+    let bound = BoundValidator::from_prepared::<u32>(rule_id, prepared.clone());
+    let empty_context = BoundValidationContext::new(&[]);
+
+    assert_eq!(bound.input_type(), InputType::of::<u32>());
+    assert!(bound.dependency_specs().is_empty());
+    assert!(matches!(
+        bound.validate(ValidationValue::Typed(&42_u32), &empty_context),
+        Ok(ValidationOutcome::Valid),
+    ));
+    assert_eq!(prepared.0.load(Ordering::Relaxed), 1);
+
+    let wrong_type = bound
+        .validate(ValidationValue::Typed(&42_i32), &empty_context)
+        .expect_err("the exact concrete input type is enforced");
+    assert_eq!(wrong_type.kind(), ExecutionErrorKind::InputTypeMismatch);
+    assert_eq!(wrong_type.rule_id(), Some(rule_id));
+
+    let extra_values = [ValidationValue::Text("unexpected")];
+    let extra_context = BoundValidationContext::new(&extra_values);
+    let wrong_context = bound
+        .validate(ValidationValue::Typed(&42_u32), &extra_context)
+        .expect_err("a zero-dependency rule rejects extra slots");
+    assert_eq!(wrong_context.kind(), ExecutionErrorKind::AdapterContractViolation);
+    assert_eq!(wrong_context.rule_id(), Some(rule_id));
+    assert_eq!(prepared.0.load(Ordering::Relaxed), 1);
 }
 
 struct FixedOutcome {

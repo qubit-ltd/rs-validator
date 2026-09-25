@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use super::BoundValidationContext;
+use super::DependencySpec;
 use super::ExecutionError;
 use super::ExecutionErrorKind;
 use super::InputType;
@@ -78,8 +79,10 @@ use crate::ValidatorId;
 pub struct BoundValidator {
     /// Immutable prepared implementation shared by cloned bound occurrences.
     prepared: Arc<dyn PreparedValidator>,
-    /// Signature selected when the occurrence was bound.
-    signature: ValidatorSignature,
+    /// Erased input shape accepted by the prepared implementation.
+    input: InputType,
+    /// Ordered dependency slots required by the prepared implementation.
+    dependencies: &'static [DependencySpec],
     /// Stable identifier attached to outcomes and errors.
     rule_id: ValidatorId,
 }
@@ -93,7 +96,38 @@ impl BoundValidator {
     ) -> Self {
         Self {
             prepared,
-            signature,
+            input: signature.input(),
+            dependencies: signature.dependencies(),
+            rule_id,
+        }
+    }
+
+    /// Creates a zero-dependency binding for an already prepared typed rule.
+    ///
+    /// The binding checks that calls supply exactly `T` and no dependency
+    /// slots before invoking the prepared validator. It does not perform
+    /// registry lookup or parameter decoding.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Exact concrete value type accepted by the prepared validator.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Stable identity attached to violations and execution
+    ///   errors.
+    /// - `prepared`: Immutable prepared implementation shared by clones.
+    ///
+    /// # Returns
+    ///
+    /// A reusable bound validator accepting values of type `T` without
+    /// dependencies.
+    #[must_use]
+    pub fn from_prepared<T: 'static>(rule_id: ValidatorId, prepared: Arc<dyn PreparedValidator>) -> Self {
+        Self {
+            prepared,
+            input: InputType::of::<T>(),
+            dependencies: &[],
             rule_id,
         }
     }
@@ -123,14 +157,14 @@ impl BoundValidator {
     #[must_use]
     #[inline]
     pub const fn input_type(&self) -> InputType {
-        self.signature.input()
+        self.input
     }
 
     /// Returns dependencies in their execution slot order.
     #[must_use]
     #[inline]
     pub const fn dependency_specs(&self) -> &'static [super::DependencySpec] {
-        self.signature.dependencies()
+        self.dependencies
     }
 
     /// Returns the stable rule identifier.
@@ -142,7 +176,7 @@ impl BoundValidator {
 
     /// Checks the erased input against the selected signature.
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
-        if value.is_missing() || !self.signature.input().accepts(value) {
+        if value.is_missing() || !self.input.accepts(value) {
             return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule(self.rule_id));
         }
         Ok(())
@@ -151,7 +185,7 @@ impl BoundValidator {
     /// Checks dependency values against the selected signature.
     fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
         context
-            .check_specs(self.signature.dependencies())
+            .check_specs(self.dependencies)
             .map_err(|error| error.with_rule(self.rule_id))
     }
 }
@@ -163,7 +197,7 @@ impl std::fmt::Debug for BoundValidator {
         formatter
             .debug_struct("BoundValidator")
             .field("rule_id", &self.rule_id)
-            .field("input", &self.signature.input())
+            .field("input", &self.input)
             .finish_non_exhaustive()
     }
 }

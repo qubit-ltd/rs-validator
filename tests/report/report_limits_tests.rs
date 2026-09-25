@@ -211,3 +211,69 @@ fn test_invalid_and_prerequisites_share_total_violation_capacity() {
     assert_eq!(report.failure_count(), 2);
     assert!(report.is_truncated());
 }
+
+#[test]
+fn test_failures_iterates_top_level_and_prerequisite_evidence() {
+    let top_level = Violation::new(
+        ValidatorId::new("test.top_level"),
+        ViolationCode::new("test.top_level_failure"),
+    )
+    .with_path(ValidationPath::root().with_field("top"));
+    let first_prerequisite = Violation::new(
+        ValidatorId::new("test.first_prerequisite"),
+        ViolationCode::new("test.first_failure"),
+    )
+    .with_path(ValidationPath::root().with_field("source").with_field("first"));
+    let second_prerequisite = Violation::new(
+        ValidatorId::new("test.second_prerequisite"),
+        ViolationCode::new("test.second_failure"),
+    )
+    .with_path(ValidationPath::root().with_field("source").with_field("second"));
+    let mut report = ValidationReport::new();
+    report
+        .record_outcome(
+            0,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![top_level.clone()]).expect("one top-level failure"),
+        )
+        .expect("top-level failure is retained");
+    report
+        .record_outcome(
+            1,
+            ValidationPath::root().with_field("target"),
+            ValidationOutcome::failed_prerequisite(vec![first_prerequisite.clone(), second_prerequisite.clone()])
+                .expect("both prerequisites are retained"),
+        )
+        .expect("prerequisite failures are retained");
+
+    let failures: Vec<_> = report.failures().cloned().collect();
+    assert_eq!(
+        failures,
+        vec![
+            top_level.clone(),
+            first_prerequisite.clone(),
+            second_prerequisite.clone()
+        ]
+    );
+    assert_eq!(failures[0].path().render(), "top");
+    assert_eq!(failures[1].path().render(), "source.first");
+    assert_eq!(failures[2].path().render(), "source.second");
+    assert_eq!(report.failures().count(), report.failure_count());
+    assert_eq!(report.failures().count(), 3);
+}
+
+#[test]
+fn test_failures_includes_only_prerequisite_evidence_when_no_top_level_failure() {
+    let prerequisite = violation().with_path(ValidationPath::root().with_field("source"));
+    let mut report = ValidationReport::new();
+    report
+        .record_outcome(
+            0,
+            ValidationPath::root().with_field("target"),
+            ValidationOutcome::failed_prerequisite(vec![prerequisite.clone()]).expect("one prerequisite is retained"),
+        )
+        .expect("skip with evidence is retained");
+
+    assert_eq!(report.failures().cloned().collect::<Vec<_>>(), vec![prerequisite]);
+    assert_eq!(report.failures().count(), report.failure_count());
+}
