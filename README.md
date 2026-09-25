@@ -72,8 +72,11 @@ counts retained prerequisite evidence as well as top-level violations, and
 `record_outcome` prefixes relative violation paths with the occurrence path.
 Prerequisite evidence keeps its absolute path to the original failure. Rule
 preparation returns only `Valid` or `Invalid`; callers create skipped outcomes
-when an input is missing or a prerequisite failed. Field path segments accept
-static declared names, while runtime map positions use `MapEntry`.
+when an input is missing or a prerequisite failed. `ValidationReport::failures()`
+iterates top-level violations first, then prerequisite evidence in skipped-entry
+order. It preserves duplicates and does not promise global occurrence order; its
+item count equals `failure_count()`. Field path segments accept static declared
+names, while runtime map positions use `MapEntry`.
 
 ## Learn More
 

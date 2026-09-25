@@ -47,7 +47,7 @@ cargo run --example local_registry --locked
 
 依赖以有序槽位声明。context-aware adapter 执行前，绑定边界会检查槽位顺序、类型和可选性。`ExecutionError` 只保存结构化类别和安全元数据，不保留 source error。违规参数不得包含被拒绝的输入。由于先决条件失败而跳过时，前置违规项保存在该 skipped entry 中，不会重复计入报告顶层违规列表。报告的违规项限额同时计算保留的顶层违规项和先决条件证据；`record_outcome` 会给违规项相对路径添加出现路径前缀。
 
-先决条件证据保留原始失败位置的绝对路径。规则准备层只返回 `Valid` 或 `Invalid`；输入缺失或先决条件失败时，由调用方构造跳过结果。字段路径只接受静态声明名称，运行时 map 位置使用 `MapEntry` 表示。
+先决条件证据保留原始失败位置的绝对路径。规则准备层只返回 `Valid` 或 `Invalid`；输入缺失或先决条件失败时，由调用方构造跳过结果。`ValidationReport::failures()` 先遍历顶层违规项，再按 skipped entry 顺序遍历先决条件证据；它保留重复项，不承诺全局出现顺序，迭代数量等于 `failure_count()`。字段路径只接受静态声明名称，运行时 map 位置使用 `MapEntry` 表示。
 
 ## 延伸阅读
 

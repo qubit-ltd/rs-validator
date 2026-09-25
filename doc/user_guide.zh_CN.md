@@ -63,6 +63,8 @@ assert!(!report.is_valid());
 5. 每次调用传入借用的 `ValidationValue` 和 `BoundValidationContext`。匹配非穷尽公共 enum 时保留兜底分支。
 6. 需要汇总多次结果时，将每个 `ValidationOutcome` 交给 `ValidationReport::record_outcome`。本 crate 不负责遍历对象或调度规则组。
 
+对于无依赖的已准备规则，可使用 `BoundValidator::from_prepared<T>`。它跳过注册表查找和参数准备，但每次调用仍会检查输入类型和依赖数量。
+
 ## 进阶用法：读取依赖的适配器
 
 当规则需要将目标值与已选择的依赖值比较时，使用 context-aware adapter。签名声明依赖槽位，`BoundValidator` 会先检查顺序、输入形状以及必需/可选属性，再调用类型化验证器。
@@ -96,7 +98,7 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 
 ## 汇总验证结果与先决条件
 
-`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。出现路径只会为无效结果中的违规项相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据保留指向原始失败位置的绝对路径。跳过结果的出现路径用于定位被跳过的目标。规则准备层只返回 `Valid` 或 `Invalid`，跳过结果由调用方构造。`with_field` 使用静态声明名称，运行时 map 位置使用 `MapEntry`。
+`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。出现路径只会为无效结果中的违规项相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据保留指向原始失败位置的绝对路径。跳过结果的出现路径用于定位被跳过的目标。规则准备层只返回 `Valid` 或 `Invalid`，跳过结果由调用方构造。`with_field` 使用静态声明名称，运行时 map 位置使用 `MapEntry`。`report.failures()` 先遍历顶层违规项，再按 skipped entry 顺序遍历先决条件证据；它保留重复项，不承诺全局出现顺序，迭代数量等于 `failure_count()`。
 
 ```rust
 let rule_id = ValidatorId::new("text.required");
@@ -118,6 +120,7 @@ assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("pa
 assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
 assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.failure_count(), 2);
+assert_eq!(report.failures().count(), report.failure_count());
 ```
 
 返回的 `bool` 表示本次结果是否完整放入报告，不表示验证是否通过。若容量不足，API 返回 `Ok(false)` 并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。`max_violations` 约束顶层违规项与先决条件证据的保留总数。失败容量耗尽时，不会留下证据列表为空的先决条件失败跳过记录；若跳过记录被 `max_skipped` 拒绝，其先决条件证据也不占失败容量。

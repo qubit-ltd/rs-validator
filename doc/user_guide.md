@@ -82,6 +82,10 @@ assert!(!report.is_valid());
    when the caller needs an aggregate. The crate does not traverse objects or
    schedule rule groups.
 
+For an already prepared rule with no dependencies, use
+`BoundValidator::from_prepared<T>`. It skips registry and parameter preparation,
+but validates the input type and dependency count on every call.
+
 ## Advanced Usage: Context-Aware Adapters
 
 Use a context-aware adapter when a rule must compare its target with an
@@ -131,7 +135,10 @@ uses the occurrence path itself. Prerequisite evidence retains its absolute
 path to the original failure. The occurrence path on a skipped outcome identifies
 the skipped target. Prepared rules return only `Valid` or `Invalid`; the caller
 creates a skipped outcome. Use static declared names with `with_field` and
-`MapEntry` for runtime map positions.
+`MapEntry` for runtime map positions. `report.failures()` iterates top-level
+violations first, then prerequisite evidence in skipped-entry order. It preserves
+duplicates, does not promise global occurrence order, and its count equals
+`failure_count()`.
 
 ```rust
 let rule_id = ValidatorId::new("text.required");
@@ -153,6 +160,7 @@ assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("pa
 assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
 assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.failure_count(), 2);
+assert_eq!(report.failures().count(), report.failure_count());
 ```
 
 The returned `bool` means the complete outcome fit its configured limit; it
