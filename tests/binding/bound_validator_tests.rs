@@ -18,6 +18,7 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
+use qubit_validator::SkipReason;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
@@ -139,6 +140,38 @@ fn test_prepared_outcome_binds_rule_identity_and_preserves_draft_metadata() {
         [PathSegment::Field(name)] if *name == "name"
     ));
     assert_eq!(violations[0].params()["minimum"], ViolationParam::Unsigned(3));
+}
+
+#[test]
+fn test_prepared_outcome_preserves_skip_reason_and_prerequisite_evidence() {
+    let missing = PreparedOutcome::missing_optional()
+        .into_bound(ValidatorId::new("test.optional"))
+        .expect("missing optional target is a valid skip");
+    assert!(matches!(missing, ValidationOutcome::Skipped {
+        reason: SkipReason::MissingOptional,
+        prerequisites,
+    } if prerequisites.is_empty()));
+
+    let prerequisite = qubit_validator::Violation::new(
+        ValidatorId::new("test.prerequisite"),
+        ViolationCode::new("test.prerequisite_failed"),
+    );
+    let failed = PreparedOutcome::failed_prerequisite(vec![prerequisite.clone()])
+        .expect("failed prerequisites require evidence")
+        .into_bound(ValidatorId::new("test.dependent"))
+        .expect("failed prerequisite skip is a valid outcome");
+    assert!(matches!(failed, ValidationOutcome::Skipped {
+        reason: SkipReason::FailedPrerequisite,
+        prerequisites,
+    } if prerequisites == vec![prerequisite]));
+}
+
+#[test]
+fn test_prepared_outcome_rejects_failed_prerequisite_without_evidence() {
+    assert!(matches!(
+        PreparedOutcome::failed_prerequisite(Vec::new()),
+        Err(qubit_validator::ValidationOutcomeError::EmptyPrerequisites)
+    ));
 }
 
 struct FixedOutcome {
