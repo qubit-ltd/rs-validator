@@ -83,9 +83,7 @@ impl PreparedOutcome {
     /// # Errors
     ///
     /// Returns `EmptyPrerequisites` when `prerequisites` is empty.
-    pub fn failed_prerequisite(
-        prerequisites: Vec<Violation>,
-    ) -> Result<Self, ValidationOutcomeError> {
+    pub fn failed_prerequisite(prerequisites: Vec<Violation>) -> Result<Self, ValidationOutcomeError> {
         if prerequisites.is_empty() {
             return Err(ValidationOutcomeError::EmptyPrerequisites);
         }
@@ -101,10 +99,7 @@ impl PreparedOutcome {
     ///
     /// Returns an outcome contract error when an invalid result is empty or
     /// a skipped result has prerequisites inconsistent with its reason.
-    pub fn into_bound(
-        self,
-        rule_id: ValidatorId,
-    ) -> Result<ValidationOutcome, ValidationOutcomeError> {
+    pub fn into_bound(self, rule_id: ValidatorId) -> Result<ValidationOutcome, ValidationOutcomeError> {
         match self {
             Self::Valid => Ok(ValidationOutcome::Valid),
             Self::Invalid(drafts) => ValidationOutcome::invalid(
@@ -113,20 +108,14 @@ impl PreparedOutcome {
                     .map(|draft| Violation::from_draft(rule_id, draft))
                     .collect(),
             ),
-            Self::Skipped {
-                reason,
-                prerequisites,
-            } => match reason {
+            Self::Skipped { reason, prerequisites } => match reason {
                 SkipReason::MissingOptional if !prerequisites.is_empty() => {
                     Err(ValidationOutcomeError::UnexpectedPrerequisites)
                 }
                 SkipReason::FailedPrerequisite if prerequisites.is_empty() => {
                     Err(ValidationOutcomeError::EmptyPrerequisites)
                 }
-                _ => Ok(ValidationOutcome::Skipped {
-                    reason,
-                    prerequisites,
-                }),
+                _ => Ok(ValidationOutcome::Skipped { reason, prerequisites }),
             },
         }
     }
