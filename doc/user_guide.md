@@ -134,6 +134,7 @@ creates a skipped outcome. Use static declared names with `with_field` and
 `MapEntry` for runtime map positions.
 
 ```rust
+let rule_id = ValidatorId::new("text.required");
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
 let mut report = ValidationReport::new();
 assert!(report.record_outcome(
@@ -235,4 +236,5 @@ out of errors and `ViolationParam` values.
 - [Runnable local-registry example](../examples/local_registry.rs)
 - [API documentation](https://docs.rs/qubit-validator)
 - [Project README](../README.md)
+- [中文 README](../README.zh_CN.md)
 - [简体中文用户指南](user_guide.zh_CN.md)

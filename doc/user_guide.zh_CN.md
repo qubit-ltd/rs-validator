@@ -172,5 +172,6 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 - [设计与不变量](design.zh_CN.md)
 - [完整局部注册表示例](../examples/local_registry.rs)
 - [API 文档](https://docs.rs/qubit-validator)
+- [English README](../README.md)
 - [中文 README](../README.zh_CN.md)
 - [English User Guide](user_guide.md)
