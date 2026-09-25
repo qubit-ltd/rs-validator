@@ -81,6 +81,10 @@ retain prerequisite violations within their skipped entry, without adding them
 again to the report's top-level violation list. The report's violation limit
 counts retained prerequisite evidence as well as top-level violations, and
 `record_outcome` prefixes relative violation paths with the occurrence path.
+Prerequisite evidence keeps its absolute path to the original failure. Rule
+preparation returns only `Valid` or `Invalid`; callers create skipped outcomes
+when an input is missing or a prerequisite failed. Field path segments accept
+static declared names, while runtime map positions use `MapEntry`.
 
 ## Learn More
 

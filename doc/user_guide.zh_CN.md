@@ -96,7 +96,7 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 
 ## 汇总验证结果与先决条件
 
-`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。传入的出现路径会给每个违规项的相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据也遵循此规则。
+`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。出现路径只会为无效结果中的违规项相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据保留指向原始失败位置的绝对路径。跳过结果的出现路径用于定位被跳过的目标。规则准备层只返回 `Valid` 或 `Invalid`，跳过结果由调用方构造。`with_field` 使用静态声明名称，运行时 map 位置使用 `MapEntry`。
 
 ```rust
 let rule_id = ValidatorId::new("text.required");
@@ -105,15 +105,18 @@ let mut report = ValidationReport::new();
 assert!(report.record_outcome(
     0,
     ValidationPath::root().with_field("password"),
-    ValidationOutcome::invalid(vec![earlier.clone()])?,
+    ValidationOutcome::invalid(vec![earlier])?,
 )?);
+let earlier = report.violations()[0].clone();
 assert!(report.record_outcome(
     1,
     ValidationPath::root().with_field("confirmation"),
     ValidationOutcome::failed_prerequisite(vec![earlier])?,
 )?);
 assert_eq!(report.violations().len(), 1);
-assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("password"));
+assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
+assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.failure_count(), 2);
 ```
 
@@ -152,7 +155,7 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 | 执行时缺少依赖 | 检查必需槽位是否提供值；可选缺失必须使用 `ValidationValue::Missing`。 |
 | `UnknownParameter` | 读取所有支持的参数后调用 `ArgumentReader::finish`。 |
 | `ParameterAlreadyConsumed` | 每个参数只解码一次，并把结果保存在预备验证器中。 |
-| `AdapterContractViolation` | 检查自定义 `PreparedValidator`。无效结果必须有违规项，skip 结果必须符合原因对应的先决条件规则。 |
+| `AdapterContractViolation` | 检查自定义 `PreparedValidator`。无效结果必须包含违规项；`PreparedOutcome` 只有有效和违规两种状态。 |
 | `record_outcome` 返回 `Ok(false)` | 报告容量拒收了部分或全部结果；检查 `is_truncated()` 并按实际负载配置上限。 |
 
 ## 限制与最佳实践

@@ -66,8 +66,12 @@ turns violation drafts into final violations by attaching its rule ID.
 order, report limits, and whether to continue after an outcome or error. Its
 only public aggregation entry point is `record_outcome`, which preserves
 occurrence order and enforces the configured total failure and skip capacities.
-The supplied occurrence path prefixes each retained violation's relative path
-once, including prerequisite evidence nested in a skipped entry.
+The supplied occurrence path prefixes each retained invalid violation's relative path once.
+Prerequisite evidence already carries an absolute path to its original failure and is
+kept unchanged; the supplied path locates the skipped target. Prepared rules return
+only `Valid` or `Invalid`; the caller constructs a skipped outcome when an input is
+absent or a prerequisite failed. Field path segments use static declared names;
+runtime map positions use `MapEntry`.
 
 ## Descriptor, Signature, and Slot Invariants
 
@@ -137,9 +141,14 @@ positions can be useful to a trusted presentation layer, but default formatting
 is deliberately conservative: `Display` emits a placeholder and `Debug`
 reports shape rather than field contents. A trusted caller explicitly chooses
 `ValidationPath::render` when disclosure is appropriate.
+`Field` and `with_field` accept `&'static str` so ordinary runtime keys cannot
+be retained accidentally. This type does not prove where a static string came
+from; callers must still use declared field names and represent runtime map
+positions with `MapEntry`, which does not retain the key text.
 `ValidationPath::concat` joins segment sequences without rendering or parsing
-them. The occurrence path passed to `record_outcome` is the base for each
-violation path; a root violation path means the occurrence itself.
+them. The occurrence path passed to `record_outcome` is the base for each invalid
+violation path; a root violation path means the occurrence itself. Failed-prerequisite
+evidence retains its absolute path.
 
 `ValidationValue` is a borrowed view and redacts its contents in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.

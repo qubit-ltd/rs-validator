@@ -126,8 +126,12 @@ adapters remain available for rules that do not use context.
 outcome must contain at least one violation. A failed-prerequisite skip must
 contain at least one prerequisite violation, which stays nested in the skipped
 entry instead of appearing among top-level violations. The occurrence path is
-prefixed once to each violation's relative path; a root violation path uses
-the occurrence path itself. This also applies to prerequisite evidence.
+prefixed once to each invalid violation's relative path; a root violation path
+uses the occurrence path itself. Prerequisite evidence retains its absolute
+path to the original failure. The occurrence path on a skipped outcome identifies
+the skipped target. Prepared rules return only `Valid` or `Invalid`; the caller
+creates a skipped outcome. Use static declared names with `with_field` and
+`MapEntry` for runtime map positions.
 
 ```rust
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
@@ -135,15 +139,18 @@ let mut report = ValidationReport::new();
 assert!(report.record_outcome(
     0,
     ValidationPath::root().with_field("password"),
-    ValidationOutcome::invalid(vec![earlier.clone()])?,
+    ValidationOutcome::invalid(vec![earlier])?,
 )?);
+let earlier = report.violations()[0].clone();
 assert!(report.record_outcome(
     1,
     ValidationPath::root().with_field("confirmation"),
     ValidationOutcome::failed_prerequisite(vec![earlier])?,
 )?);
 assert_eq!(report.violations().len(), 1);
-assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("password"));
+assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
+assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.failure_count(), 2);
 ```
 
@@ -203,7 +210,7 @@ out of errors and `ViolationParam` values.
 | Missing dependency during execution | Check that every required slot has a value and that optional absence uses `ValidationValue::Missing`. |
 | `UnknownParameter` | Read supported values and then call `ArgumentReader::finish`. |
 | `ParameterAlreadyConsumed` | Decode each parameter once and store the result in the prepared validator. |
-| `AdapterContractViolation` | Check custom `PreparedValidator` output. Invalid outcomes need violations; skipped outcomes must match their reason's prerequisite rule. |
+| `AdapterContractViolation` | Check custom `PreparedValidator` output. Invalid outcomes need violations; `PreparedOutcome` has only valid and invalid states. |
 | `Ok(false)` from `record_outcome` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. |
 
 ## Limitations and Best Practices
