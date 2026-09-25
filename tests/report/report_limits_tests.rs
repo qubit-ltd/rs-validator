@@ -209,6 +209,7 @@ fn test_invalid_and_prerequisites_share_total_violation_capacity() {
     assert_eq!(report.violations().len(), 1);
     assert_eq!(report.skipped()[0].prerequisites().len(), 1);
     assert_eq!(report.failure_count(), 2);
+    assert_eq!(report.failures().count(), report.failure_count());
     assert!(report.is_truncated());
 }
 
