@@ -18,29 +18,13 @@ qubit-validator = "0.1"
 
 ## 快速开始
 
-例如，表单处理逻辑可以先绑定已注册的 `NonBlank` 规则，再重复检查用户填写的显示名称。完整的规则和注册表定义见 [`examples/local_registry.rs`](examples/local_registry.rs)。
+例如，表单处理逻辑可以先绑定已注册的 `NonBlank` 规则，再重复检查用户填写的显示名称。仓库中的完整可运行示例 [`examples/local_registry.rs`](examples/local_registry.rs) 会定义并注册规则，分别验证有效和无效输入，并检查产生的违规代码。
 
-```rust
-let registration = ValidatorRegistration::new(
-    ValidatorId::new("text.non_blank"),
-    &DESCRIPTOR,
-    RegistrationSource::new("app", "app::rules", "src/rules.rs", 12),
-);
-let registry = ValidatorRegistry::from_registrations([registration])?;
-let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
-let context = BoundValidationContext::new(&[]);
-
-let outcome = validator.validate(ValidationValue::Text("Ada"), &context)?;
-assert_eq!(outcome, ValidationOutcome::valid());
-
-let outcome = validator.validate(ValidationValue::Text("  "), &context)?;
-let mut report = ValidationReport::new();
-assert!(report.record_outcome(0, ValidationPath::root(), outcome)?);
-assert!(!report.is_valid());
-assert_eq!(report.violations()[0].code().as_str(), "text.blank");
+```bash
+cargo run --example local_registry --locked
 ```
 
-运行完整示例：`cargo run --example local_registry --locked`。
+示例会确认 `"Ada"` 通过验证，空白文本产生 `text.blank` 违规；同时演示依赖顺序错误和参数重复读取错误。启用 `inventory` 后，还会验证进程级注册。
 
 ## 为什么需要这个项目
 

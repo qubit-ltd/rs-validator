@@ -19,30 +19,19 @@ qubit-validator = "0.1"
 ## Quick Start
 
 For example, a form handler can bind a registered `NonBlank` rule once and
-reuse it for each display name. The complete rule and registry setup is in
-[`examples/local_registry.rs`](examples/local_registry.rs).
+reuse it for each display name. The complete runnable
+[`examples/local_registry.rs`](examples/local_registry.rs) defines the rule,
+registers it, checks accepted and rejected values, and asserts the resulting
+violation code:
 
-```rust
-let registration = ValidatorRegistration::new(
-    ValidatorId::new("text.non_blank"),
-    &DESCRIPTOR,
-    RegistrationSource::new("example", "local_registry", "examples/local_registry.rs", 1),
-);
-let registry = ValidatorRegistry::from_registrations([registration])?;
-let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
-let context = BoundValidationContext::new(&[]);
-
-let outcome = validator.validate(ValidationValue::Text("Ada"), &context)?;
-assert_eq!(outcome, ValidationOutcome::valid());
-
-let outcome = validator.validate(ValidationValue::Text("  "), &context)?;
-let mut report = ValidationReport::new();
-assert!(report.record_outcome(0, ValidationPath::root(), outcome)?);
-assert!(!report.is_valid());
-assert_eq!(report.violations()[0].code().as_str(), "text.blank");
+```bash
+cargo run --example local_registry --locked
 ```
 
-Run the complete example with `cargo run --example local_registry --locked`.
+The example confirms that `"Ada"` is valid and that blank text produces the
+`text.blank` violation. It also demonstrates dependency-order and parameter
+consumption errors; with `inventory` enabled, it exercises process-wide
+registration.
 
 ## Why This Project Exists
 
