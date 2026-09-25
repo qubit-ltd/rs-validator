@@ -35,6 +35,16 @@ use crate::ViolationDraft;
 ///
 /// This function does not panic. A value with a different concrete type is
 /// returned as an execution error by the prepared adapter.
+///
+/// # Parameters
+///
+/// - `validator`: Thread-safe validator invoked with a checked value and
+///   context.
+/// - `map_error`: Converts a domain error to safe violation metadata.
+///
+/// # Returns
+///
+/// A shared prepared adapter for the supplied validator and mapper.
 #[must_use]
 pub fn prepare_contextual_typed_validator<T: 'static, V, E, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where

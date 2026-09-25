@@ -34,6 +34,15 @@ use crate::ViolationDraft;
 ///
 /// This function does not panic. A non-text erased input is returned as an
 /// execution error by the prepared adapter.
+///
+/// # Parameters
+///
+/// - `validator`: Thread-safe validator invoked with checked text and context.
+/// - `map_error`: Converts a domain error to safe violation metadata.
+///
+/// # Returns
+///
+/// A shared prepared adapter for the supplied validator and mapper.
 #[must_use]
 pub fn prepare_contextual_text_validator<V, E, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where

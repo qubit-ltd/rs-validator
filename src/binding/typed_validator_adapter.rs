@@ -31,6 +31,22 @@ use crate::ViolationDraft;
 ///
 /// This function does not panic. The prepared adapter reports an input-shape
 /// error if it receives a value with a different concrete type.
+///
+/// # Type Parameters
+///
+/// - `T`: Borrowed input type accepted by the validator; it must be `'static`.
+/// - `V`: Thread-safe validator for `T` with unit context.
+/// - `M`: Thread-safe mapper from the validator error to safe violation
+///   metadata.
+///
+/// # Parameters
+///
+/// - `validator`: Validator invoked after exact type checking.
+/// - `map_error`: Converts each domain error to a safe violation draft.
+///
+/// # Returns
+///
+/// A shared prepared adapter that accepts only values of type `T`.
 #[must_use]
 pub fn prepare_typed_validator<T: 'static, V, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where

@@ -34,6 +34,14 @@ pub enum InputType {
 
 impl InputType {
     /// Creates a typed input descriptor for `T`.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Exact concrete input type; it must be `'static` for `TypeId`.
+    ///
+    /// # Returns
+    ///
+    /// A descriptor that accepts only values whose concrete type is `T`.
     #[must_use]
     #[inline]
     pub const fn of<T: 'static>() -> Self {

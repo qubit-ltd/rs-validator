@@ -10,6 +10,10 @@
 
 /// One statically typed validator parameter value.
 ///
+/// # Type Parameters
+///
+/// - `'a`: Lifetime of any borrowed string or slice carried by the value.
+///
 /// # Examples
 ///
 /// ```

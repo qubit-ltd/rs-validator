@@ -12,6 +12,10 @@ use crate::ValidationArgument;
 
 /// One named validator parameter.
 ///
+/// # Type Parameters
+///
+/// - `'a`: Lifetime of the borrowed parameter name and value.
+///
 /// # Examples
 ///
 /// ```
@@ -34,6 +38,15 @@ pub struct NamedValidationArgument<'a> {
 impl<'a> NamedValidationArgument<'a> {
     /// Creates a named parameter.
     ///
+    /// # Parameters
+    ///
+    /// - `name`: Non-empty name declared by the validator's parameter schema.
+    /// - `value`: Typed value supplied for that parameter.
+    ///
+    /// # Returns
+    ///
+    /// A named parameter retaining the supplied borrowed data.
+    ///
     /// # Panics
     ///
     /// Panics when `name` is empty.
@@ -45,6 +58,10 @@ impl<'a> NamedValidationArgument<'a> {
     }
 
     /// Returns the parameter name.
+    ///
+    /// # Returns
+    ///
+    /// The name borrowed from this argument.
     #[must_use]
     #[inline]
     pub const fn name(&self) -> &'a str {
@@ -52,6 +69,10 @@ impl<'a> NamedValidationArgument<'a> {
     }
 
     /// Returns the parameter value.
+    ///
+    /// # Returns
+    ///
+    /// The copyable typed value, which may contain borrowed data.
     #[must_use]
     #[inline]
     pub const fn value(&self) -> ValidationArgument<'a> {

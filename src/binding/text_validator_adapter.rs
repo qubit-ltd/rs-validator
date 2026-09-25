@@ -30,6 +30,15 @@ use crate::ViolationDraft;
 ///
 /// This function does not panic. The prepared adapter reports an input-shape
 /// error if it receives a non-text value.
+///
+/// # Parameters
+///
+/// - `validator`: Thread-safe validator for borrowed text with unit context.
+/// - `map_error`: Converts each domain error to safe violation metadata.
+///
+/// # Returns
+///
+/// A shared prepared adapter that checks for text input before validation.
 #[must_use]
 pub fn prepare_text_validator<V, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where

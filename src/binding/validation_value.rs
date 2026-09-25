@@ -12,6 +12,10 @@ use std::any::Any;
 
 /// A value view that deliberately avoids implicit stringification and cloning.
 ///
+/// # Type Parameters
+///
+/// - `'a`: Lifetime for which the borrowed input remains available.
+///
 /// # Examples
 ///
 /// ```
@@ -80,6 +84,10 @@ impl<'a> ValidationValue<'a> {
     }
 
     /// Attempts to borrow the value as its exact concrete type.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Requested concrete type, which must be `'static` for `Any`.
     ///
     /// # Returns
     ///
