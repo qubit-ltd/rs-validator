@@ -62,21 +62,7 @@ and local `ValidatorRegistry` values work without optional features. Enable
 `inventory` only when process-wide registration through `register_validator!`
 and `ValidatorRegistry::try_global` is needed.
 
-Dependencies are declared as ordered slots. Binding and execution check their
-order, shape, and optionality before a contextual adapter runs. `ExecutionError`
-contains only structured categories and safe metadata; it stores no source
-error. Violation parameters must not contain rejected input. Skipped outcomes
-retain prerequisite violations within their skipped entry, without adding them
-again to the report's top-level violation list. The report's violation limit
-counts retained prerequisite evidence as well as top-level violations, and
-`record_outcome` prefixes relative violation paths with the occurrence path.
-Prerequisite evidence keeps its absolute path to the original failure. Rule
-preparation returns only `Valid` or `Invalid`; callers create skipped outcomes
-when an input is missing or a prerequisite failed. `ValidationReport::failures()`
-iterates top-level violations first, then prerequisite evidence in skipped-entry
-order. It preserves duplicates and does not promise global occurrence order; its
-item count equals `failure_count()`. Field path segments accept static declared
-names, while runtime map positions use `MapEntry`.
+Dependencies are declared as ordered slots on each signature. Binding a selected signature copies its dependency specifications directly into the bound validator; model metadata validates actual dependency declarations and execution checks runtime slot shape. `ExecutionError` retains an owned cause only for explicit trusted diagnostics through `trusted_source()`. Ordinary formatting and `Error::source()` remain redacted. Violation parameters must not contain rejected input. Failed-prerequisite skips reference retained violations by opaque `FailureId`, so the original failure is counted and rendered once. `record_outcome` returns a `RecordedOutcome` with completion status and IDs retained from that occurrence. Failure references do not consume `max_violations`; `max_skipped` limits skipped occurrences. `ValidationReport::failures()` iterates original violations only. Parameter `Debug` output redacts names and values.
 
 ## Learn More
 

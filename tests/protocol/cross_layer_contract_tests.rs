@@ -258,28 +258,28 @@ fn test_descriptor_binding_and_bound_validation_cover_contract_errors() {
     let args = [NamedValidationArgument::new("unused", ValidationArgument::Bool(false))];
     assert_eq!(
         TEXT_DESCRIPTOR
-            .bind(ValidatorId::new("test.rule"), 9, &[], &[])
+            .bind(ValidatorId::new("test.rule"), 9, &[])
             .unwrap_err()
             .kind(),
         BindErrorKind::InvalidSelection
     );
     assert_eq!(
         TEXT_DESCRIPTOR
-            .bind_for(ValidatorId::new("test.rule"), InputType::of::<u32>(), &[], &[])
+            .bind_for(ValidatorId::new("test.rule"), InputType::of::<u32>(), &[])
             .unwrap_err()
             .kind(),
         BindErrorKind::UnsupportedInput
     );
     assert!(
         TEXT_DESCRIPTOR
-            .bind_for(ValidatorId::new("test.rule"), InputType::Text, &[], &[])
+            .bind_for(ValidatorId::new("test.rule"), InputType::Text, &[])
             .is_ok()
     );
     static ERROR_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepared_error)];
     let error_descriptor = ValidatorDescriptor::new(ERROR_SIGNATURES);
     assert_eq!(
         error_descriptor
-            .bind(ValidatorId::new("test.rule"), 0, &args, &[])
+            .bind(ValidatorId::new("test.rule"), 0, &args)
             .unwrap_err()
             .kind(),
         BindErrorKind::InvalidPattern
@@ -304,9 +304,7 @@ fn test_descriptor_binding_and_bound_validation_cover_contract_errors() {
         BindErrorKind::InvalidDeclaration
     );
 
-    let bound = TEXT_DESCRIPTOR
-        .bind(ValidatorId::new("test.rule"), 0, &[], &[])
-        .unwrap();
+    let bound = TEXT_DESCRIPTOR.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
     assert_eq!(bound.input_type(), InputType::Text);
     assert!(bound.dependency_specs().is_empty());
     assert_eq!(bound.rule_id(), ValidatorId::new("test.rule"));
@@ -333,9 +331,7 @@ fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
     ];
     static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
     static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
-    let bound = DESCRIPTOR
-        .bind(ValidatorId::new("test.rule"), 0, &[], DEPENDENCIES)
-        .unwrap();
+    let bound = DESCRIPTOR.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
 
     let number = 1_u32;
     let missing_optional = [ValidationValue::Text("dependency"), ValidationValue::Missing];
@@ -370,7 +366,7 @@ fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
 
     static INVALID_SIGNATURE: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_empty)];
     let invalid = ValidatorDescriptor::new(INVALID_SIGNATURE)
-        .bind(ValidatorId::new("test.rule"), 0, &[], &[])
+        .bind(ValidatorId::new("test.rule"), 0, &[])
         .unwrap();
     assert_eq!(
         invalid
@@ -382,31 +378,12 @@ fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
 }
 
 #[test]
-fn test_binding_checks_dependency_declarations_before_preparation() {
+fn test_selected_signature_owns_its_dependency_specs() {
     static DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
     static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
     static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
-
-    let missing = DESCRIPTOR
-        .bind(ValidatorId::new("test.dependencies"), 0, &[], &[])
-        .expect_err("missing dependency declaration must fail during binding");
-    assert_eq!(missing.kind(), BindErrorKind::MissingDependencyDeclaration);
-    assert_eq!(missing.dependency(), Some("required"));
-
-    let extra = [
-        DependencySpec::new("required", InputType::Text, false),
-        DependencySpec::new("other", InputType::Text, false),
-    ];
-    let unknown = DESCRIPTOR
-        .bind(ValidatorId::new("test.dependencies"), 0, &[], &extra)
-        .expect_err("unknown dependency declaration must fail during binding");
-    assert_eq!(unknown.kind(), BindErrorKind::UnknownDependencyDeclaration);
-
-    let wrong = [DependencySpec::new("required", InputType::of::<u32>(), false)];
-    let mismatch = DESCRIPTOR
-        .bind(ValidatorId::new("test.dependencies"), 0, &[], &wrong)
-        .expect_err("dependency type mismatch must fail during binding");
-    assert_eq!(mismatch.kind(), BindErrorKind::DependencyTypeMismatch);
+    let bound = DESCRIPTOR.bind(ValidatorId::new("test.dependencies"), 0, &[]).unwrap();
+    assert_eq!(bound.dependency_specs(), DEPENDENCIES);
 }
 
 #[test]
@@ -457,6 +434,7 @@ fn test_errors_reports_violations_and_registries_expose_structured_data() {
         report
             .record_outcome(3, ValidationPath::root(), ValidationOutcome::missing_optional())
             .unwrap()
+            .complete()
     );
     assert!(report.is_valid());
     assert!(!report.is_truncated());
@@ -469,10 +447,10 @@ fn test_errors_reports_violations_and_registries_expose_structured_data() {
     let reference = registration("test.reference");
     let copied = ValidatorRegistry::from_registrations([&reference]).unwrap();
     assert!(copied.get("test.reference").is_some());
-    let bound = registry.bind("test.registry", InputType::Text, &[], &[]).unwrap();
+    let bound = registry.bind("test.registry", InputType::Text, &[]).unwrap();
     assert_eq!(bound.rule_id(), ValidatorId::new("test.registry"));
     assert_eq!(
-        registry.bind("missing", InputType::Text, &[], &[]).unwrap_err().kind(),
+        registry.bind("missing", InputType::Text, &[]).unwrap_err().kind(),
         BindErrorKind::MissingRule
     );
 }
@@ -498,7 +476,7 @@ fn test_debug_and_error_trait_surfaces_are_covered() {
 
     let context = BoundValidationContext::new(&[]);
     assert!(format!("{context:?}").contains("slot_count"));
-    let bound = descriptor.bind(ValidatorId::new("test.rule"), 0, &[], &[]).unwrap();
+    let bound = descriptor.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
     assert!(format!("{bound:?}").contains("BoundValidator"));
 
     let error = ExecutionError::new(ExecutionErrorKind::ExternalFailure);
@@ -519,7 +497,7 @@ fn test_debug_and_error_trait_surfaces_are_covered() {
 fn test_bound_validator_accepts_valid_and_nonempty_invalid_outcomes() {
     static INVALID: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_nonempty)];
     let invalid = ValidatorDescriptor::new(INVALID)
-        .bind(ValidatorId::new("test.rule"), 0, &[], &[])
+        .bind(ValidatorId::new("test.rule"), 0, &[])
         .unwrap();
     assert!(matches!(
         invalid.validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[])).unwrap(),

@@ -88,7 +88,7 @@ static TEXT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TEXT_SIGN
 #[test]
 fn test_typed_adapter_accepts_valid_input() {
     let validator = TYPED_DESCRIPTOR
-        .bind(ValidatorId::new("test.at_least_three"), 0, &[], &[])
+        .bind(ValidatorId::new("test.at_least_three"), 0, &[])
         .expect("typed validator binds");
 
     let outcome = validator
@@ -101,9 +101,7 @@ fn test_typed_adapter_accepts_valid_input() {
 #[test]
 fn test_typed_adapter_maps_domain_error_to_structured_violation() {
     let rule_id = ValidatorId::new("test.at_least_three");
-    let validator = TYPED_DESCRIPTOR
-        .bind(rule_id, 0, &[], &[])
-        .expect("typed validator binds");
+    let validator = TYPED_DESCRIPTOR.bind(rule_id, 0, &[]).expect("typed validator binds");
 
     let outcome = validator
         .validate(ValidationValue::Typed(&2_i64), &BoundValidationContext::new(&[]))
@@ -142,7 +140,7 @@ fn test_typed_adapter_rejects_text_input() {
 #[test]
 fn test_text_adapter_accepts_non_blank_input() {
     let validator = TEXT_DESCRIPTOR
-        .bind(ValidatorId::new("test.non_blank_text"), 0, &[], &[])
+        .bind(ValidatorId::new("test.non_blank_text"), 0, &[])
         .expect("text validator binds");
 
     let outcome = validator
@@ -155,7 +153,7 @@ fn test_text_adapter_accepts_non_blank_input() {
 #[test]
 fn test_text_adapter_rejects_blank_input_without_exposing_it() {
     let validator = TEXT_DESCRIPTOR
-        .bind(ValidatorId::new("test.non_blank_text"), 0, &[], &[])
+        .bind(ValidatorId::new("test.non_blank_text"), 0, &[])
         .expect("text validator binds");
     let rejected_value = " \t\n";
 

@@ -9,7 +9,6 @@
 use std::sync::Arc;
 
 use qubit_validator::BindError;
-use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
@@ -49,89 +48,15 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 const RULE_ID: ValidatorId = ValidatorId::new("test.dependency_contract");
 
 #[test]
-fn test_bind_rejects_dependency_declarations_in_the_wrong_slot_order() {
-    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
-
-    let error = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], &declared)
-        .expect_err("swapped dependency slots must fail during binding");
-
-    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
-    assert_eq!(error.dependency(), Some("maximum"));
-}
-
-#[test]
-fn test_bind_accepts_dependency_declarations_in_signature_order() {
-    DESCRIPTOR
-        .bind(RULE_ID, 0, &[], DEPENDENCIES)
-        .expect("dependency slots in signature order must bind");
-}
-
-#[test]
-fn test_bind_reports_duplicate_before_missing_dependency() {
-    let declared = [
-        DependencySpec::new("minimum", InputType::of::<u64>(), false),
-        DependencySpec::new("minimum", InputType::of::<u64>(), false),
-    ];
-
-    let error = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], &declared)
-        .expect_err("a duplicate declaration must take precedence over a missing declaration");
-
-    assert_eq!(error.kind(), BindErrorKind::InvalidDeclaration);
-    assert_eq!(error.dependency(), Some("minimum"));
-}
-
-#[test]
-fn test_bind_reports_missing_before_unknown_dependency() {
-    let declared = [
-        DependencySpec::new("minimum", InputType::of::<u64>(), false),
-        DependencySpec::new("other", InputType::of::<u64>(), false),
-    ];
-
-    let error = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], &declared)
-        .expect_err("a missing declaration must take precedence over an unknown declaration");
-
-    assert_eq!(error.kind(), BindErrorKind::MissingDependencyDeclaration);
-    assert_eq!(error.dependency(), Some("maximum"));
-}
-
-#[test]
-fn test_bind_reports_unknown_before_dependency_order() {
-    let declared = [
-        DependencySpec::new("maximum", InputType::of::<u64>(), false),
-        DependencySpec::new("minimum", InputType::of::<u64>(), false),
-        DependencySpec::new("other", InputType::of::<u64>(), false),
-    ];
-
-    let error = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], &declared)
-        .expect_err("an unknown declaration must take precedence over slot order");
-
-    assert_eq!(error.kind(), BindErrorKind::UnknownDependencyDeclaration);
-    assert_eq!(error.dependency(), Some("other"));
-}
-
-#[test]
-fn test_bind_reports_dependency_order_before_type_mismatch() {
-    let declared = [
-        DependencySpec::new("maximum", InputType::Text, false),
-        DependencySpec::new("minimum", InputType::of::<u64>(), false),
-    ];
-
-    let error = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], &declared)
-        .expect_err("slot order must take precedence over a dependency type mismatch");
-
-    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
-    assert_eq!(error.dependency(), Some("maximum"));
+fn test_bind_takes_dependency_specs_from_selected_signature() {
+    let bound = DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    assert_eq!(bound.dependency_specs(), DEPENDENCIES);
 }
 
 #[test]
 fn test_validate_reports_missing_dependency_name_rule_and_path() {
     let bound = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], DEPENDENCIES)
+        .bind(RULE_ID, 0, &[])
         .expect("dependency slots in signature order must bind");
     let maximum = 10_u64;
     let values = [ValidationValue::Missing, ValidationValue::Typed(&maximum)];
@@ -154,7 +79,7 @@ fn test_validate_reports_missing_dependency_name_rule_and_path() {
 #[test]
 fn test_validate_reports_wrong_dependency_type_name_rule_and_path() {
     let bound = DESCRIPTOR
-        .bind(RULE_ID, 0, &[], DEPENDENCIES)
+        .bind(RULE_ID, 0, &[])
         .expect("dependency slots in signature order must bind");
     let minimum = 1_u64;
     let values = [ValidationValue::Typed(&minimum), ValidationValue::Text("ten")];

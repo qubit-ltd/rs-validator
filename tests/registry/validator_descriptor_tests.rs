@@ -83,7 +83,7 @@ fn test_duplicate_signatures_are_rejected_when_binding() {
     ]));
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
     let error = descriptor
-        .bind_for(ValidatorId::new("test.multi"), InputType::Text, &[], &[])
+        .bind_for(ValidatorId::new("test.multi"), InputType::Text, &[])
         .unwrap_err();
     assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
 }

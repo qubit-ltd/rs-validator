@@ -99,7 +99,7 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 #[test]
 fn test_prepared_descriptor_preserves_structured_rule_failures() {
     let bound = DESCRIPTOR
-        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
         .expect("valid descriptor");
     let outcome = bound
         .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]))
@@ -113,7 +113,7 @@ fn test_prepared_descriptor_preserves_structured_rule_failures() {
 #[test]
 fn test_prepared_descriptor_rejects_wrong_input_shape() {
     let bound = DESCRIPTOR
-        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[], &[])
+        .bind_for(ValidatorId::new("test.rejecting"), InputType::Text, &[])
         .expect("valid descriptor");
     let error = bound
         .validate(ValidationValue::Typed(&5_u32), &BoundValidationContext::new(&[]))
@@ -153,16 +153,10 @@ fn test_validation_outcome_constructs_skips_with_consistent_evidence() {
         prerequisites,
     } if prerequisites.is_empty()));
 
-    let prerequisite = qubit_validator::Violation::new(
-        ValidatorId::new("test.prerequisite"),
-        ViolationCode::new("test.prerequisite_failed"),
-    );
-    let failed = ValidationOutcome::failed_prerequisite(vec![prerequisite.clone()])
-        .expect("failed prerequisites require evidence");
-    assert!(matches!(failed, ValidationOutcome::Skipped {
-        reason: SkipReason::FailedPrerequisite,
-        prerequisites,
-    } if prerequisites == vec![prerequisite]));
+    assert!(matches!(
+        ValidationOutcome::failed_prerequisite(Vec::new()),
+        Err(qubit_validator::ValidationOutcomeError::EmptyPrerequisites)
+    ));
 }
 
 #[test]
@@ -248,7 +242,7 @@ static EMPTY_INVALID_SIGNATURES: &[ValidatorSignature] =
 fn test_bound_validate_rejects_empty_prepared_outcome_with_bound_rule() {
     let rule_id = ValidatorId::new("test.bound_contract");
     let bound = ValidatorDescriptor::new(EMPTY_INVALID_SIGNATURES)
-        .bind(rule_id, 0, &[], &[])
+        .bind(rule_id, 0, &[])
         .expect("valid test descriptor");
     let error = bound
         .validate(ValidationValue::Text("secret input"), &BoundValidationContext::new(&[]))
@@ -281,7 +275,7 @@ static METADATA_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 fn test_bound_validate_binds_draft_metadata() {
     let rule_id = ValidatorId::new("test.bound_metadata");
     let bound = ValidatorDescriptor::new(METADATA_SIGNATURES)
-        .bind(rule_id, 0, &[], &[])
+        .bind(rule_id, 0, &[])
         .expect("valid test descriptor");
     let outcome = bound
         .validate(ValidationValue::Text("secret input"), &BoundValidationContext::new(&[]))

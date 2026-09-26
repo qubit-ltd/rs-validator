@@ -22,7 +22,7 @@
 /// let argument = ValidationArgument::String("admin");
 /// assert_eq!(argument, ValidationArgument::String("admin"));
 /// ```
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ValidationArgument<'a> {
     /// A Boolean value.
@@ -65,4 +65,28 @@ pub enum ValidationArgument<'a> {
         /// The supplied borrowed slice of borrowed strings.
         &'a [&'a str],
     ),
+}
+
+impl std::fmt::Debug for ValidationArgument<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bool(_) => formatter.write_str("Bool(<redacted>)"),
+            Self::Integer(_) => formatter.write_str("Integer(<redacted>)"),
+            Self::Unsigned(_) => formatter.write_str("Unsigned(<redacted>)"),
+            Self::String(_) => formatter.write_str("String(<redacted>)"),
+            Self::BoolList(values) => formatter.debug_struct("BoolList").field("len", &values.len()).finish(),
+            Self::IntegerList(values) => formatter
+                .debug_struct("IntegerList")
+                .field("len", &values.len())
+                .finish(),
+            Self::UnsignedList(values) => formatter
+                .debug_struct("UnsignedList")
+                .field("len", &values.len())
+                .finish(),
+            Self::StringList(values) => formatter
+                .debug_struct("StringList")
+                .field("len", &values.len())
+                .finish(),
+        }
+    }
 }

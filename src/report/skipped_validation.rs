@@ -8,10 +8,10 @@
 
 //! Explicitly skipped validation occurrences.
 
+use super::FailureId;
 use super::SkipReason;
 use super::ValidationOutcomeError;
 use super::ValidationPath;
-use super::Violation;
 
 /// One validation occurrence that was skipped by the executor.
 ///
@@ -35,9 +35,9 @@ pub struct SkippedValidation {
     path: ValidationPath,
     /// Policy reason the occurrence did not execute.
     reason: SkipReason,
-    /// Evidence violations for a failed prerequisite, with absolute paths to
-    /// original failures; empty for an absent optional target.
-    prerequisites: Vec<Violation>,
+    /// IDs of failures that prevented this occurrence; empty for an absent
+    /// optional target.
+    prerequisites: Vec<FailureId>,
 }
 
 impl SkippedValidation {
@@ -53,15 +53,15 @@ impl SkippedValidation {
     }
 
     /// Creates a record for an occurrence skipped after prerequisite
-    /// violations.
+    /// failures.
     ///
     /// # Errors
     ///
-    /// Returns `EmptyPrerequisites` when no failed prerequisite is supplied.
+    /// Returns `EmptyPrerequisites` when no failure ID is supplied.
     pub fn failed_prerequisite(
         occurrence: usize,
         path: ValidationPath,
-        prerequisites: Vec<Violation>,
+        prerequisites: Vec<FailureId>,
     ) -> Result<Self, ValidationOutcomeError> {
         if prerequisites.is_empty() {
             return Err(ValidationOutcomeError::EmptyPrerequisites);
@@ -95,10 +95,10 @@ impl SkippedValidation {
         self.reason
     }
 
-    /// Returns violations from prerequisites that prevented this occurrence.
-    #[must_use = "inspect the prerequisite violations"]
+    /// Returns IDs of failures that prevented this occurrence.
+    #[must_use = "inspect the prerequisite failure IDs"]
     #[inline]
-    pub fn prerequisites(&self) -> &[Violation] {
+    pub fn prerequisites(&self) -> &[FailureId] {
         &self.prerequisites
     }
 }

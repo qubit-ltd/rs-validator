@@ -8,11 +8,16 @@
 
 //! Aggregated validation results.
 
+use std::collections::HashSet;
+
+use super::FailureId;
+use super::RecordedOutcome;
 use super::SkipReason;
 use super::SkippedValidation;
 use super::ValidationLimits;
 use super::ValidationOutcomeError;
 use super::Violation;
+use super::next_report_id;
 
 /// A bounded collection of validation violations and skipped occurrences.
 ///
@@ -34,11 +39,12 @@ use super::Violation;
 ///     ValidatorId::new("example.non_empty"),
 ///     ViolationCode::new("text.empty"),
 /// );
-/// assert!(report.record_outcome(
+/// let recorded = report.record_outcome(
 ///     0,
 ///     ValidationPath::root(),
 ///     ValidationOutcome::invalid(vec![violation])?,
-/// )?);
+/// )?;
+/// assert!(recorded.complete());
 /// assert!(!report.is_valid());
 /// assert_eq!(report.violations().len(), 1);
 /// # Ok::<(), ValidationOutcomeError>(())
@@ -49,8 +55,8 @@ pub struct ValidationReport {
     violations: Vec<Violation>,
     /// Accepted skipped occurrences in occurrence order.
     skipped: Vec<SkippedValidation>,
-    /// Total retained violations, including nested prerequisite evidence.
-    failure_count: usize,
+    /// Unique identity used to reject failure references from other reports.
+    report_id: u64,
     /// Whether configured limits prevented exhaustive collection.
     truncated: bool,
     /// Collection limits for all failures and skipped occurrences.
@@ -60,11 +66,11 @@ pub struct ValidationReport {
 impl ValidationReport {
     /// Creates an empty report with explicit collection limits.
     #[inline]
-    pub const fn with_limits(limits: ValidationLimits) -> Self {
+    pub fn with_limits(limits: ValidationLimits) -> Self {
         Self {
             violations: Vec::new(),
             skipped: Vec::new(),
-            failure_count: 0,
+            report_id: next_report_id(),
             truncated: false,
             limits,
         }
@@ -72,7 +78,7 @@ impl ValidationReport {
 
     /// Creates an empty report.
     #[inline]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self::with_limits(ValidationLimits {
             max_violations: None,
             max_skipped: None,
@@ -91,47 +97,47 @@ impl ValidationReport {
     /// invariants.
     ///
     /// Violations and skipped entries are stored in occurrence order and obey
-    /// their respective report limits. The violation limit counts both
-    /// top-level violations and nested failed-prerequisite evidence. For an
+    /// their respective report limits. The violation limit counts each
+    /// retained invalid violation once; skipped outcomes refer to those
+    /// failures by ID and consume no additional violation capacity. For an
     /// invalid outcome, `path` prefixes each relative violation path once.
-    /// Failed-prerequisite evidence already carries absolute paths and is not
-    /// rewritten; `path` locates only the skipped target.
     ///
     /// # Errors
     ///
-    /// Returns an outcome shape error for an empty invalid result, an empty
-    /// failed-prerequisite result, or a missing-optional result with
-    /// prerequisite violations. Such an error leaves this report unchanged.
+    /// Returns an outcome shape error for malformed outcomes, duplicate
+    /// prerequisite IDs, or IDs not retained by this report. Such an error
+    /// leaves this report unchanged.
     ///
     /// # Returns
     ///
-    /// Returns `true` when the whole outcome fits the configured limits and
-    /// `false` when a limit rejects any part and marks the report truncated.
-    /// An exhausted violation limit does not store a failed-prerequisite skip
-    /// without evidence. A rejected skip consumes no violation capacity.
+    /// Returns whether the whole outcome fits the configured limits and the
+    /// IDs of failures retained from that outcome. A failed-prerequisite skip
+    /// is retained only when every reference is valid and it fits the skip
+    /// limit.
     pub fn record_outcome(
         &mut self,
         occurrence: usize,
         path: super::ValidationPath,
         outcome: crate::ValidationOutcome,
-    ) -> Result<bool, ValidationOutcomeError> {
+    ) -> Result<RecordedOutcome, ValidationOutcomeError> {
         match outcome {
-            crate::ValidationOutcome::Valid => Ok(true),
+            crate::ValidationOutcome::Valid => Ok(RecordedOutcome::new(true, Vec::new())),
             crate::ValidationOutcome::Invalid(violations) => {
                 if violations.is_empty() {
                     return Err(ValidationOutcomeError::EmptyViolations);
                 }
                 let retained = violations.len().min(self.remaining_failure_capacity());
                 let complete = retained == violations.len();
+                let mut failure_ids = Vec::with_capacity(retained);
                 for violation in violations.into_iter().take(retained) {
                     let full_path = path.concat(violation.path());
+                    failure_ids.push(FailureId::new(self.report_id, self.violations.len()));
                     self.violations.push(violation.with_path(full_path));
                 }
-                self.failure_count += retained;
                 if !complete {
                     self.mark_truncated();
                 }
-                Ok(complete)
+                Ok(RecordedOutcome::new(complete, failure_ids))
             }
             crate::ValidationOutcome::Skipped {
                 reason: SkipReason::MissingOptional,
@@ -142,10 +148,10 @@ impl ValidationReport {
                 }
                 if !self.has_skipped_capacity() {
                     self.mark_truncated();
-                    return Ok(false);
+                    return Ok(RecordedOutcome::new(false, Vec::new()));
                 }
                 self.skipped.push(SkippedValidation::missing_optional(occurrence, path));
-                Ok(true)
+                Ok(RecordedOutcome::new(true, Vec::new()))
             }
             crate::ValidationOutcome::Skipped {
                 reason: SkipReason::FailedPrerequisite,
@@ -154,24 +160,22 @@ impl ValidationReport {
                 if prerequisites.is_empty() {
                     return Err(ValidationOutcomeError::EmptyPrerequisites);
                 }
+                let mut unique = HashSet::with_capacity(prerequisites.len());
+                for prerequisite in &prerequisites {
+                    if !unique.insert(*prerequisite) {
+                        return Err(ValidationOutcomeError::DuplicatePrerequisiteFailure);
+                    }
+                    if prerequisite.report != self.report_id || self.violations.get(prerequisite.index).is_none() {
+                        return Err(ValidationOutcomeError::UnknownPrerequisiteFailure);
+                    }
+                }
                 if !self.has_skipped_capacity() {
                     self.mark_truncated();
-                    return Ok(false);
+                    return Ok(RecordedOutcome::new(false, Vec::new()));
                 }
-                let retained = prerequisites.len().min(self.remaining_failure_capacity());
-                if retained == 0 {
-                    self.mark_truncated();
-                    return Ok(false);
-                }
-                let complete = retained == prerequisites.len();
-                let evidence = prerequisites.into_iter().take(retained).collect();
-                let skipped = SkippedValidation::failed_prerequisite(occurrence, path, evidence)?;
+                let skipped = SkippedValidation::failed_prerequisite(occurrence, path, prerequisites)?;
                 self.skipped.push(skipped);
-                self.failure_count += retained;
-                if !complete {
-                    self.mark_truncated();
-                }
-                Ok(complete)
+                Ok(RecordedOutcome::new(true, Vec::new()))
             }
         }
     }
@@ -181,7 +185,7 @@ impl ValidationReport {
     fn remaining_failure_capacity(&self) -> usize {
         self.limits
             .max_violations
-            .map_or(usize::MAX, |limit| limit.saturating_sub(self.failure_count))
+            .map_or(usize::MAX, |limit| limit.saturating_sub(self.violations.len()))
     }
 
     /// Returns whether one more skipped occurrence fits the configured limit.
@@ -213,29 +217,37 @@ impl ValidationReport {
         &self.violations
     }
 
-    /// Iterates over top-level violations and failed-prerequisite evidence.
-    ///
-    /// Top-level violations are yielded first, followed by prerequisite
-    /// evidence in skipped-entry order. Evidence is not deduplicated, and this
-    /// order does not represent global occurrence order.
+    /// Iterates over retained original violations in occurrence order.
     ///
     /// # Returns
     ///
-    /// Every retained failure in the same total count reported by
+    /// Every retained original failure in the same count reported by
     /// [`Self::failure_count`].
     #[must_use = "inspect all retained failure evidence"]
     pub fn failures(&self) -> impl Iterator<Item = &Violation> + '_ {
-        self.violations
-            .iter()
-            .chain(self.skipped.iter().flat_map(|skip| skip.prerequisites().iter()))
+        self.violations.iter()
     }
 
-    /// Returns the total retained failure count, including prerequisite
-    /// violations nested in skipped entries.
+    /// Returns the number of retained original violations.
     #[must_use]
     #[inline]
     pub const fn failure_count(&self) -> usize {
-        self.failure_count
+        self.violations.len()
+    }
+
+    /// Returns the violation associated with a failure ID from this report.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` when `id` was issued by this report and remains
+    /// retained; otherwise returns `None`.
+    #[must_use]
+    pub fn failure(&self, id: FailureId) -> Option<&Violation> {
+        if id.report == self.report_id {
+            self.violations.get(id.index)
+        } else {
+            None
+        }
     }
 
     /// Returns all skipped occurrences in occurrence order.

@@ -18,7 +18,7 @@ public API without assuming a model framework, code generator, or scheduler.
 | `PreparedValidator` | Reusable, type-erased instance created after configuration is decoded. |
 | `BoundValidator` | Prepared instance paired with a stable rule ID and selected signature. It checks target and dependency shapes before execution. |
 | `ValidationOutcome` | Result of a completed validation: valid, invalid, or skipped. Invalid data is not an execution error. |
-| `ExecutionError` | A shape, dependency, adapter, or external execution failure returned as `Err`. It contains no source error. |
+| `ExecutionError` | A shape, dependency, adapter, or external execution failure returned as `Err`. It retains an owned cause for explicit trusted diagnostics through `trusted_source()`; ordinary formatting and `Error::source()` do not expose it. |
 | `ValidationReport` | Caller-owned collection of violations and skipped occurrences, with optional count limits. |
 
 An adapter maps a rule's domain error to a safe `ViolationDraft`. The bound
@@ -52,7 +52,7 @@ linked example for a complete definition. The call site is:
 
 ```rust
 let registry = ValidatorRegistry::from_registrations([registration])?;
-let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
+let validator = registry.bind("text.non_blank", InputType::Text, &[])?;
 let context = BoundValidationContext::new(&[]);
 
 let accepted = validator.validate(ValidationValue::Text("Ada"), &context)?;
@@ -60,7 +60,7 @@ assert_eq!(accepted, ValidationOutcome::valid());
 
 let rejected = validator.validate(ValidationValue::Text("  "), &context)?;
 let mut report = ValidationReport::new();
-assert!(report.record_outcome(0, ValidationPath::root(), rejected)?);
+assert!(report.record_outcome(0, ValidationPath::root(), rejected)?.complete());
 assert!(!report.is_valid());
 ```
 
@@ -126,48 +126,33 @@ adapters remain available for rules that do not use context.
 
 ## Collecting Outcomes and Prerequisites
 
-`record_outcome` centralizes occurrence ordering and report limits. An invalid
-outcome must contain at least one violation. A failed-prerequisite skip must
-contain at least one prerequisite violation, which stays nested in the skipped
-entry instead of appearing among top-level violations. The occurrence path is
-prefixed once to each invalid violation's relative path; a root violation path
-uses the occurrence path itself. Prerequisite evidence retains its absolute
-path to the original failure. The occurrence path on a skipped outcome identifies
-the skipped target. Prepared rules return only `Valid` or `Invalid`; the caller
-creates a skipped outcome. Use static declared names with `with_field` and
-`MapEntry` for runtime map positions. `report.failures()` iterates top-level
-violations first, then prerequisite evidence in skipped-entry order. It preserves
-duplicates, does not promise global occurrence order, and its count equals
-`failure_count()`.
-
+`record_outcome` centralizes occurrence ordering and report limits. An invalid outcome must contain at least one violation. A failed-prerequisite skip carries one or more opaque `FailureId` references to violations already retained by the same report. References are validated before mutation and do not consume `max_violations`; each original violation is counted once. `max_skipped` limits skipped occurrences. `record_outcome` returns a `RecordedOutcome`, whose `complete()` reports whether all of the outcome fit and whose `failure_ids()` identifies retained failures from that occurrence. `ValidationReport::failures()` iterates original violations only. `failure(id)` resolves a reference to its violation. `trusted_source()` is the explicit diagnostic entry point for an owned execution cause; ordinary error formatting and `Error::source()` remain redacted.
 ```rust
 let rule_id = ValidatorId::new("text.required");
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
 let mut report = ValidationReport::new();
-assert!(report.record_outcome(
+let original = report.record_outcome(
     0,
     ValidationPath::root().with_field("password"),
     ValidationOutcome::invalid(vec![earlier])?,
-)?);
-let earlier = report.violations()[0].clone();
-assert!(report.record_outcome(
+)?;
+assert!(original.complete());
+let failure_id = original.failure_ids()[0];
+let skipped = report.record_outcome(
     1,
     ValidationPath::root().with_field("confirmation"),
-    ValidationOutcome::failed_prerequisite(vec![earlier])?,
-)?);
+    ValidationOutcome::failed_prerequisite(vec![failure_id])?,
+)?;
+assert!(skipped.complete());
 assert_eq!(report.violations().len(), 1);
-assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("password"));
+assert_eq!(report.failure(failure_id).unwrap().path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
-assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
-assert_eq!(report.failure_count(), 2);
+assert_eq!(report.skipped()[0].prerequisites(), &[failure_id]);
+assert_eq!(report.failure_count(), 1);
 assert_eq!(report.failures().count(), report.failure_count());
 ```
 
-The returned `bool` means the complete outcome fit its configured limit; it
-does not mean the validation passed. A capacity rejection returns `Ok(false)`
-and marks the report truncated. An invalid outcome shape returns
-`ValidationOutcomeError` and leaves the report unchanged. `max_violations`
-bounds the sum of retained top-level violations and prerequisite evidence.
+`RecordedOutcome::complete()` reports whether the outcome fit its configured limits; it does not report whether validation passed. A capacity rejection returns an incomplete receipt and marks the report truncated. An invalid outcome shape returns `ValidationOutcomeError` and leaves the report unchanged. `max_violations` bounds retained original violations.
 If no failure capacity remains, a failed-prerequisite skip is not stored with
 an empty evidence list. A skip rejected by `max_skipped` consumes no failure
 capacity.
@@ -196,7 +181,8 @@ registrations are discovered; it does not change binding or execution rules.
 - `ValidatorRegistryError` reports duplicate IDs and invalid descriptors.
 - `ExecutionError` reports target/dependency shape, adapter contract, or
   external execution failures. Its `Display`, `Debug`, and standard error chain
-  do not expose or retain an underlying source error.
+  expose the owned cause only through the explicit trusted `trusted_source()` accessor;
+  ordinary formatting and `Error::source()` remain redacted.
 - `ValidationOutcome::Invalid` is a completed validation result. It is not an
   `ExecutionError`.
 
@@ -215,12 +201,12 @@ out of errors and `ViolationParam` values.
 | --- | --- |
 | `MissingRule` | Confirm the stable ID is in the selected local registry. For global discovery, enable `inventory` and link the registering crate. |
 | `UnsupportedInput` or `InputTypeMismatch` | Use the exact `InputType` declared by the selected signature. No implicit text-to-typed conversion occurs. |
-| Dependency declaration error | Compare the supplied declarations with the signature; order, shape, and optionality must match. |
+| Invalid signature declaration | Check that each signature has unique, non-empty dependency names and a unique input shape. Model metadata checks actual declared paths against the selected signature. |
 | Missing dependency during execution | Check that every required slot has a value and that optional absence uses `ValidationValue::Missing`. |
 | `UnknownParameter` | Read supported values and then call `ArgumentReader::finish`. |
 | `ParameterAlreadyConsumed` | Decode each parameter once and store the result in the prepared validator. |
 | `AdapterContractViolation` | Check custom `PreparedValidator` output. Invalid outcomes need violations; `PreparedOutcome` has only valid and invalid states. |
-| `Ok(false)` from `record_outcome` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. |
+| `!recorded.complete()` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. |
 
 ## Limitations and Best Practices
 
@@ -231,8 +217,8 @@ out of errors and `ViolationParam` values.
 - Treat dependency order as an ABI-like contract; coordinate slot changes with
   every caller and validator implementation.
 - Use `ValidationReport::with_limits` for untrusted or large workloads.
-  `max_violations` bounds retained top-level violations and prerequisite
-  evidence together; `max_skipped` bounds skipped occurrences. Collection
+  `max_violations` bounds retained original violations; references from skips
+  consume no additional failure capacity. `max_skipped` bounds skipped occurrences. Collection
   stops retaining excess evidence and marks the report truncated.
 - Validation is synchronous and borrows values for each call. Prepared
   validators require `Send + Sync`; the crate does not create threads or assume

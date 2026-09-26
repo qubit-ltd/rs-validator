@@ -63,19 +63,7 @@ provides the same runtime input check for an already prepared rule with no depen
 values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
 
-`ValidationReport` is downstream of execution: a caller decides occurrence
-order, report limits, and whether to continue after an outcome or error. Its
-only public aggregation entry point is `record_outcome`, which preserves
-occurrence order and enforces the configured total failure and skip capacities.
-The supplied occurrence path prefixes each retained invalid violation's relative path once.
-Prerequisite evidence already carries an absolute path to its original failure and is
-kept unchanged; the supplied path locates the skipped target. Prepared rules return
-only `Valid` or `Invalid`; the caller constructs a skipped outcome when an input is
-absent or a prerequisite failed. `ValidationReport::failures()` yields top-level
-violations followed by prerequisite evidence in skipped-entry order. It preserves
-duplicates, makes no global occurrence-order guarantee, and has the same item
-count as `failure_count()`. Field path segments use static declared names; runtime
-map positions use `MapEntry`.
+`ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
 
 ## Descriptor, Signature, and Slot Invariants
 
@@ -83,9 +71,7 @@ map positions use `MapEntry`.
 - A descriptor cannot contain two signatures with the same input shape because
   input shape is the selection key.
 - Each dependency name inside a signature is non-empty and unique.
-- A caller's dependency declaration must contain exactly the selected
-  signature's dependencies in the same order, with the same `InputType` and
-  optional flag.
+- The selected signature's dependency specifications are stored directly in the bound validator; callers do not echo them back to the registry. Model metadata validates actual dependency declarations.
 - A runtime `BoundValidationContext` must contain exactly one value per slot in
   the same order. A required slot cannot contain `ValidationValue::Missing`.
 - When paths are supplied, the path slice and value slice have equal length.
@@ -126,12 +112,11 @@ execution:
 - `ValidationOutcome::Invalid` carries final `Violation` values and is a
   successful execution result, not an `ExecutionError`.
 - `ValidationOutcome::Skipped` records deliberate non-execution with a
-  `SkipReason` and the required prerequisite detail.
+  `SkipReason` and opaque IDs for earlier failures in the same report.
 - `ExecutionError` represents erased-shape, dependency-value, external, or
   adapter-contract failures.
 - `ValidationReport` aggregates violations and skips and records whether
-  configured limits truncated collection. `failure_count()` includes both
-  top-level violations and retained prerequisite evidence.
+  configured limits truncated collection. `failure_count()` equals the number of retained original violations; skips store IDs only.
 
 An invalid prepared outcome with no violation drafts is an adapter contract
 failure. The skipped variants also have shape invariants: `MissingOptional`
@@ -154,11 +139,9 @@ them. The occurrence path passed to `record_outcome` is the base for each invali
 violation path; a root violation path means the occurrence itself. Failed-prerequisite
 evidence retains its absolute path.
 
-`ValidationValue` is a borrowed view and redacts its contents in `Debug`.
+`ValidationValue` and validation arguments are borrowed views and redact names and values in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.
-`ExecutionError` stores no source error, so lower-level errors must be handled
-or logged at the trusted conversion boundary. Its public `Display` and `Debug`
-formatting expose only structured safe metadata. Violation
+`ExecutionError` may retain an owned source for explicit trusted access through `trusted_source()`. Its public `Display`, `Debug`, and standard `Error::source()` do not expose the retained cause. Violation
 parameters are restricted to the public `ViolationParam` vocabulary.
 
 The original rejected input must never be copied into a violation, retained by

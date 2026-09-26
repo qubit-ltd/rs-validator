@@ -27,7 +27,7 @@ use crate::ValidationArgument;
 /// );
 /// assert_eq!(argument.name(), "minimum");
 /// ```
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct NamedValidationArgument<'a> {
     /// Name used by a validator's parameter schema.
     name: &'a str,
@@ -77,5 +77,14 @@ impl<'a> NamedValidationArgument<'a> {
     #[inline]
     pub const fn value(&self) -> ValidationArgument<'a> {
         self.value
+    }
+}
+
+impl std::fmt::Debug for NamedValidationArgument<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("NamedValidationArgument")
+            .field("value", &self.value)
+            .finish()
     }
 }

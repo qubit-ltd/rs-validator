@@ -40,16 +40,16 @@ flowchart LR
     O --> Q[验证报告]
 ```
 
-准备函数解码 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名、验证调用方的依赖声明，并在已绑定验证器中存储所选输入类型、依赖槽位、预备实例和规则 ID。`BoundValidator::from_prepared<T>` 为无依赖的已准备规则提供相同的运行时输入检查。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
+准备函数解码 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名，并直接在已绑定验证器中存储所选输入类型、签名依赖槽位、预备实例和规则 ID。模型元数据负责校验实际依赖声明。`BoundValidator::from_prepared<T>` 为无依赖的已准备规则提供相同的运行时输入检查。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
 
-`ValidationReport` 位于执行的下游：调用方决定出现顺序、报告限制，以及得到验证结果或错误后是否继续。唯一公开的汇总入口是 `record_outcome`，它保留出现顺序并执行总失败数及跳过记录的容量限制。传入的出现路径只会为无效结果中的违规项相对路径添加一次前缀。先决条件证据已经带有指向原始失败位置的绝对路径，因此保持原样；传入路径只定位被跳过的目标。规则准备层只返回 `Valid` 或 `Invalid`，缺失输入与先决条件失败产生的跳过结果由调用方构造。`ValidationReport::failures()` 先返回顶层违规项，再按 skipped entry 顺序返回先决条件证据；它保留重复项，不承诺全局出现顺序，迭代数量与 `failure_count()` 相同。字段路径使用静态声明名称，运行时 map 位置使用 `MapEntry`。
+`ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
 
 ## 描述符、签名和槽位不变量
 
 - 描述符必须至少包含一个签名。
 - 描述符不能包含两个输入形状相同的签名，因为输入形状是选择键。
 - 签名内的每个依赖名称都必须非空且唯一。
-- 调用方的依赖声明必须与所选签名包含完全相同的依赖，并且顺序、`InputType` 和可选标志均一致。
+- 签名的依赖规格由绑定器直接写入已绑定验证器；调用方不再重复回传。模型元数据仍核验实际依赖路径、类型和可选性。
 - 运行时 `BoundValidationContext` 必须按相同顺序为每个槽位提供且只提供一个值。必需槽位不能包含 `ValidationValue::Missing`。
 - 提供路径时，路径切片和值切片的长度必须相等。
 
@@ -71,9 +71,9 @@ API 将预期的无效数据与配置或执行失败分开：
 - `BindError` 表示配置无效：参数、签名选择、规则查找或依赖声明存在问题。
 - `ValidatorRegistryError` 表示注册表冻结期间出现重复 ID 或无效描述符。
 - `ValidationOutcome::Invalid` 携带最终 `Violation` 值，它是成功的执行结果，而不是 `ExecutionError`。
-- `ValidationOutcome::Skipped` 使用 `SkipReason` 和必需的先决条件详情记录有意不执行的情况。
-- `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败。
-- `ValidationReport` 汇总违规项与跳过记录，并记录配置限制是否截断了收集过程。`failure_count()` 包括顶层违规项及保留的先决条件证据。
+- `ValidationOutcome::Skipped` 使用 `SkipReason` 和不透明失败 ID 记录有意不执行的情况；失败 ID 必须属于同一报告中已保留的原始违规项。
+- `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败；可信调用方可显式访问其拥有型原因。
+- `ValidationReport` 汇总违规项与跳过记录，并记录配置限制是否截断了收集过程。`failure_count()` 等于已保留的原始违规项数量；跳过项只保存 ID。
 
 不包含任何违规项草稿的无效预备结果属于适配器契约失败。跳过 variant 也有形状不变量：`MissingOptional` 不携带先决条件违规项，而 `FailedPrerequisite` 至少携带一个违规项。
 
@@ -83,7 +83,7 @@ API 将预期的无效数据与配置或执行失败分开：
 `Field` 和 `with_field` 只接受 `&'static str`，避免意外保留普通运行时键。这个类型不能证明静态字符串的来源；调用方仍应只传入声明字段名，并用不保存键文本的 `MapEntry` 表示运行时 map 位置。
 `ValidationPath::concat` 直接拼接路径片段，不渲染或解析字符串。传给 `record_outcome` 的出现路径是无效结果中各违规项路径的基路径；违规项的根路径表示出现位置本身。先决条件证据保留原始绝对路径。
 
-`ValidationValue` 是借用视图，其内容在 `Debug` 中经过脱敏。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 不保存底层 source error，因此低层错误必须在可信转换边界处理或记录；其公共 `Display` 和 `Debug` 仅暴露结构化安全元数据。违规项参数仅限于公共的 `ViolationParam` 词汇。
+`ValidationValue` 和验证参数都是借用视图；其 `Debug` 输出会隐藏名称和值。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 可保留拥有型原因，供可信调用点通过 `trusted_source()` 显式读取。公共 `Display`、`Debug` 和标准 `Error::source()` 不暴露该原因。违规项参数仅限于公共的 `ViolationParam` 词汇。
 
 原始被拒绝输入绝不能复制到违规项中、由执行错误保留，或插入公共错误格式化内容。适配器应把领域错误映射为稳定代码和适合展示的安全参数。
 

@@ -7,7 +7,9 @@
 // =============================================================================
 
 //! Validation reporting primitives.
+mod failure_id;
 mod path_segment;
+mod recorded_outcome;
 mod skip_reason;
 mod skipped_validation;
 mod validation_limits;
@@ -18,7 +20,10 @@ mod violation;
 mod violation_code;
 mod violation_code_error;
 mod violation_param;
+pub use failure_id::FailureId;
+pub(crate) use failure_id::next_report_id;
 pub use path_segment::PathSegment;
+pub use recorded_outcome::RecordedOutcome;
 pub use skip_reason::SkipReason;
 pub use skipped_validation::SkippedValidation;
 pub use validation_limits::ValidationLimits;

@@ -109,6 +109,7 @@ fn test_violation_and_report_keep_structured_safe_data() {
                 ValidationOutcome::invalid(vec![violation]).expect("a violation is present")
             )
             .expect("violation is accepted")
+            .complete()
     );
     assert!(
         report
@@ -118,6 +119,7 @@ fn test_violation_and_report_keep_structured_safe_data() {
                 ValidationOutcome::missing_optional()
             )
             .expect("missing optional is a valid outcome")
+            .complete()
     );
 
     assert!(!report.is_valid());
@@ -130,23 +132,29 @@ fn test_violation_and_report_keep_structured_safe_data() {
 #[test]
 fn test_failed_prerequisite_skip_is_invalid_and_outcome_is_explicit() {
     let mut report = ValidationReport::new();
-    assert!(
-        report
-            .record_outcome(
-                2,
-                ValidationPath::root(),
-                ValidationOutcome::failed_prerequisite(vec![Violation::new(
-                    ValidatorId::new("qubit.rules.credential"),
-                    ViolationCode::new("credential.invalid"),
-                ),])
-                .expect("a failed prerequisite is present")
-            )
-            .expect("failed prerequisite is stored")
-    );
+    let source = report
+        .record_outcome(
+            1,
+            ValidationPath::root().with_field("credential"),
+            ValidationOutcome::invalid(vec![Violation::new(
+                ValidatorId::new("qubit.rules.credential"),
+                ViolationCode::new("credential.invalid"),
+            )])
+            .expect("a source violation is present"),
+        )
+        .expect("source failure is retained");
+    let id = source.failure_ids()[0];
+    report
+        .record_outcome(
+            2,
+            ValidationPath::root(),
+            ValidationOutcome::failed_prerequisite(vec![id]).expect("a failed prerequisite is present"),
+        )
+        .expect("failed prerequisite is stored");
 
     assert!(!report.is_valid());
     assert_eq!(report.skipped()[0].reason(), SkipReason::FailedPrerequisite);
-    assert_eq!(report.skipped()[0].prerequisites().len(), 1);
+    assert_eq!(report.skipped()[0].prerequisites(), &[id]);
 }
 
 #[test]
@@ -164,4 +172,34 @@ fn test_execution_and_bind_errors_expose_kind_without_source_or_values() {
     assert_eq!(bind.kind(), BindErrorKind::ParameterTypeMismatch);
     assert!(bind.to_string().contains("parameter"));
     assert!(!bind.to_string().contains("secret input"));
+}
+
+#[derive(Debug)]
+struct SensitiveCause {
+    message: &'static str,
+}
+
+impl std::fmt::Display for SensitiveCause {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.message)
+    }
+}
+
+impl std::error::Error for SensitiveCause {}
+
+#[test]
+fn test_trusted_execution_source_is_explicit_and_ordinary_formats_redact_it() {
+    let error = ExecutionError::new(ExecutionErrorKind::ExternalFailure).with_trusted_source(SensitiveCause {
+        message: "source-secret",
+    });
+    let source = error.trusted_source().expect("trusted cause is retained");
+
+    assert_eq!(source.to_string(), "source-secret");
+    assert!(source.downcast_ref::<SensitiveCause>().is_some());
+    assert!(!format!("{error:?}").contains("source-secret"));
+    assert!(!error.to_string().contains("source-secret"));
+    assert!(std::error::Error::source(&error).is_none());
+
+    let without_source = ExecutionError::new(ExecutionErrorKind::ExternalFailure);
+    assert!(without_source.trusted_source().is_none());
 }

@@ -13,9 +13,9 @@ use crate::ValidatorId;
 
 /// An execution error with a safe public diagnostic surface.
 ///
-/// Its public formatting and metadata never include raw validation input. The
-/// error stores no underlying source, and its standard error chain is always
-/// empty.
+/// Its public formatting and metadata never include raw validation input. An
+/// underlying cause can be retained for an explicitly trusted diagnostic
+/// consumer. The standard error chain deliberately does not expose that cause.
 ///
 /// # Examples
 ///
@@ -36,6 +36,8 @@ pub struct ExecutionError {
     rule_id: Option<ValidatorId>,
     /// Optional dependency name associated with the failure.
     dependency: Option<&'static str>,
+    /// Optional cause available through the explicit trusted accessor.
+    trusted_source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
 }
 
 impl ExecutionError {
@@ -47,6 +49,7 @@ impl ExecutionError {
             path: super::ValidationPath::root(),
             rule_id: None,
             dependency: None,
+            trusted_source: None,
         }
     }
 
@@ -61,6 +64,26 @@ impl ExecutionError {
     #[inline]
     pub const fn with_dependency(mut self, dependency: &'static str) -> Self {
         self.dependency = Some(dependency);
+        self
+    }
+
+    /// Retains an owned cause for an explicitly trusted diagnostic consumer.
+    ///
+    /// Ordinary formatting and [`std::error::Error::source`] never expose this
+    /// value. Callers must avoid forwarding it to untrusted logs or clients.
+    ///
+    /// # Parameters
+    ///
+    /// - `source`: Owned, thread-safe source error retained for this failure.
+    ///
+    /// # Returns
+    ///
+    /// This error with the trusted cause attached.
+    pub fn with_trusted_source<E>(mut self, source: E) -> Self
+    where
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        self.trusted_source = Some(Box::new(source));
         self
     }
 
@@ -107,6 +130,15 @@ impl ExecutionError {
     pub const fn path(&self) -> &super::ValidationPath {
         &self.path
     }
+
+    /// Returns the retained cause to a caller that is trusted to inspect it.
+    ///
+    /// `None` means no owned cause was supplied. This accessor may reveal
+    /// details unsuitable for ordinary logs or user-facing output.
+    #[must_use]
+    pub fn trusted_source(&self) -> Option<&(dyn std::error::Error + Send + Sync + 'static)> {
+        self.trusted_source.as_deref()
+    }
 }
 
 impl std::fmt::Debug for ExecutionError {
@@ -117,6 +149,7 @@ impl std::fmt::Debug for ExecutionError {
             .field("kind", &self.kind)
             .field("rule_id", &self.rule_id)
             .field("has_dependency", &self.dependency.is_some())
+            .field("has_trusted_source", &self.trusted_source.is_some())
             .finish_non_exhaustive()
     }
 }

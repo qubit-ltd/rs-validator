@@ -83,12 +83,11 @@ static DEPENDENCY_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static DEPENDENCY_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(DEPENDENCY_SIGNATURES);
 
-fn assert_dependency_order_is_checked() {
-    let declared = [DEPENDENCIES[1], DEPENDENCIES[0]];
-    let error = DEPENDENCY_DESCRIPTOR
-        .bind(ValidatorId::new("text.dependent"), 0, &[], &declared)
-        .expect_err("swapped dependency slots must fail during binding");
-    assert_eq!(error.kind(), BindErrorKind::DependencyOrderMismatch);
+fn assert_dependency_specs_come_from_signature() {
+    let bound = DEPENDENCY_DESCRIPTOR
+        .bind(ValidatorId::new("text.dependent"), 0, &[])
+        .expect("signature binds");
+    assert_eq!(bound.dependency_specs(), DEPENDENCIES);
 }
 
 fn assert_parameters_are_consumed_once() -> Result<(), BindError> {
@@ -111,7 +110,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let registry = ValidatorRegistry::from_registrations([registration])?;
 
     assert!(registry.get("text.non_blank").is_some());
-    let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
+    let validator = registry.bind("text.non_blank", InputType::Text, &[])?;
     let context = BoundValidationContext::new(&[]);
 
     let valid = validator.validate(ValidationValue::Text("Ada"), &context)?;
@@ -124,7 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     assert_eq!(violations.len(), 1);
     assert_eq!(violations[0].code(), ViolationCode::new("text.blank"));
 
-    assert_dependency_order_is_checked();
+    assert_dependency_specs_come_from_signature();
     assert_parameters_are_consumed_once()?;
 
     #[cfg(feature = "inventory")]

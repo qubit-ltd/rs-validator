@@ -27,10 +27,17 @@ pub enum ValidationOutcomeError {
     /// An invalid outcome contains no violations.
     #[error("an invalid outcome must contain at least one violation")]
     EmptyViolations,
-    /// A failed-prerequisite outcome contains no prerequisite violations.
-    #[error("a failed-prerequisite outcome must contain at least one prerequisite violation")]
+    /// A failed-prerequisite outcome contains no prerequisite failure IDs.
+    #[error("a failed-prerequisite outcome must contain at least one prerequisite failure ID")]
     EmptyPrerequisites,
     /// A missing-optional outcome contains prerequisite violations.
     #[error("a missing-optional outcome cannot contain prerequisite violations")]
     UnexpectedPrerequisites,
+    /// A failed-prerequisite outcome contains an ID not retained by this
+    /// report.
+    #[error("a prerequisite failure ID is unknown to this report")]
+    UnknownPrerequisiteFailure,
+    /// A failed-prerequisite outcome references one failure more than once.
+    #[error("a prerequisite failure ID is repeated")]
+    DuplicatePrerequisiteFailure,
 }

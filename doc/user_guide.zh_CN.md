@@ -42,7 +42,7 @@ qubit-validator = "0.1"
 
 ```rust
 let registry = ValidatorRegistry::from_registrations([registration])?;
-let validator = registry.bind("text.non_blank", InputType::Text, &[], &[])?;
+let validator = registry.bind("text.non_blank", InputType::Text, &[])?;
 let context = BoundValidationContext::new(&[]);
 
 let accepted = validator.validate(ValidationValue::Text("Ada"), &context)?;
@@ -50,7 +50,7 @@ assert_eq!(accepted, ValidationOutcome::valid());
 
 let rejected = validator.validate(ValidationValue::Text("  "), &context)?;
 let mut report = ValidationReport::new();
-assert!(report.record_outcome(0, ValidationPath::root(), rejected)?);
+assert!(report.record_outcome(0, ValidationPath::root(), rejected)?.complete());
 assert!(!report.is_valid());
 ```
 
@@ -98,32 +98,33 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 
 ## 汇总验证结果与先决条件
 
-`record_outcome` 负责统一出现顺序和报告容量。无效结果至少要有一个违规项；因先决条件失败而跳过时，也必须保留至少一个前置违规项。后者嵌套在 skipped entry 中，不会出现在报告顶层违规项列表。出现路径只会为无效结果中的违规项相对路径添加一次前缀；根路径表示出现位置本身。先决条件证据保留指向原始失败位置的绝对路径。跳过结果的出现路径用于定位被跳过的目标。规则准备层只返回 `Valid` 或 `Invalid`，跳过结果由调用方构造。`with_field` 使用静态声明名称，运行时 map 位置使用 `MapEntry`。`report.failures()` 先遍历顶层违规项，再按 skipped entry 顺序遍历先决条件证据；它保留重复项，不承诺全局出现顺序，迭代数量等于 `failure_count()`。
-
+`record_outcome` 统一管理出现顺序和报告容量。无效结果至少包含一个违规项。先决条件失败的跳过项通过不透明 `FailureId` 引用同一报告中已保留的违规项；报告会先校验引用再修改状态。引用不占用 `max_violations`，原始违规项只计数一次；`max_skipped` 限制跳过 occurrence 数。`record_outcome` 返回 `RecordedOutcome`：`complete()` 表示本次结果是否完整写入，`failure_ids()` 返回本次保留的原始失败 ID。`ValidationReport::failures()` 只遍历原始违规项，`failure(id)` 可解析对应违规项。拥有型执行原因仅通过显式可信入口 `trusted_source()` 读取，普通错误格式化和 `Error::source()` 不暴露底层文本。
 ```rust
 let rule_id = ValidatorId::new("text.required");
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
 let mut report = ValidationReport::new();
-assert!(report.record_outcome(
+let original = report.record_outcome(
     0,
     ValidationPath::root().with_field("password"),
     ValidationOutcome::invalid(vec![earlier])?,
-)?);
-let earlier = report.violations()[0].clone();
-assert!(report.record_outcome(
+)?;
+assert!(original.complete());
+let failure_id = original.failure_ids()[0];
+let skipped = report.record_outcome(
     1,
     ValidationPath::root().with_field("confirmation"),
-    ValidationOutcome::failed_prerequisite(vec![earlier])?,
-)?);
+    ValidationOutcome::failed_prerequisite(vec![failure_id])?,
+)?;
+assert!(skipped.complete());
 assert_eq!(report.violations().len(), 1);
-assert_eq!(report.violations()[0].path(), &ValidationPath::root().with_field("password"));
+assert_eq!(report.failure(failure_id).unwrap().path(), &ValidationPath::root().with_field("password"));
 assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
-assert_eq!(report.skipped()[0].prerequisites()[0].path(), &ValidationPath::root().with_field("password"));
-assert_eq!(report.failure_count(), 2);
+assert_eq!(report.skipped()[0].prerequisites(), &[failure_id]);
+assert_eq!(report.failure_count(), 1);
 assert_eq!(report.failures().count(), report.failure_count());
 ```
 
-返回的 `bool` 表示本次结果是否完整放入报告，不表示验证是否通过。若容量不足，API 返回 `Ok(false)` 并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。`max_violations` 约束顶层违规项与先决条件证据的保留总数。失败容量耗尽时，不会留下证据列表为空的先决条件失败跳过记录；若跳过记录被 `max_skipped` 拒绝，其先决条件证据也不占失败容量。
+`RecordedOutcome::complete()` 表示本次结果是否完整写入，不代表验证是否通过。容量不足时返回不完整回执并标记报告已截断；结果形状不合法时返回 `ValidationOutcomeError`，报告保持不变。`max_violations` 只约束保留的原始违规项。失败容量耗尽时，不会留下证据列表为空的先决条件失败跳过记录；若跳过记录被 `max_skipped` 拒绝，其先决条件证据也不占失败容量。
 
 ## 局部注册表与 inventory
 
@@ -141,7 +142,7 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 - 类型化规则返回领域错误，适配器映射器将其转换为 `ViolationDraft`。
 - `BindError` 表示配置问题，例如规则缺失、输入不支持、参数格式不符或依赖声明不匹配。
 - `ValidatorRegistryError` 报告重复 ID 和无效描述符。
-- `ExecutionError` 表示输入/依赖形状错误、适配器契约问题或外部执行失败。`Display`、`Debug` 和标准错误链都不会保留或暴露底层 source error。
+- `ExecutionError` 表示输入/依赖形状错误、适配器契约问题或外部执行失败。底层拥有型原因只可通过显式可信入口 `trusted_source()` 读取；普通 `Display`、`Debug` 和 `Error::source()` 不会暴露它。
 - `ValidationOutcome::Invalid` 是验证已完成的结果，不是 `ExecutionError`。
 
 `ArgumentReader` 在参数第一次被类型化读取时就会消费它，即使类型或范围转换失败也一样。再次读取会返回 `ParameterAlreadyConsumed`。读取完支持的参数后调用 `finish`，以拒绝未消费的名称。
@@ -159,7 +160,7 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 | `UnknownParameter` | 读取所有支持的参数后调用 `ArgumentReader::finish`。 |
 | `ParameterAlreadyConsumed` | 每个参数只解码一次，并把结果保存在预备验证器中。 |
 | `AdapterContractViolation` | 检查自定义 `PreparedValidator`。无效结果必须包含违规项；`PreparedOutcome` 只有有效和违规两种状态。 |
-| `record_outcome` 返回 `Ok(false)` | 报告容量拒收了部分或全部结果；检查 `is_truncated()` 并按实际负载配置上限。 |
+| `!recorded.complete()` | 报告容量拒收了部分或全部结果；检查 `is_truncated()` 并按实际负载配置上限。 |
 
 ## 限制与最佳实践
 

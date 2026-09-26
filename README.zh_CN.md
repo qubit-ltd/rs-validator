@@ -45,9 +45,7 @@ cargo run --example local_registry --locked
 
 默认不启用任何 feature。直接验证、适配器、描述符和局部 `ValidatorRegistry` 都可直接使用。只有需要通过 `register_validator!` 与 `ValidatorRegistry::try_global` 进行进程级注册时才启用 `inventory`。
 
-依赖以有序槽位声明。context-aware adapter 执行前，绑定边界会检查槽位顺序、类型和可选性。`ExecutionError` 只保存结构化类别和安全元数据，不保留 source error。违规参数不得包含被拒绝的输入。由于先决条件失败而跳过时，前置违规项保存在该 skipped entry 中，不会重复计入报告顶层违规列表。报告的违规项限额同时计算保留的顶层违规项和先决条件证据；`record_outcome` 会给违规项相对路径添加出现路径前缀。
-
-先决条件证据保留原始失败位置的绝对路径。规则准备层只返回 `Valid` 或 `Invalid`；输入缺失或先决条件失败时，由调用方构造跳过结果。`ValidationReport::failures()` 先遍历顶层违规项，再按 skipped entry 顺序遍历先决条件证据；它保留重复项，不承诺全局出现顺序，迭代数量等于 `failure_count()`。字段路径只接受静态声明名称，运行时 map 位置使用 `MapEntry` 表示。
+依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，执行时检查槽位值形状。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。违规参数不得包含被拒绝的输入。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
 
 ## 延伸阅读
 

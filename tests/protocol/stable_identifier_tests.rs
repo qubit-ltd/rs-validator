@@ -195,7 +195,7 @@ fn test_validator_id_and_violation_code_share_protocol_boundaries() {
 fn test_adapter_converts_draft_without_leaking_or_bypassing_report_limits() {
     let rule_id = ValidatorId::new("test.sensitive_text");
     let bound = SENSITIVE_DESCRIPTOR
-        .bind_for(rule_id, InputType::Text, &[], &[])
+        .bind_for(rule_id, InputType::Text, &[])
         .expect("descriptor accepts its text signature");
     let outcome = bound
         .validate(
@@ -248,6 +248,7 @@ fn test_adapter_converts_draft_without_leaking_or_bypassing_report_limits() {
                 ValidationOutcome::invalid(vec![final_violation]).expect("a violation is present"),
             )
             .expect("capacity limits do not make the outcome malformed")
+            .complete()
     );
     assert!(bounded_report.violations().is_empty());
     assert!(bounded_report.is_truncated());
@@ -269,11 +270,13 @@ fn test_zero_report_limits_reject_entries_and_report_zero_counts() {
                 ValidationOutcome::invalid(vec![violation()]).expect("a violation is present"),
             )
             .expect("capacity limits do not make the outcome malformed")
+            .complete()
     );
     assert!(
         !report
             .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional(),)
             .expect("missing optional is a valid outcome")
+            .complete()
     );
     assert!(report.violations().is_empty());
     assert!(report.skipped().is_empty());
@@ -305,6 +308,7 @@ fn test_report_limits_accept_exact_capacity_and_reject_one_over() {
                 ValidationOutcome::invalid(vec![violation()]).expect("a violation is present"),
             )
             .expect("the first violation fits")
+            .complete()
     );
     assert_eq!(violation_report.violations().len(), 1);
     assert!(!violation_report.is_truncated());
@@ -316,6 +320,7 @@ fn test_report_limits_accept_exact_capacity_and_reject_one_over() {
                 ValidationOutcome::invalid(vec![violation()]).expect("a violation is present"),
             )
             .expect("capacity limits do not make the outcome malformed")
+            .complete()
     );
     assert_eq!(violation_report.violations().len(), 1);
     assert!(violation_report.is_truncated());
@@ -328,6 +333,7 @@ fn test_report_limits_accept_exact_capacity_and_reject_one_over() {
         skipped_report
             .record_outcome(0, ValidationPath::root(), ValidationOutcome::missing_optional(),)
             .expect("first skipped occurrence fits")
+            .complete()
     );
     assert_eq!(skipped_report.skipped().len(), 1);
     assert!(!skipped_report.is_truncated());
@@ -335,6 +341,7 @@ fn test_report_limits_accept_exact_capacity_and_reject_one_over() {
         !skipped_report
             .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional(),)
             .expect("capacity limits do not make the outcome malformed")
+            .complete()
     );
     assert_eq!(skipped_report.skipped().len(), 1);
     assert!(skipped_report.is_truncated());

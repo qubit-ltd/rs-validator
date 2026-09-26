@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+mod failure_identity_tests;
 mod path_order_tests;
 mod report_limits_tests;
 mod report_outcome_tests;

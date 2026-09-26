@@ -67,7 +67,7 @@ use crate::ValidatorId;
 ///     ValidatorSignature::new(InputType::Text, &[], prepare),
 /// ];
 /// let descriptor = ValidatorDescriptor::new(SIGNATURES);
-/// let bound = descriptor.bind(ValidatorId::new("example.accept_all"), 0, &[], &[])?;
+/// let bound = descriptor.bind(ValidatorId::new("example.accept_all"), 0, &[])?;
 /// let outcome = bound.validate(
 ///     ValidationValue::Text("accepted"),
 ///     &BoundValidationContext::new(&[]),

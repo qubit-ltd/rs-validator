@@ -8,6 +8,7 @@
 
 //! Public outcomes produced by bound validators.
 
+use crate::FailureId;
 use crate::SkipReason;
 use crate::ValidationOutcomeError;
 use crate::Violation;
@@ -42,9 +43,8 @@ pub enum ValidationOutcome {
     Skipped {
         /// Reason for skipping.
         reason: SkipReason,
-        /// Prerequisite violations with absolute paths to their original
-        /// failure locations.
-        prerequisites: Vec<Violation>,
+        /// IDs of failures already retained in the same report.
+        prerequisites: Vec<FailureId>,
     },
 }
 
@@ -78,13 +78,13 @@ impl ValidationOutcome {
 
     /// Creates an outcome skipped after at least one prerequisite failed.
     ///
-    /// `prerequisites` must carry absolute paths to the original failures;
-    /// report recording does not prefix the skipped target path to them.
+    /// Every ID must refer to a failure already retained in the report that
+    /// records this outcome.
     ///
     /// # Errors
     ///
     /// Returns `EmptyPrerequisites` when `prerequisites` is empty.
-    pub fn failed_prerequisite(prerequisites: Vec<Violation>) -> Result<Self, ValidationOutcomeError> {
+    pub fn failed_prerequisite(prerequisites: Vec<FailureId>) -> Result<Self, ValidationOutcomeError> {
         if prerequisites.is_empty() {
             return Err(ValidationOutcomeError::EmptyPrerequisites);
         }

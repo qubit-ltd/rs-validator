@@ -23,8 +23,8 @@
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub struct ValidationLimits {
-    /// Maximum retained violations across top-level results and nested
-    /// prerequisite evidence; `None` means unlimited.
+    /// Maximum retained original violations; prerequisite references consume no
+    /// additional capacity. `None` means unlimited.
     pub max_violations: Option<usize>,
     /// Maximum skipped entries; `None` means unlimited.
     pub max_skipped: Option<usize>,

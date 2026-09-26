@@ -101,12 +101,7 @@ static TYPED_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TYPED_SI
 #[test]
 fn test_contextual_text_adapter_reads_dependency_slots_in_order() {
     let bound = TEXT_DESCRIPTOR
-        .bind_for(
-            ValidatorId::new("test.matches_pair"),
-            InputType::Text,
-            &[],
-            TEXT_DEPENDENCIES,
-        )
+        .bind_for(ValidatorId::new("test.matches_pair"), InputType::Text, &[])
         .expect("declared dependency pair binds");
     let values = [ValidationValue::Text("alpha"), ValidationValue::Text("beta")];
     let context = BoundValidationContext::new(&values);
@@ -129,12 +124,7 @@ fn test_contextual_text_adapter_reads_dependency_slots_in_order() {
 #[test]
 fn test_contextual_typed_adapter_accepts_present_and_missing_optional_slot() {
     let bound = TYPED_DESCRIPTOR
-        .bind_for(
-            ValidatorId::new("test.optional_minimum"),
-            InputType::of::<u32>(),
-            &[],
-            OPTIONAL_DEPENDENCIES,
-        )
+        .bind_for(ValidatorId::new("test.optional_minimum"), InputType::of::<u32>(), &[])
         .expect("optional minimum dependency binds");
     let value = 5_u32;
     let minimum = 3_u32;
@@ -177,12 +167,7 @@ fn test_contextual_adapters_reject_target_shape_before_invocation() {
 #[test]
 fn test_bound_validator_reports_dependency_slot_path_before_contextual_adapter() {
     let bound = TEXT_DESCRIPTOR
-        .bind_for(
-            ValidatorId::new("test.matches_pair"),
-            InputType::Text,
-            &[],
-            TEXT_DEPENDENCIES,
-        )
+        .bind_for(ValidatorId::new("test.matches_pair"), InputType::Text, &[])
         .expect("declared dependency pair binds");
     let values = [ValidationValue::Missing, ValidationValue::Text("beta")];
     let first_path = ValidationPath::root().with_field("profile").with_field("first");

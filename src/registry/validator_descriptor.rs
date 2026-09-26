@@ -103,7 +103,6 @@ impl ValidatorDescriptor {
         rule_id: ValidatorId,
         signature_index: usize,
         params: &[NamedValidationArgument<'_>],
-        dependencies: &[super::DependencySpec],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
         let signature = self
@@ -111,7 +110,6 @@ impl ValidatorDescriptor {
             .get(signature_index)
             .copied()
             .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection))?;
-        validate_dependencies(signature.dependencies(), dependencies)?;
         let prepared = (signature.prepare())(params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
@@ -127,7 +125,6 @@ impl ValidatorDescriptor {
         rule_id: ValidatorId,
         input: super::InputType,
         params: &[NamedValidationArgument<'_>],
-        dependencies: &[super::DependencySpec],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
         let signature = self
@@ -136,7 +133,6 @@ impl ValidatorDescriptor {
             .copied()
             .find(|signature| signature.input() == input)
             .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput))?;
-        validate_dependencies(signature.dependencies(), dependencies)?;
         let prepared = (signature.prepare())(params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
@@ -179,54 +175,7 @@ impl ValidatorDescriptor {
     }
 }
 
-/// Checks supplied dependency declarations against one selected signature.
-///
-/// # Errors
-///
-/// Returns the first duplicate, missing, unknown, misordered, or mismatched
-/// dependency declaration.
-fn validate_dependencies(
-    expected: &[super::DependencySpec],
-    declared: &[super::DependencySpec],
-) -> Result<(), BindError> {
-    for (index, dependency) in declared.iter().enumerate() {
-        if declared[..index]
-            .iter()
-            .any(|previous| previous.name() == dependency.name())
-        {
-            return Err(BindError::new(BindErrorKind::InvalidDeclaration).with_dependency(dependency.name()));
-        }
-    }
-    for dependency in expected {
-        if !declared.iter().any(|item| item.name() == dependency.name()) {
-            return Err(BindError::new(BindErrorKind::MissingDependencyDeclaration).with_dependency(dependency.name()));
-        }
-    }
-    if let Some(extra) = declared
-        .iter()
-        .find(|dependency| !expected.iter().any(|item| item.name() == dependency.name()))
-    {
-        return Err(BindError::new(BindErrorKind::UnknownDependencyDeclaration).with_dependency(extra.name()));
-    }
-    if let Some((_, actual)) = expected
-        .iter()
-        .zip(declared)
-        .find(|(expected, actual)| expected.name() != actual.name())
-    {
-        return Err(BindError::new(BindErrorKind::DependencyOrderMismatch).with_dependency(actual.name()));
-    }
-    if let Some((expected, _)) = expected
-        .iter()
-        .zip(declared)
-        .find(|(expected, actual)| expected.input() != actual.input() || expected.optional() != actual.optional())
-    {
-        return Err(BindError::new(BindErrorKind::DependencyTypeMismatch).with_dependency(expected.name()));
-    }
-    Ok(())
-}
-
 impl std::fmt::Debug for ValidatorDescriptor {
-    /// Formats only the signature count without invoking any prepare function.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ValidatorDescriptor")
