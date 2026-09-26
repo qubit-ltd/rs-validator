@@ -24,7 +24,7 @@ qubit-validator = "0.1"
 cargo run --example local_registry --locked
 ```
 
-示例会确认 `"Ada"` 通过验证，空白文本产生 `text.blank` 违规；同时演示依赖顺序错误和参数重复读取错误。启用 `inventory` 后，还会验证进程级注册。
+示例会确认 `"Ada"` 通过验证，空白文本产生 `text.blank` 违规；还会演示按名称绑定依赖时，即使按相反顺序传入也能正确匹配，以及参数只能读取一次。启用 `inventory` 后，还会验证进程级注册。
 
 ## 为什么需要这个项目
 

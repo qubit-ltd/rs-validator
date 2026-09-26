@@ -87,7 +87,7 @@ impl PreparedValidator for CheckDependencySlots {
         InputType::Text
     }
     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
-        &[]
+        DEPENDENCIES
     }
 
     fn validate(
@@ -99,7 +99,9 @@ impl PreparedValidator for CheckDependencySlots {
         Ok(if valid {
             PreparedOutcome::Valid
         } else {
-            PreparedOutcome::Invalid(Vec::new())
+            PreparedOutcome::Invalid(vec![ViolationDraft::new(ViolationCode::new(
+                "text.dependencies_mismatch",
+            ))])
         })
     }
 }
@@ -174,4 +176,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::main;
+
+    /// Keeps the documented local and optional global registry walkthrough
+    /// executable.
+    #[test]
+    fn test_example_completes_successfully() {
+        main().expect("the documented example should complete");
+    }
 }

@@ -29,9 +29,9 @@ cargo run --example local_registry --locked
 ```
 
 The example confirms that `"Ada"` is valid and that blank text produces the
-`text.blank` violation. It also demonstrates dependency-order and parameter
-consumption errors; with `inventory` enabled, it exercises process-wide
-registration.
+`text.blank` violation. It also demonstrates name-based dependency binding with
+the values supplied in reverse order, plus one-pass parameter consumption.
+With `inventory` enabled, it exercises process-wide registration.
 
 ## Why This Project Exists
 
