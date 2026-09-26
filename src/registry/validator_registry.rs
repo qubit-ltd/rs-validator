@@ -8,7 +8,6 @@
 
 //! Immutable local registries for multi-signature validator definitions.
 
-use std::collections::BTreeMap;
 #[cfg(feature = "inventory")]
 use std::sync::OnceLock;
 
@@ -18,7 +17,6 @@ use super::BoundValidator;
 use super::InputType;
 use super::ValidatorRegistration;
 use crate::NamedValidationArgument;
-use crate::ValidatorId;
 use crate::ValidatorRegistryError;
 
 /// A deterministic local registry containing one definition per stable ID.
@@ -36,8 +34,6 @@ use crate::ValidatorRegistryError;
 pub struct ValidatorRegistry {
     /// Registrations sorted by stable identifier.
     registrations: Box<[ValidatorRegistration]>,
-    /// Lookup table mapping each stable identifier to its sorted position.
-    indices: BTreeMap<ValidatorId, usize>,
 }
 
 impl ValidatorRegistry {
@@ -60,7 +56,6 @@ impl ValidatorRegistry {
     pub fn empty() -> Self {
         Self {
             registrations: Box::new([]),
-            indices: BTreeMap::new(),
         }
     }
 
@@ -106,7 +101,10 @@ impl ValidatorRegistry {
     #[must_use]
     #[inline]
     pub fn get(&self, id: &str) -> Option<&ValidatorRegistration> {
-        self.indices.get(id).and_then(|index| self.registrations.get(*index))
+        self.registrations
+            .binary_search_by(|registration| registration.id().as_str().cmp(id))
+            .ok()
+            .and_then(|index| self.registrations.get(index))
     }
 
     /// Returns registrations sorted by stable ID.
@@ -130,12 +128,11 @@ impl ValidatorRegistry {
         let registration = self.get(id).ok_or_else(|| BindError::new(BindErrorKind::MissingRule))?;
         registration
             .descriptor()
-            .bind_for(registration.id(), input, params)
+            .bind_for_validated(registration.id(), input, params)
             .map_err(|error| error.with_rule(registration.id()))
     }
 
-    /// Sorts and validates owned registrations before building the lookup
-    /// table.
+    /// Sorts and validates owned registrations before freezing the registry.
     ///
     /// # Errors
     ///
@@ -171,14 +168,8 @@ impl ValidatorRegistry {
                 });
             }
         }
-        let indices = registrations
-            .iter()
-            .enumerate()
-            .map(|(index, registration)| (registration.id(), index))
-            .collect();
         Ok(Self {
             registrations: registrations.into_boxed_slice(),
-            indices,
         })
     }
 }

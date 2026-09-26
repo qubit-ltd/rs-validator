@@ -127,6 +127,17 @@ impl ValidatorDescriptor {
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition()?;
+        self.bind_for_validated(rule_id, input, params)
+    }
+
+    /// Binds an input signature after a containing registry validated this
+    /// descriptor while freezing its registrations.
+    pub(crate) fn bind_for_validated(
+        &self,
+        rule_id: ValidatorId,
+        input: super::InputType,
+        params: &[NamedValidationArgument<'_>],
+    ) -> Result<BoundValidator, BindError> {
         let signature = self
             .signatures
             .iter()

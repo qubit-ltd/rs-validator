@@ -64,6 +64,27 @@ fn test_local_registry_owns_and_queries_registrations() {
 }
 
 #[test]
+fn test_registry_sorts_registrations_for_binary_search() {
+    let registry = ValidatorRegistry::from_registrations([
+        registration("example.middle", "middle.rs"),
+        registration("example.zulu", "zulu.rs"),
+        registration("example.alpha", "alpha.rs"),
+    ])
+    .expect("unique registrations form a registry");
+
+    let ids = registry
+        .registrations()
+        .iter()
+        .map(|entry| entry.id().as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, ["example.alpha", "example.middle", "example.zulu"]);
+    for id in ids {
+        assert_eq!(registry.get(id).map(|entry| entry.id().as_str()), Some(id));
+    }
+    assert!(registry.get("example.beta").is_none());
+}
+
+#[test]
 fn test_local_registry_rejects_duplicate_ids() {
     let first = registration("example.valid", "first.rs");
     let second = registration("example.valid", "second.rs");
