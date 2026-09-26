@@ -31,6 +31,17 @@ inventory::collect!(ValidatorRegistrationFactory);
 /// first called.
 #[macro_export]
 macro_rules! register_validator {
+    (registration = $registration:path $(,)?) => {
+        const _: () = {
+            fn registration() -> $crate::ValidatorRegistration {
+                $registration
+            }
+
+            $crate::__private::inventory::submit! {
+                $crate::ValidatorRegistrationFactory(registration)
+            }
+        };
+    };
     (id = $id:literal, descriptor = $descriptor:expr $(,)?) => {
         const _: () = {
             fn registration() -> $crate::ValidatorRegistration {

@@ -47,11 +47,29 @@ static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 
 register_validator!(id = "test.inventory.global", descriptor = &DESCRIPTOR);
 
+const SHARED_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
+    ValidatorId::new("test.inventory.shared"),
+    &DESCRIPTOR,
+    RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+);
+register_validator!(registration = SHARED_REGISTRATION);
+
 #[test]
 fn test_inventory_registration_is_available_from_global_registry() {
     let registry = ValidatorRegistry::try_global().expect("inventory registry is valid");
     assert!(registry.get("test.inventory.global").is_some());
     assert!(std::ptr::eq(registry, ValidatorRegistry::global()));
+}
+
+#[test]
+fn test_inventory_registration_reuses_the_local_registration_value() {
+    let registry = ValidatorRegistry::try_global().expect("inventory registry is valid");
+    let registered = registry
+        .get("test.inventory.shared")
+        .expect("shared registration is submitted");
+    assert_eq!(registered.id(), SHARED_REGISTRATION.id());
+    assert!(std::ptr::eq(registered.descriptor(), SHARED_REGISTRATION.descriptor()));
+    assert_eq!(registered.source(), SHARED_REGISTRATION.source());
 }
 
 #[test]
