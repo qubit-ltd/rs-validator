@@ -55,7 +55,7 @@ flowchart LR
     O --> Q[ValidationReport]
 ```
 
-A preparation function decodes `NamedValidationArgument` values from the standalone `qubit-validation-vocabulary` crate and returns an
+A preparation function decodes `NamedValidationArgument` values provided by `qubit-validator` and returns an
 owned prepared instance. Binding selects one signature, validates the caller's
 dependency declaration, and stores the selected input shape, dependency slots,
 prepared instance, and rule ID in the bound validator. `BoundValidator::try_from_prepared<T>` returns a binding error unless the prepared instance accepts exactly `T` and declares no dependencies. Every prepared instance reports its input and dependency shape; binding compares both against the selected static signature and attaches the rule ID to a mismatch. Execution checks the erased input and dependency

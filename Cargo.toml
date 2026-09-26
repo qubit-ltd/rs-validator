@@ -24,7 +24,6 @@ include = [
 ]
 
 [dependencies]
-qubit-validation-vocabulary = { path = "rs-validation-vocabulary", version = "=0.1.0" }
 inventory = { version = "^0.3", optional = true }
 thiserror = "^2.0"
 

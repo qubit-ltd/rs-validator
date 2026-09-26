@@ -7,5 +7,9 @@
 // =============================================================================
 
 //! Validation argument primitives.
-pub use qubit_validation_vocabulary::NamedValidationArgument;
-pub use qubit_validation_vocabulary::ValidationArgument;
+
+mod named_validation_argument;
+mod validation_argument;
+
+pub use named_validation_argument::NamedValidationArgument;
+pub use validation_argument::ValidationArgument;
