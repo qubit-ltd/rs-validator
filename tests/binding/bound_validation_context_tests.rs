@@ -57,6 +57,12 @@ struct CountingAdapter {
 }
 
 impl PreparedValidator for CountingAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        &[]
+    }
     fn validate(
         &self,
         value: ValidationValue<'_>,

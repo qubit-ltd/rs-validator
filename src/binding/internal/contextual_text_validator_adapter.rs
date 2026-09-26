@@ -11,8 +11,10 @@
 use std::error::Error;
 
 use super::super::BoundValidationContext;
+use super::super::DependencySpec;
 use super::super::ExecutionError;
 use super::super::ExecutionErrorKind;
+use super::super::InputType;
 use super::super::PreparedOutcome;
 use super::super::PreparedValidator;
 use super::super::ValidationValue;
@@ -25,12 +27,18 @@ pub(in crate::binding) struct ContextualTextValidatorAdapter<V, M> {
     validator: V,
     /// Mapper that creates a safe violation draft from the domain error.
     map_error: M,
+    /// Declared dependency slots consumed by the validator.
+    dependencies: &'static [DependencySpec],
 }
 
 impl<V, M> ContextualTextValidatorAdapter<V, M> {
     /// Creates an adapter from a validator and its domain error mapper.
-    pub(in crate::binding) const fn new(validator: V, map_error: M) -> Self {
-        Self { validator, map_error }
+    pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
+        Self {
+            validator,
+            map_error,
+            dependencies,
+        }
     }
 }
 
@@ -40,6 +48,16 @@ where
     E: Error + Send + Sync + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
+    /// Returns the text shape accepted by this validator.
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    /// Returns the dependency slots declared for this validator.
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        self.dependencies
+    }
+
     /// Validates checked text with its dependency context.
     fn validate(
         &self,

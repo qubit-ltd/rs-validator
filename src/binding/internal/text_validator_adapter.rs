@@ -11,6 +11,7 @@
 use super::super::BoundValidationContext;
 use super::super::ExecutionError;
 use super::super::ExecutionErrorKind;
+use super::super::InputType;
 use super::super::PreparedOutcome;
 use super::super::PreparedValidator;
 use super::super::ValidationValue;
@@ -38,6 +39,16 @@ where
     V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
+    /// Returns the text shape accepted by this adapter.
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    /// Returns that this unit-context adapter has no dependency slots.
+    fn dependency_specs(&self) -> &'static [super::super::DependencySpec] {
+        &[]
+    }
+
     /// Validates a checked text value and maps a domain error into a draft.
     fn validate(
         &self,

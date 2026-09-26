@@ -26,6 +26,8 @@ use super::PrepareFn;
 ///
 /// struct Accept;
 /// impl PreparedValidator for Accept {
+///     fn input_type(&self) -> InputType { InputType::Text }
+///     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] { &[] }
 ///     fn validate(
 ///         &self,
 ///         _: ValidationValue<'_>,

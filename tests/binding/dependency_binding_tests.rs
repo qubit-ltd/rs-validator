@@ -27,6 +27,13 @@ use qubit_validator::ValidatorSignature;
 struct ValidAdapter;
 
 impl PreparedValidator for ValidAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        DEPENDENCIES
+    }
+
     fn validate(
         &self,
         _: ValidationValue<'_>,
@@ -51,6 +58,13 @@ const RULE_ID: ValidatorId = ValidatorId::new("test.dependency_contract");
 struct OrderedTextAdapter;
 
 impl PreparedValidator for OrderedTextAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        TEXT_DEPENDENCIES
+    }
+
     fn validate(
         &self,
         _: ValidationValue<'_>,

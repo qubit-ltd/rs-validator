@@ -12,7 +12,9 @@ use std::sync::Arc;
 
 use super::BindError;
 use super::BoundValidationContext;
+use super::DependencySpec;
 use super::ExecutionError;
+use super::InputType;
 use super::PreparedOutcome;
 use super::ValidationValue;
 use crate::NamedValidationArgument;
@@ -31,6 +33,14 @@ use crate::NamedValidationArgument;
 ///
 /// struct Accept;
 /// impl PreparedValidator for Accept {
+///     fn input_type(&self) -> qubit_validator::InputType {
+///         qubit_validator::InputType::Text
+///     }
+///
+///     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+///         &[]
+///     }
+///
 ///     fn validate(
 ///         &self,
 ///         _: ValidationValue<'_>,
@@ -51,6 +61,12 @@ use crate::NamedValidationArgument;
 /// # Ok::<(), ExecutionError>(())
 /// ```
 pub trait PreparedValidator: Send + Sync {
+    /// Returns the exact erased target shape accepted by this implementation.
+    fn input_type(&self) -> InputType;
+
+    /// Returns dependency slots accepted in execution order.
+    fn dependency_specs(&self) -> &'static [DependencySpec];
+
     /// Validates one erased input with its ordered dependency context.
     ///
     /// # Errors
@@ -81,6 +97,14 @@ pub trait PreparedValidator: Send + Sync {
 ///
 /// struct Accept;
 /// impl PreparedValidator for Accept {
+///     fn input_type(&self) -> qubit_validator::InputType {
+///         qubit_validator::InputType::Text
+///     }
+///
+///     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+///         &[]
+///     }
+///
 ///     fn validate(
 ///         &self,
 ///         _: ValidationValue<'_>,

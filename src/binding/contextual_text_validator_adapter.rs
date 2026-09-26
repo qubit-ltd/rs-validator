@@ -12,6 +12,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use super::BoundValidationContext;
+use super::DependencySpec;
 use super::PreparedValidator;
 use super::internal::ContextualTextValidatorAdapter;
 use crate::Validator;
@@ -44,11 +45,15 @@ use crate::ViolationDraft;
 ///
 /// A shared prepared adapter for the supplied validator and mapper.
 #[must_use]
-pub fn prepare_contextual_text_validator<V, E, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
+pub fn prepare_contextual_text_validator<V, E, M>(
+    dependencies: &'static [DependencySpec],
+    validator: V,
+    map_error: M,
+) -> Arc<dyn PreparedValidator>
 where
     V: for<'a> Validator<str, BoundValidationContext<'a>, Error = E> + Send + Sync + 'static,
     E: Error + Send + Sync + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
-    Arc::new(ContextualTextValidatorAdapter::new(validator, map_error))
+    Arc::new(ContextualTextValidatorAdapter::new(validator, map_error, dependencies))
 }

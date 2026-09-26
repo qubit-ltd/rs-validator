@@ -63,7 +63,7 @@ assert!(!report.is_valid());
 5. 每次调用传入借用的 `ValidationValue` 和 `BoundValidationContext`。匹配非穷尽公共 enum 时保留兜底分支。
 6. 需要汇总多次结果时，将每个 `ValidationOutcome` 交给 `ValidationReport::record_outcome`。本 crate 不负责遍历对象或调度规则组。
 
-对于无依赖的已准备规则，可使用 `BoundValidator::from_prepared<T>`。它跳过注册表查找和参数准备，但每次调用仍会检查输入类型和依赖数量。
+对于无依赖的已准备规则，可使用 `BoundValidator::try_from_prepared<T>`。它跳过注册表查找和参数准备；只有预备验证器精确接受 `T` 且没有依赖时才返回绑定结果。
 
 ## 进阶用法：读取依赖的适配器
 
@@ -87,7 +87,7 @@ impl<'a> Validator<str, BoundValidationContext<'a>> for MatchesExpected {
     }
 }
 
-let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
+let prepared = prepare_contextual_text_validator(DEPENDENCIES, MatchesExpected, |_| {
     ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
 });
 ```
@@ -100,7 +100,7 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 闭包通过 `PreparedOutcome` 返回验证结果，通过 `ExecutionError` 返回执行错误：
 
 ```rust
-let prepared = prepare_text_with_context(|value, context| {
+let prepared = prepare_text_with_context(DEPENDENCIES, |value, context| {
     let expected = context.text(0)?;
     if value == expected {
         Ok(PreparedOutcome::Valid)

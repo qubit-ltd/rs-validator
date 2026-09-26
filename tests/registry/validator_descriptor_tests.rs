@@ -28,6 +28,13 @@ use qubit_validator::ValidatorSignature;
 fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Always;
     impl PreparedValidator for Always {
+        fn input_type(&self) -> InputType {
+            InputType::Text
+        }
+        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+            &[]
+        }
+
         fn validate(
             &self,
             _: ValidationValue<'_>,
@@ -109,4 +116,33 @@ fn test_descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
     let error =
         ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)]).unwrap_err();
     assert!(error.to_string().contains("invalid descriptor"));
+}
+
+#[test]
+fn test_binding_rejects_prepared_input_shape_that_disagrees_with_signature() {
+    static DECLARED: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::of::<u32>(), &[], prepare)];
+    let descriptor = ValidatorDescriptor::new(DECLARED);
+    let rule = ValidatorId::new("test.mismatched_shape");
+
+    for result in [
+        descriptor.bind(rule, 0, &[]),
+        descriptor.bind_for(rule, InputType::of::<u32>(), &[]),
+    ] {
+        let error = result.expect_err("factory returns a typed prepared validator");
+        assert_eq!(error.kind(), BindErrorKind::PreparedSignatureMismatch);
+        assert_eq!(error.rule_id(), Some(rule));
+    }
+}
+
+#[test]
+fn test_binding_rejects_prepared_dependency_shape_mismatch() {
+    static DECLARED_DEPS: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
+    static DECLARED: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DECLARED_DEPS, prepare)];
+    let descriptor = ValidatorDescriptor::new(DECLARED);
+    let rule = ValidatorId::new("test.mismatched_dependency_shape");
+    let error = descriptor
+        .bind(rule, 0, &[])
+        .expect_err("factory declares no dependencies");
+    assert_eq!(error.kind(), BindErrorKind::PreparedSignatureMismatch);
+    assert_eq!(error.rule_id(), Some(rule));
 }

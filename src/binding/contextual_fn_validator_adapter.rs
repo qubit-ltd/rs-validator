@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use super::BoundValidationContext;
+use super::DependencySpec;
 use super::ExecutionError;
 use super::PreparedOutcome;
 use super::PreparedValidator;
@@ -42,11 +43,11 @@ use super::internal::TypedContextFnAdapter;
 /// The returned validator forwards errors from `call` unchanged. This function
 /// itself does not fail.
 #[must_use]
-pub fn prepare_text_with_context<F>(call: F) -> Arc<dyn PreparedValidator>
+pub fn prepare_text_with_context<F>(dependencies: &'static [DependencySpec], call: F) -> Arc<dyn PreparedValidator>
 where
     F: for<'a> Fn(&str, &BoundValidationContext<'a>) -> Result<PreparedOutcome, ExecutionError> + Send + Sync + 'static,
 {
-    Arc::new(TextContextFnAdapter::new(call))
+    Arc::new(TextContextFnAdapter::new(call, dependencies))
 }
 
 /// Prepares a typed validation closure that receives its checked dependency
@@ -75,9 +76,12 @@ where
 /// The returned validator forwards errors from `call` unchanged. This function
 /// itself does not fail.
 #[must_use]
-pub fn prepare_typed_with_context<T: 'static, F>(call: F) -> Arc<dyn PreparedValidator>
+pub fn prepare_typed_with_context<T: 'static, F>(
+    dependencies: &'static [DependencySpec],
+    call: F,
+) -> Arc<dyn PreparedValidator>
 where
     F: for<'a> Fn(&T, &BoundValidationContext<'a>) -> Result<PreparedOutcome, ExecutionError> + Send + Sync + 'static,
 {
-    Arc::new(TypedContextFnAdapter::new(call))
+    Arc::new(TypedContextFnAdapter::new(call, dependencies))
 }

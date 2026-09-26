@@ -27,6 +27,13 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
     struct AlwaysValid;
 
     impl PreparedValidator for AlwaysValid {
+        fn input_type(&self) -> InputType {
+            InputType::Text
+        }
+        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+            &[]
+        }
+
         fn validate(
             &self,
             _: ValidationValue<'_>,

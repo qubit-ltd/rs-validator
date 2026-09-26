@@ -57,9 +57,11 @@ static TEXT_DEPENDENCIES: &[DependencySpec] = &[
 ];
 
 fn prepare_dependency_pair(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(prepare_contextual_text_validator(MatchesDependencyPair, |_| {
-        ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
-    }))
+    Ok(prepare_contextual_text_validator(
+        TEXT_DEPENDENCIES,
+        MatchesDependencyPair,
+        |_| ViolationDraft::new(ViolationCode::new("text.dependency_mismatch")),
+    ))
 }
 
 static TEXT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
@@ -90,6 +92,7 @@ static OPTIONAL_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("minimum
 
 fn prepare_optional_minimum(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_contextual_typed_validator::<u32, _, _, _>(
+        OPTIONAL_DEPENDENCIES,
         OptionalMinimum,
         |_| ViolationDraft::new(ViolationCode::new("number.below_minimum")),
     ))
@@ -151,7 +154,7 @@ fn test_contextual_typed_adapter_accepts_present_and_missing_optional_slot() {
 
 #[test]
 fn test_contextual_adapters_reject_target_shape_before_invocation() {
-    let text = prepare_contextual_text_validator(MatchesDependencyPair, |_| {
+    let text = prepare_contextual_text_validator(TEXT_DEPENDENCIES, MatchesDependencyPair, |_| {
         ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
     });
     let error = text
@@ -159,7 +162,7 @@ fn test_contextual_adapters_reject_target_shape_before_invocation() {
         .expect_err("text adapter must reject a typed target");
     assert_eq!(error.kind(), ExecutionErrorKind::InputTypeMismatch);
 
-    let typed = prepare_contextual_typed_validator::<u32, _, _, _>(OptionalMinimum, |_| {
+    let typed = prepare_contextual_typed_validator::<u32, _, _, _>(OPTIONAL_DEPENDENCIES, OptionalMinimum, |_| {
         ViolationDraft::new(ViolationCode::new("number.below_minimum"))
     });
     let error = typed
@@ -192,7 +195,7 @@ fn test_bound_validator_reports_dependency_slot_path_before_contextual_adapter()
 
 #[test]
 fn test_text_context_closure_preserves_all_prepared_outcomes_and_execution_errors() {
-    let text = prepare_text_with_context(|value, _| {
+    let text = prepare_text_with_context(&[], |value, _| {
         if value == "accept" {
             Ok(PreparedOutcome::Valid)
         } else if value == "reject twice" {
@@ -231,7 +234,7 @@ fn test_typed_context_closure_rejects_wrong_target_type_before_invocation() {
     use std::sync::atomic::Ordering;
 
     let calls = Arc::new(AtomicUsize::new(0));
-    let prepared = prepare_typed_with_context::<u32, _>({
+    let prepared = prepare_typed_with_context::<u32, _>(&[], {
         let calls = Arc::clone(&calls);
         move |value, _| {
             calls.fetch_add(1, Ordering::SeqCst);
@@ -260,7 +263,7 @@ fn test_typed_context_closure_rejects_wrong_target_type_before_invocation() {
 static FALLIBLE_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("expected", InputType::Text, false)];
 
 fn prepare_fallible_dependency(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(prepare_text_with_context(|_, context| {
+    Ok(prepare_text_with_context(FALLIBLE_DEPENDENCIES, |_, context| {
         context.text(0)?;
         Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
     }))

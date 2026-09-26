@@ -111,6 +111,7 @@ impl ValidatorDescriptor {
             .copied()
             .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection))?;
         let prepared = (signature.prepare())(params)?;
+        Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
@@ -145,7 +146,19 @@ impl ValidatorDescriptor {
             .find(|signature| signature.input() == input)
             .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput))?;
         let prepared = (signature.prepare())(params)?;
+        Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
+    }
+
+    fn check_prepared_shape(
+        prepared: &dyn super::super::PreparedValidator,
+        signature: ValidatorSignature,
+        rule_id: ValidatorId,
+    ) -> Result<(), BindError> {
+        if prepared.input_type() != signature.input() || prepared.dependency_specs() != signature.dependencies() {
+            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch).with_rule(rule_id));
+        }
+        Ok(())
     }
 
     /// Checks that the descriptor is non-empty and unambiguous.

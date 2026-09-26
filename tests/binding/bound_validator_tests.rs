@@ -78,6 +78,13 @@ fn test_typed_validator_uses_an_immutable_context() {
 struct Rejecting;
 
 impl PreparedValidator for Rejecting {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        &[]
+    }
+
     fn validate(
         &self,
         _: ValidationValue<'_>,
@@ -174,6 +181,13 @@ fn test_validation_outcome_rejects_failed_prerequisite_without_evidence() {
 struct CountingPrepared(AtomicUsize);
 
 impl PreparedValidator for CountingPrepared {
+    fn input_type(&self) -> InputType {
+        InputType::Typed(std::any::TypeId::of::<u32>())
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        &[]
+    }
+
     fn validate(
         &self,
         _: ValidationValue<'_>,
@@ -188,7 +202,12 @@ impl PreparedValidator for CountingPrepared {
 fn test_prepared_bound_validator_checks_input_and_empty_dependencies() {
     let rule_id = ValidatorId::new("test.model_rule");
     let prepared = Arc::new(CountingPrepared(AtomicUsize::new(0)));
-    let bound = BoundValidator::from_prepared::<u32>(rule_id, prepared.clone());
+    let bound = BoundValidator::try_from_prepared::<usize>(rule_id, prepared.clone())
+        .expect_err("wrong input type is rejected");
+    assert_eq!(bound.kind(), qubit_validator::BindErrorKind::PreparedSignatureMismatch);
+    assert_eq!(bound.rule_id(), Some(rule_id));
+    let prepared = Arc::new(CountingPrepared(AtomicUsize::new(0)));
+    let bound = BoundValidator::try_from_prepared::<u32>(rule_id, prepared.clone()).expect("matching shape");
     let empty_context = BoundValidationContext::new(&[]);
 
     assert_eq!(bound.input_type(), InputType::of::<u32>());
@@ -220,6 +239,13 @@ struct FixedOutcome {
 }
 
 impl PreparedValidator for FixedOutcome {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        &[]
+    }
+
     fn validate(
         &self,
         _: ValidationValue<'_>,

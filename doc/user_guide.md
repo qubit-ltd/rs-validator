@@ -83,15 +83,14 @@ assert!(!report.is_valid());
    schedule rule groups.
 
 For an already prepared rule with no dependencies, use
-`BoundValidator::from_prepared<T>`. It skips registry and parameter preparation,
-but validates the input type and dependency count on every call.
+`BoundValidator::try_from_prepared<T>`. It skips registry and parameter preparation and returns `BindError` unless the prepared validator accepts exactly `T` and has no dependencies.
 
 ## Advanced Usage: Context-Aware Adapters
 
 Use a context-aware adapter when a rule must compare its target with an
 already-selected dependency. The signature declares the slot, and the
 `BoundValidator` checks its shape and required/optional status before the
-adapter calls the typed validator. `validate` accepts dependencies in the
+adapter calls the typed validator. The prepared adapter receives the same static dependency slice as the signature. `validate` accepts dependencies in the
 signature's declared order. Direct callers can use `validate_named` to bind
 each value by its declared name; this prevents same-typed slots from being
 silently swapped. The named entry point allocates temporary reorder buffers.
@@ -112,7 +111,7 @@ impl<'a> Validator<str, BoundValidationContext<'a>> for MatchesExpected {
     }
 }
 
-let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
+let prepared = prepare_contextual_text_validator(DEPENDENCIES, MatchesExpected, |_| {
     ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
 });
 ```
@@ -133,7 +132,7 @@ distinguish invalid data from an execution failure. The closure returns a
 failures:
 
 ```rust
-let prepared = prepare_text_with_context(|value, context| {
+let prepared = prepare_text_with_context(DEPENDENCIES, |value, context| {
     let expected = context.text(0)?;
     if value == expected {
         Ok(PreparedOutcome::Valid)

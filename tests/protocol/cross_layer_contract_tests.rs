@@ -40,10 +40,18 @@ use qubit_validator::ViolationCode;
 use qubit_validator::ViolationCodeError;
 use qubit_validator::ViolationDraft;
 use qubit_validator::ViolationParam;
+use qubit_validator::prepare_text_with_context;
 
 fn valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Valid;
     impl PreparedValidator for Valid {
+        fn input_type(&self) -> InputType {
+            InputType::Text
+        }
+        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+            &[]
+        }
+
         fn validate(
             &self,
             _: ValidationValue<'_>,
@@ -55,9 +63,36 @@ fn valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>
     Ok(Arc::new(Valid))
 }
 
+static CONTRACT_DEPENDENCIES: &[DependencySpec] = &[
+    DependencySpec::new("required", InputType::Text, false),
+    DependencySpec::new("optional", InputType::of::<u32>(), true),
+];
+fn valid_with_contract_dependencies(
+    _: &[NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(CONTRACT_DEPENDENCIES, |_, _| {
+        Ok(PreparedOutcome::Valid)
+    }))
+}
+static SELECTED_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
+fn valid_with_selected_dependencies(
+    _: &[NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(SELECTED_DEPENDENCIES, |_, _| {
+        Ok(PreparedOutcome::Valid)
+    }))
+}
+
 fn invalid_empty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Invalid;
     impl PreparedValidator for Invalid {
+        fn input_type(&self) -> InputType {
+            InputType::Text
+        }
+        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+            &[]
+        }
+
         fn validate(
             &self,
             _: ValidationValue<'_>,
@@ -72,6 +107,13 @@ fn invalid_empty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedVa
 fn invalid_nonempty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Invalid;
     impl PreparedValidator for Invalid {
+        fn input_type(&self) -> InputType {
+            InputType::Text
+        }
+        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+            &[]
+        }
+
         fn validate(
             &self,
             _: ValidationValue<'_>,
@@ -325,11 +367,12 @@ fn test_descriptor_binding_and_bound_validation_cover_contract_errors() {
 
 #[test]
 fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
-    static DEPENDENCIES: &[DependencySpec] = &[
-        DependencySpec::new("required", InputType::Text, false),
-        DependencySpec::new("optional", InputType::of::<u32>(), true),
-    ];
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
+    static DEPENDENCIES: &[DependencySpec] = CONTRACT_DEPENDENCIES;
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+        InputType::Text,
+        DEPENDENCIES,
+        valid_with_contract_dependencies,
+    )];
     static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
     let bound = DESCRIPTOR.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
 
@@ -379,8 +422,12 @@ fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
 
 #[test]
 fn test_selected_signature_owns_its_dependency_specs() {
-    static DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
+    static DEPENDENCIES: &[DependencySpec] = SELECTED_DEPENDENCIES;
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+        InputType::Text,
+        DEPENDENCIES,
+        valid_with_selected_dependencies,
+    )];
     static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
     let bound = DESCRIPTOR.bind(ValidatorId::new("test.dependencies"), 0, &[]).unwrap();
     assert_eq!(bound.dependency_specs(), DEPENDENCIES);

@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+use super::BindError;
+use super::BindErrorKind;
 use super::BoundValidationContext;
 use super::DependencySpec;
 use super::ExecutionError;
@@ -50,6 +52,8 @@ use crate::ValidatorId;
 /// struct AcceptAll;
 ///
 /// impl PreparedValidator for AcceptAll {
+///     fn input_type(&self) -> InputType { InputType::Text }
+///     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] { &[] }
 ///     fn validate(
 ///         &self,
 ///         _: ValidationValue<'_>,
@@ -124,14 +128,20 @@ impl BoundValidator {
     ///
     /// A reusable bound validator accepting values of type `T` without
     /// dependencies.
-    #[must_use]
-    pub fn from_prepared<T: 'static>(rule_id: ValidatorId, prepared: Arc<dyn PreparedValidator>) -> Self {
-        Self {
+    #[must_use = "handle binding errors before using the bound validator"]
+    pub fn try_from_prepared<T: 'static>(
+        rule_id: ValidatorId,
+        prepared: Arc<dyn PreparedValidator>,
+    ) -> Result<Self, BindError> {
+        if prepared.input_type() != InputType::of::<T>() || !prepared.dependency_specs().is_empty() {
+            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch).with_rule(rule_id));
+        }
+        Ok(Self {
             prepared,
             input: InputType::of::<T>(),
             dependencies: &[],
             rule_id,
-        }
+        })
     }
 
     /// Validates one value after checking its erased input and dependencies.

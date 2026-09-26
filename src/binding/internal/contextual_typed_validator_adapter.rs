@@ -11,8 +11,10 @@
 use std::error::Error;
 
 use super::super::BoundValidationContext;
+use super::super::DependencySpec;
 use super::super::ExecutionError;
 use super::super::ExecutionErrorKind;
+use super::super::InputType;
 use super::super::PreparedOutcome;
 use super::super::PreparedValidator;
 use super::super::ValidationValue;
@@ -27,15 +29,18 @@ pub(in crate::binding) struct ContextualTypedValidatorAdapter<T, V, M> {
     map_error: M,
     /// Type marker describing the borrowed value accepted by `validator`.
     marker: std::marker::PhantomData<fn() -> T>,
+    /// Declared dependency slots consumed by the validator.
+    dependencies: &'static [DependencySpec],
 }
 
 impl<T, V, M> ContextualTypedValidatorAdapter<T, V, M> {
     /// Creates an adapter for a type, validator, and error mapper.
-    pub(in crate::binding) const fn new(validator: V, map_error: M) -> Self {
+    pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
         Self {
             validator,
             map_error,
             marker: std::marker::PhantomData,
+            dependencies,
         }
     }
 }
@@ -46,6 +51,16 @@ where
     E: Error + Send + Sync + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
+    /// Returns the concrete input type accepted by this validator.
+    fn input_type(&self) -> InputType {
+        InputType::of::<T>()
+    }
+
+    /// Returns the dependency slots declared for this validator.
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        self.dependencies
+    }
+
     /// Validates a checked typed value with its dependency context.
     fn validate(
         &self,

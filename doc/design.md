@@ -55,15 +55,14 @@ flowchart LR
     O --> Q[ValidationReport]
 ```
 
-A preparation function decodes `NamedValidationArgument` values and returns an
+A preparation function decodes `NamedValidationArgument` values from the standalone `qubit-validation-vocabulary` crate and returns an
 owned prepared instance. Binding selects one signature, validates the caller's
 dependency declaration, and stores the selected input shape, dependency slots,
-prepared instance, and rule ID in the bound validator. `BoundValidator::from_prepared<T>`
-provides the same runtime input check for an already prepared rule with no dependencies. Execution checks the erased input and dependency
+prepared instance, and rule ID in the bound validator. `BoundValidator::try_from_prepared<T>` returns a binding error unless the prepared instance accepts exactly `T` and declares no dependencies. Every prepared instance reports its input and dependency shape; binding compares both against the selected static signature and attaches the rule ID to a mismatch. Execution checks the erased input and dependency
 values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
 
-The `prepare_contextual_*_validator` adapters map one domain error to one
+The `prepare_contextual_*_validator` adapters take the static dependency slice as their first argument and map one domain error to one
 violation draft. The `prepare_text_with_context` and
 `prepare_typed_with_context` closure adapters are for rules that need to return
 multiple drafts or distinguish invalid data from an execution failure. Both
