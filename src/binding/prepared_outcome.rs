@@ -29,17 +29,8 @@ use crate::Violation;
 /// # Ok::<(), qubit_validator::ValidationOutcomeError>(())
 /// ```
 ///
-/// Prepared rules cannot construct skipped outcomes because skip decisions
-/// belong to the caller's orchestration policy.
-///
-/// ```compile_fail
-/// use qubit_validator::{PreparedOutcome, SkipReason};
-///
-/// let _ = PreparedOutcome::Skipped {
-///     reason: SkipReason::MissingOptional,
-///     prerequisites: Vec::new(),
-/// };
-/// ```
+/// The caller's orchestration policy records missing inputs and failed
+/// prerequisites as skipped [`ValidationOutcome`] values.
 #[must_use]
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
