@@ -11,9 +11,11 @@ use std::sync::Arc;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
+use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
@@ -26,6 +28,8 @@ use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
 use qubit_validator::prepare_contextual_text_validator;
 use qubit_validator::prepare_contextual_typed_validator;
+use qubit_validator::prepare_text_with_context;
+use qubit_validator::prepare_typed_with_context;
 
 #[derive(Debug, thiserror::Error)]
 #[error("text does not match the dependency pair")]
@@ -184,4 +188,104 @@ fn test_bound_validator_reports_dependency_slot_path_before_contextual_adapter()
     assert_eq!(error.kind(), ExecutionErrorKind::MissingRequiredDependencyValue);
     assert_eq!(error.dependency(), Some("first"));
     assert_eq!(error.path(), &first_path);
+}
+
+#[test]
+fn test_text_context_closure_preserves_all_prepared_outcomes_and_execution_errors() {
+    let text = prepare_text_with_context(|value, _| {
+        if value == "accept" {
+            Ok(PreparedOutcome::Valid)
+        } else if value == "reject twice" {
+            PreparedOutcome::invalid(vec![
+                ViolationDraft::new(ViolationCode::new("text.first")),
+                ViolationDraft::new(ViolationCode::new("text.second")),
+            ])
+            .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation))
+        } else {
+            Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
+        }
+    });
+
+    assert_eq!(
+        text.validate(ValidationValue::Text("accept"), &BoundValidationContext::new(&[]))
+            .expect("closure can return a valid prepared outcome"),
+        PreparedOutcome::Valid,
+    );
+    assert!(matches!(
+        text.validate(ValidationValue::Text("reject twice"), &BoundValidationContext::new(&[]))
+            .expect("closure can return multiple violation drafts"),
+        PreparedOutcome::Invalid(drafts) if drafts.len() == 2
+    ));
+    let error = text
+        .validate(
+            ValidationValue::Text("external failure"),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect_err("execution errors must remain execution errors");
+    assert_eq!(error.kind(), ExecutionErrorKind::ExternalFailure);
+}
+
+#[test]
+fn test_typed_context_closure_rejects_wrong_target_type_before_invocation() {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let prepared = prepare_typed_with_context::<u32, _>({
+        let calls = Arc::clone(&calls);
+        move |value, _| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            if *value == 0 {
+                Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
+            } else {
+                Ok(PreparedOutcome::Valid)
+            }
+        }
+    });
+
+    let wrong_type = prepared
+        .validate(ValidationValue::Text("secret"), &BoundValidationContext::new(&[]))
+        .expect_err("typed closure must reject text before invocation");
+    assert_eq!(wrong_type.kind(), ExecutionErrorKind::InputTypeMismatch);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    let zero = 0_u32;
+    let error = prepared
+        .validate(ValidationValue::Typed(&zero), &BoundValidationContext::new(&[]))
+        .expect_err("closure execution failures must propagate");
+    assert_eq!(error.kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+static FALLIBLE_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("expected", InputType::Text, false)];
+
+fn prepare_fallible_dependency(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(|_, context| {
+        context.text(0)?;
+        Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
+    }))
+}
+
+static FALLIBLE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    FALLIBLE_DEPENDENCIES,
+    prepare_fallible_dependency,
+)];
+static FALLIBLE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(FALLIBLE_SIGNATURES);
+
+#[test]
+fn test_bound_validator_attaches_rule_to_context_closure_execution_error() {
+    let rule_id = ValidatorId::new("test.context_failure");
+    let bound = FALLIBLE_DESCRIPTOR
+        .bind_for(rule_id, InputType::Text, &[])
+        .expect("fallible contextual validator binds");
+    let values = [ValidationValue::Text("expected")];
+    let paths = [ValidationPath::root().with_field("profile").with_field("expected")];
+    let context = BoundValidationContext::new_with_paths(&values, &paths).expect("one path per dependency");
+
+    let error = bound
+        .validate(ValidationValue::Text("candidate"), &context)
+        .expect_err("closure execution failure must not become a validation violation");
+    assert_eq!(error.kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(error.rule_id(), Some(rule_id));
 }
