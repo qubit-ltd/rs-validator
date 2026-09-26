@@ -28,6 +28,12 @@ pub enum ExecutionErrorKind {
     DependencyTypeMismatch,
     /// A required dependency value is absent.
     MissingRequiredDependencyValue,
+    /// A named dependency value is supplied more than once.
+    DuplicateDependencyBinding,
+    /// A named dependency does not exist in the selected signature.
+    UnknownDependencyBinding,
+    /// A declared dependency value was not supplied by name.
+    MissingDependencyBinding,
     /// A property could not be read.
     PropertyReadFailed,
     /// Traversal exceeded an execution budget.
@@ -45,6 +51,9 @@ impl std::fmt::Display for ExecutionErrorKind {
             Self::InputTypeMismatch => "input type mismatch",
             Self::DependencyTypeMismatch => "dependency type mismatch",
             Self::MissingRequiredDependencyValue => "missing required dependency value",
+            Self::DuplicateDependencyBinding => "duplicate dependency binding",
+            Self::UnknownDependencyBinding => "unknown dependency binding",
+            Self::MissingDependencyBinding => "missing dependency binding",
             Self::PropertyReadFailed => "property read failed",
             Self::TraversalLimit => "traversal limit exceeded",
             Self::AdapterContractViolation => "adapter contract violation",

@@ -38,6 +38,7 @@ pub use binding::DependencySpec;
 pub use binding::ExecutionError;
 pub use binding::ExecutionErrorKind;
 pub use binding::InputType;
+pub use binding::NamedValidationDependency;
 pub use binding::PrepareFn;
 pub use binding::PreparedOutcome;
 pub use binding::PreparedValidator;

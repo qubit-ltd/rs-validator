@@ -19,6 +19,8 @@ use super::PreparedValidator;
 use super::ValidationOutcome;
 use super::ValidationValue;
 use super::ValidatorSignature;
+use crate::NamedValidationDependency;
+use crate::ValidationPath;
 use crate::ValidatorId;
 
 /// A bound occurrence that owns a reusable prepared validator instance.
@@ -134,6 +136,18 @@ impl BoundValidator {
 
     /// Validates one value after checking its erased input and dependencies.
     ///
+    /// Dependency values and paths must already follow
+    /// [`Self::dependency_specs`] order. Use [`Self::validate_named`] for
+    /// directly assembled dependency sets or whenever same-typed dependencies
+    /// could be supplied in the wrong order.
+    ///
+    /// # Parameters
+    /// - `value`: Borrowed target value.
+    /// - `context`: Dependency values and paths in signature order.
+    ///
+    /// # Returns
+    /// The bound validation outcome.
+    ///
     /// # Errors
     ///
     /// Returns a shape, dependency, adapter, or rule execution error.
@@ -151,6 +165,64 @@ impl BoundValidator {
         outcome
             .into_bound(self.rule_id)
             .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation).with_rule(self.rule_id))
+    }
+
+    /// Validates a value after resolving dependency values by signature name.
+    ///
+    /// This entry point protects direct callers from swapping dependencies
+    /// that have the same input type. Values are reordered into signature slot
+    /// order for this call. Use [`Self::validate`] when a caller has already
+    /// checked and constructed values in that order. This method allocates
+    /// temporary vectors for reordered values and paths.
+    ///
+    /// # Parameters
+    /// - `value`: Borrowed target value.
+    /// - `dependencies`: Borrowed dependency values keyed by signature name.
+    ///   Every declared slot must be present; optional values can use
+    ///   [`ValidationValue::Missing`].
+    ///
+    /// # Returns
+    /// The bound validation outcome.
+    ///
+    /// # Errors
+    ///
+    /// Returns a named-binding, input-shape, dependency-shape, adapter, or rule
+    /// execution error.
+    pub fn validate_named(
+        &self,
+        value: ValidationValue<'_>,
+        dependencies: &[NamedValidationDependency<'_>],
+    ) -> Result<ValidationOutcome, ExecutionError> {
+        for (index, dependency) in dependencies.iter().enumerate() {
+            if dependencies[..index]
+                .iter()
+                .any(|previous| previous.name == dependency.name)
+            {
+                return Err(ExecutionError::new(ExecutionErrorKind::DuplicateDependencyBinding)
+                    .with_rule(self.rule_id)
+                    .with_dependency(dependency.name));
+            }
+            if !self.dependencies.iter().any(|spec| spec.name() == dependency.name) {
+                return Err(ExecutionError::new(ExecutionErrorKind::UnknownDependencyBinding)
+                    .with_rule(self.rule_id)
+                    .with_dependency(dependency.name));
+            }
+        }
+
+        let mut values = Vec::with_capacity(self.dependencies.len());
+        let mut paths = Vec::with_capacity(self.dependencies.len());
+        for spec in self.dependencies {
+            let Some(dependency) = dependencies.iter().find(|dependency| dependency.name == spec.name()) else {
+                return Err(ExecutionError::new(ExecutionErrorKind::MissingDependencyBinding)
+                    .with_rule(self.rule_id)
+                    .with_dependency(spec.name()));
+            };
+            values.push(dependency.value);
+            paths.push(dependency.path.cloned().unwrap_or_else(ValidationPath::root));
+        }
+        let context =
+            BoundValidationContext::new_with_paths(&values, &paths).map_err(|error| error.with_rule(self.rule_id))?;
+        self.validate(value, &context)
     }
 
     /// Returns the selected input shape.

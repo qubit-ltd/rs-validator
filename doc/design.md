@@ -170,8 +170,8 @@ input value. A prepared validator is held as `Arc<dyn PreparedValidator>`, and
 adapters consequently require their validators, mapped errors, and mapper
 closures to satisfy the documented thread-safety bounds.
 
-A registry owns a sorted boxed slice of lightweight registration values and an
-index by stable ID. Descriptors, signatures, dependency specifications, IDs,
+A registry owns one boxed slice of lightweight registration values sorted by
+stable ID; lookup uses binary search. Descriptors, signatures, dependency specifications, IDs,
 and registration source strings used by registrations are static. A
 `BoundValidator` owns an `Arc` to its prepared instance and copies its selected
 static signature and rule ID, so it can be cloned without re-preparation.

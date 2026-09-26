@@ -67,7 +67,7 @@ assert!(!report.is_valid());
 
 ## 进阶用法：读取依赖的适配器
 
-当规则需要将目标值与已选择的依赖值比较时，使用 context-aware adapter。签名声明依赖槽位，`BoundValidator` 会先检查顺序、输入形状以及必需/可选属性，再调用类型化验证器。
+当规则需要将目标值与已选择的依赖值比较时，使用 context-aware adapter。`validate` 要求依赖按签名声明顺序传入，并检查其形状以及必需/可选属性。直接调用者可使用 `validate_named` 按名称绑定每个值，避免同类型槽位被静默互换；该入口会分配临时重排缓冲。
 
 假设 `DependencyMismatch` 是规则自己定义并实现 `std::error::Error` 的领域错误：
 

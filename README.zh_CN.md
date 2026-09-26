@@ -39,6 +39,8 @@ cargo run --example local_registry --locked
 - 违规项、跳过结果、路径、安全参数和有界报告均采用结构化类型表示；报告由 `ValidationReport::record_outcome` 汇总。
 - 类型化文本规则和依赖感知规则可分别使用简单或 context-aware adapter。
 
+直接调用者可使用 `BoundValidator::validate_named` 按签名名称绑定依赖，避免同类型槽位被静默互换。对于绑定阶段已经核验顺序的调用方，`validate` 仍是有序快速入口。局部注册表和可选 inventory 注册可共用每条内置规则的同一个 `ValidatorRegistration` 常量。
+
 本 crate 不发现对象属性、不遍历对象图、不编译模型路径、不调度规则组，也不负责消息本地化。调用方负责选择验证值、执行规则并决定如何展示诊断。
 
 ## Feature 与安全边界

@@ -51,6 +51,12 @@ small, explicit binding boundary when configured execution is needed.
 - Context-aware text and typed adapters for rules that read ordered dependency
   slots.
 
+Direct callers can use `BoundValidator::validate_named` to associate dependency
+values with signature names, avoiding silent swaps between same-typed slots.
+`validate` remains the ordered fast path for callers whose binding step already
+verified that order. The local and optional inventory registries can share one
+`ValidatorRegistration` constant per built-in rule.
+
 The crate does not discover object properties, traverse object graphs, compile
 model paths, schedule rule groups, or localize messages. Callers choose values,
 invoke validators, and decide how to present diagnostics.

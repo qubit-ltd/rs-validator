@@ -90,8 +90,11 @@ but validates the input type and dependency count on every call.
 
 Use a context-aware adapter when a rule must compare its target with an
 already-selected dependency. The signature declares the slot, and the
-`BoundValidator` checks its order, shape, and required/optional status before
-the adapter calls the typed validator.
+`BoundValidator` checks its shape and required/optional status before the
+adapter calls the typed validator. `validate` accepts dependencies in the
+signature's declared order. Direct callers can use `validate_named` to bind
+each value by its declared name; this prevents same-typed slots from being
+silently swapped. The named entry point allocates temporary reorder buffers.
 
 ```rust
 struct MatchesExpected;
