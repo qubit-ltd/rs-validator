@@ -24,6 +24,10 @@
 #[derive(Clone, Copy, Debug, Eq, thiserror::Error, PartialEq)]
 #[non_exhaustive]
 pub enum ValidationOutcomeError {
+    /// An outcome was submitted before the last successfully recorded
+    /// occurrence.
+    #[error("validation outcomes must be recorded in non-decreasing occurrence order")]
+    OutOfOrderOccurrence,
     /// An invalid outcome contains no violations.
     #[error("an invalid outcome must contain at least one violation")]
     EmptyViolations,

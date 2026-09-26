@@ -9,6 +9,7 @@
 use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
+use qubit_validator::ValidationLimits;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationOutcomeError;
 use qubit_validator::ValidationPath;
@@ -93,4 +94,64 @@ fn prepared_outcome_preserves_drafts() {
         PreparedOutcome::invalid(vec![draft]),
         Ok(PreparedOutcome::Invalid(_))
     ));
+}
+
+#[test]
+fn test_report_rejects_out_of_order_occurrences_without_mutation() {
+    let mut report = ValidationReport::new();
+    report
+        .record_outcome(3, ValidationPath::root(), ValidationOutcome::valid())
+        .expect("first occurrence is accepted");
+
+    assert_eq!(
+        report.record_outcome(
+            2,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![violation()]).unwrap(),
+        ),
+        Err(ValidationOutcomeError::OutOfOrderOccurrence),
+    );
+    assert_eq!(report.failure_count(), 0);
+    assert!(report.skipped().is_empty());
+    assert!(!report.is_truncated());
+
+    report
+        .record_outcome(
+            3,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![violation()]).unwrap(),
+        )
+        .expect("the same occurrence may be recorded more than once");
+    assert_eq!(report.failure_count(), 1);
+}
+
+#[test]
+fn test_failed_record_does_not_advance_report_occurrence() {
+    let mut report = ValidationReport::new();
+    assert_eq!(
+        report.record_outcome(5, ValidationPath::root(), ValidationOutcome::Invalid(Vec::new())),
+        Err(ValidationOutcomeError::EmptyViolations),
+    );
+    report
+        .record_outcome(4, ValidationPath::root(), ValidationOutcome::missing_optional())
+        .expect("a rejected outcome must not advance the occurrence cursor");
+    assert_eq!(report.skipped().len(), 1);
+}
+
+#[test]
+fn test_incomplete_record_advances_report_occurrence() {
+    let mut report = ValidationReport::with_limits(ValidationLimits {
+        max_violations: None,
+        max_skipped: Some(0),
+    });
+    let receipt = report
+        .record_outcome(5, ValidationPath::root(), ValidationOutcome::missing_optional())
+        .expect("limit exhaustion is an incomplete but successful record");
+    assert!(!receipt.complete());
+
+    assert_eq!(
+        report.record_outcome(4, ValidationPath::root(), ValidationOutcome::valid()),
+        Err(ValidationOutcomeError::OutOfOrderOccurrence),
+    );
+    assert!(report.is_truncated());
 }

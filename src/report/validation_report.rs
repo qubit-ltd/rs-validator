@@ -59,6 +59,8 @@ pub struct ValidationReport {
     report_id: u64,
     /// Whether configured limits prevented exhaustive collection.
     truncated: bool,
+    /// Greatest occurrence successfully submitted to this report.
+    last_recorded_occurrence: Option<usize>,
     /// Collection limits for all failures and skipped occurrences.
     limits: ValidationLimits,
 }
@@ -72,6 +74,7 @@ impl ValidationReport {
             skipped: Vec::new(),
             report_id: next_report_id(),
             truncated: false,
+            last_recorded_occurrence: None,
             limits,
         }
     }
@@ -96,16 +99,19 @@ impl ValidationReport {
     /// Adds the result of one validation occurrence while preserving its
     /// invariants.
     ///
-    /// Violations and skipped entries are stored in occurrence order and obey
-    /// their respective report limits. The violation limit counts each
-    /// retained invalid violation once; skipped outcomes refer to those
-    /// failures by ID and consume no additional violation capacity. For an
-    /// invalid outcome, `path` prefixes each relative violation path once.
+    /// Occurrences must be submitted in non-decreasing order; multiple outcomes
+    /// may use the same occurrence. Violations and skipped entries are stored
+    /// in submission order and obey their respective report limits. The
+    /// violation limit counts each retained invalid violation once; skipped
+    /// outcomes refer to those failures by ID and consume no additional
+    /// violation capacity. For an invalid outcome, `path` prefixes each
+    /// relative violation path once.
     ///
     /// # Errors
     ///
     /// Returns an outcome shape error for malformed outcomes, duplicate
-    /// prerequisite IDs, or IDs not retained by this report. Such an error
+    /// prerequisite IDs, IDs not retained by this report, or an occurrence
+    /// lower than the last successfully submitted occurrence. Such an error
     /// leaves this report unchanged.
     ///
     /// # Returns
@@ -120,7 +126,10 @@ impl ValidationReport {
         path: super::ValidationPath,
         outcome: crate::ValidationOutcome,
     ) -> Result<RecordedOutcome, ValidationOutcomeError> {
-        match outcome {
+        if self.last_recorded_occurrence.is_some_and(|last| occurrence < last) {
+            return Err(ValidationOutcomeError::OutOfOrderOccurrence);
+        }
+        let result = match outcome {
             crate::ValidationOutcome::Valid => Ok(RecordedOutcome::new(true, Vec::new())),
             crate::ValidationOutcome::Invalid(violations) => {
                 if violations.is_empty() {
@@ -148,10 +157,11 @@ impl ValidationReport {
                 }
                 if !self.has_skipped_capacity() {
                     self.mark_truncated();
-                    return Ok(RecordedOutcome::new(false, Vec::new()));
+                    Ok(RecordedOutcome::new(false, Vec::new()))
+                } else {
+                    self.skipped.push(SkippedValidation::missing_optional(occurrence, path));
+                    Ok(RecordedOutcome::new(true, Vec::new()))
                 }
-                self.skipped.push(SkippedValidation::missing_optional(occurrence, path));
-                Ok(RecordedOutcome::new(true, Vec::new()))
             }
             crate::ValidationOutcome::Skipped {
                 reason: SkipReason::FailedPrerequisite,
@@ -171,13 +181,18 @@ impl ValidationReport {
                 }
                 if !self.has_skipped_capacity() {
                     self.mark_truncated();
-                    return Ok(RecordedOutcome::new(false, Vec::new()));
+                    Ok(RecordedOutcome::new(false, Vec::new()))
+                } else {
+                    let skipped = SkippedValidation::failed_prerequisite(occurrence, path, prerequisites)?;
+                    self.skipped.push(skipped);
+                    Ok(RecordedOutcome::new(true, Vec::new()))
                 }
-                let skipped = SkippedValidation::failed_prerequisite(occurrence, path, prerequisites)?;
-                self.skipped.push(skipped);
-                Ok(RecordedOutcome::new(true, Vec::new()))
             }
+        };
+        if result.is_ok() {
+            self.last_recorded_occurrence = Some(occurrence);
         }
+        result
     }
 
     /// Returns the remaining shared capacity for top-level and prerequisite
