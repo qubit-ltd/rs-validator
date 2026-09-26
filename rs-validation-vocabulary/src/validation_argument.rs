@@ -10,20 +10,18 @@
 
 /// One statically typed validator parameter value.
 ///
-/// # Type Parameters
-///
-/// - `'a`: Lifetime of any borrowed string or slice carried by the value.
+/// Borrowed strings and slices remain valid for the argument's lifetime.
+/// Formatting redacts scalar contents and displays only collection lengths.
 ///
 /// # Examples
 ///
 /// ```
-/// use qubit_validator::ValidationArgument;
+/// use qubit_validation_vocabulary::ValidationArgument;
 ///
 /// let argument = ValidationArgument::String("admin");
 /// assert_eq!(argument, ValidationArgument::String("admin"));
 /// ```
 #[derive(Clone, Copy, Eq, PartialEq)]
-#[non_exhaustive]
 pub enum ValidationArgument<'a> {
     /// A Boolean value.
     Bool(
@@ -40,34 +38,35 @@ pub enum ValidationArgument<'a> {
         /// The supplied unsigned integer value.
         u128,
     ),
-    /// A string value.
+    /// A borrowed string value.
     String(
-        /// The supplied borrowed string.
+        /// The supplied string.
         &'a str,
     ),
-    /// A Boolean list.
+    /// A borrowed Boolean list.
     BoolList(
-        /// The supplied borrowed Boolean slice.
+        /// The supplied Boolean slice.
         &'a [bool],
     ),
-    /// A signed integer list.
+    /// A borrowed signed integer list.
     IntegerList(
-        /// The supplied borrowed signed integer slice.
+        /// The supplied signed integer slice.
         &'a [i128],
     ),
-    /// An unsigned integer list.
+    /// A borrowed unsigned integer list.
     UnsignedList(
-        /// The supplied borrowed unsigned integer slice.
+        /// The supplied unsigned integer slice.
         &'a [u128],
     ),
-    /// A string list.
+    /// A borrowed string list.
     StringList(
-        /// The supplied borrowed slice of borrowed strings.
+        /// The supplied slice of borrowed strings.
         &'a [&'a str],
     ),
 }
 
 impl std::fmt::Debug for ValidationArgument<'_> {
+    /// Formats the value shape without exposing scalar contents.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Bool(_) => formatter.write_str("Bool(<redacted>)"),

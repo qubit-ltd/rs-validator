@@ -1,0 +1,15 @@
+[package]
+name = "qubit-validation-vocabulary"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+authors = ["Haixing Hu <starfish.hu@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/qubit-ltd/rs-validator"
+description = "Shared argument types for Qubit validation declarations"
+
+[lib]
+name = "qubit_validation_vocabulary"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
