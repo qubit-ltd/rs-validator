@@ -42,12 +42,18 @@ flowchart LR
 
 准备函数解码 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名，并直接在已绑定验证器中存储所选输入类型、签名依赖槽位、预备实例和规则 ID。模型元数据负责校验实际依赖声明。`BoundValidator::from_prepared<T>` 为无依赖的已准备规则提供相同的运行时输入检查。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
 
-`ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
+`prepare_contextual_*_validator` 适用于每个领域错误只映射为一条违规的规则。
+需要返回多条违规，或把数据无效与执行故障分开处理时，使用
+`prepare_text_with_context` 或 `prepare_typed_with_context` 闭包适配器。两种路径
+都会经过 `BoundValidator` 的输入、依赖检查和规则 ID 绑定。
+
+`ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。成功的 `record_outcome` 调用必须使用非递减 occurrence；同一位置可以记录多次。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，不做排序，以保持已签发 `FailureId` 的索引稳定。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
 
 ## 描述符、签名和槽位不变量
 
 - 描述符必须至少包含一个签名。
 - 描述符不能包含两个输入形状相同的签名，因为输入形状是选择键。
+- 输入形状是签名的唯一选择键；同一输入类型不能对应不同依赖规格。
 - 签名内的每个依赖名称都必须非空且唯一。
 - 签名的依赖规格由绑定器直接写入已绑定验证器；调用方不再重复回传。模型元数据仍核验实际依赖路径、类型和可选性。
 - 运行时 `BoundValidationContext` 必须按相同顺序为每个槽位提供且只提供一个值。必需槽位不能包含 `ValidationValue::Missing`。

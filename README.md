@@ -48,8 +48,8 @@ small, explicit binding boundary when configured execution is needed.
 - Deterministic local registries keyed by stable validator IDs.
 - Structured violations, skipped outcomes, paths, safe parameters, and bounded
   reports assembled through `ValidationReport::record_outcome`.
-- Context-aware text and typed adapters for rules that read ordered dependency
-  slots.
+- Context-aware text and typed adapters, including closure adapters for rules
+  that read ordered dependency slots.
 
 Direct callers can use `BoundValidator::validate_named` to associate dependency
 values with signature names, avoiding silent swaps between same-typed slots.
@@ -69,6 +69,11 @@ and local `ValidatorRegistry` values work without optional features. Enable
 and `ValidatorRegistry::try_global` is needed.
 
 Dependencies are declared as ordered slots on each signature. Binding a selected signature copies its dependency specifications directly into the bound validator; model metadata validates actual dependency declarations and execution checks runtime slot shape. `ExecutionError` retains an owned cause only for explicit trusted diagnostics through `trusted_source()`. Ordinary formatting and `Error::source()` remain redacted. Violation parameters must not contain rejected input. Failed-prerequisite skips reference retained violations by opaque `FailureId`, so the original failure is counted and rendered once. `record_outcome` returns a `RecordedOutcome` with completion status and IDs retained from that occurrence. Failure references do not consume `max_violations`; `max_skipped` limits skipped occurrences. `ValidationReport::failures()` iterates original violations only. Parameter `Debug` output redacts names and values.
+
+Use `prepare_text_with_context` or `prepare_typed_with_context` when a rule needs
+to return multiple violations or distinguish invalid data from an execution
+failure. Reports require `record_outcome` calls to use non-decreasing occurrence
+numbers; the same occurrence can be recorded more than once.
 
 ## Learn More
 

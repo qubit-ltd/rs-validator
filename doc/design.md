@@ -63,13 +63,21 @@ provides the same runtime input check for an already prepared rule with no depen
 values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
 
-`ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
+The `prepare_contextual_*_validator` adapters map one domain error to one
+violation draft. The `prepare_text_with_context` and
+`prepare_typed_with_context` closure adapters are for rules that need to return
+multiple drafts or distinguish invalid data from an execution failure. Both
+paths still pass through `BoundValidator` input, dependency, and rule-ID checks.
+
+`ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. Successful `record_outcome` calls must use non-decreasing occurrence numbers; repeated numbers are allowed for multiple results at one position. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order rather than sorted so previously issued `FailureId` indices remain stable. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
 
 ## Descriptor, Signature, and Slot Invariants
 
 - A descriptor must contain at least one signature.
 - A descriptor cannot contain two signatures with the same input shape because
   input shape is the selection key.
+- A signature's input shape is its only selection key; the same input type
+  cannot select different dependency specifications.
 - Each dependency name inside a signature is non-empty and unique.
 - The selected signature's dependency specifications are stored directly in the bound validator; callers do not echo them back to the registry. Model metadata validates actual dependency declarations.
 - A runtime `BoundValidationContext` must contain exactly one value per slot in

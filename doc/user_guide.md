@@ -127,9 +127,31 @@ Text rules can use `prepare_contextual_text_validator`; typed rules can use
 `prepare_contextual_typed_validator::<T, _, _, _>`. The corresponding simple
 adapters remain available for rules that do not use context.
 
+Use the closure adapters when a rule needs multiple violation drafts or must
+distinguish invalid data from an execution failure. The closure returns a
+`PreparedOutcome` for validation results and `ExecutionError` for execution
+failures:
+
+```rust
+let prepared = prepare_text_with_context(|value, context| {
+    let expected = context.text(0)?;
+    if value == expected {
+        Ok(PreparedOutcome::Valid)
+    } else {
+        Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(
+            ViolationCode::new("text.dependency_mismatch"),
+        )]))
+    }
+});
+```
+
+The adapter checks that the target is text. `BoundValidator` checks declared
+dependency count, types, optionality, and paths before invoking the closure.
+Keep raw input out of violations and public error formatting.
+
 ## Collecting Outcomes and Prerequisites
 
-`record_outcome` centralizes occurrence ordering and report limits. An invalid outcome must contain at least one violation. A failed-prerequisite skip carries one or more opaque `FailureId` references to violations already retained by the same report. References are validated before mutation and do not consume `max_violations`; each original violation is counted once. `max_skipped` limits skipped occurrences. `record_outcome` returns a `RecordedOutcome`, whose `complete()` reports whether all of the outcome fit and whose `failure_ids()` identifies retained failures from that occurrence. `ValidationReport::failures()` iterates original violations only. `failure(id)` resolves a reference to its violation. `trusted_source()` is the explicit diagnostic entry point for an owned execution cause; ordinary error formatting and `Error::source()` remain redacted.
+`record_outcome` requires successful calls to use non-decreasing occurrence numbers. Reusing the same number is allowed when one position produces multiple results. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order so issued `FailureId` indices remain stable. An invalid outcome must contain at least one violation. A failed-prerequisite skip carries one or more opaque `FailureId` references to violations already retained by the same report. References are validated before mutation and do not consume `max_violations`; each original violation is counted once. `max_skipped` limits skipped occurrences. `record_outcome` returns a `RecordedOutcome`, whose `complete()` reports whether all of the outcome fit and whose `failure_ids()` identifies retained failures from that occurrence. `ValidationReport::failures()` iterates original violations only. `failure(id)` resolves a reference to its violation. `trusted_source()` is the explicit diagnostic entry point for an owned execution cause; ordinary error formatting and `Error::source()` remain redacted.
 ```rust
 let rule_id = ValidatorId::new("text.required");
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));

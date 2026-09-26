@@ -96,9 +96,28 @@ let prepared = prepare_contextual_text_validator(MatchesExpected, |_| {
 
 文本规则使用 `prepare_contextual_text_validator`，类型化规则使用 `prepare_contextual_typed_validator::<T, _, _, _>`。不需要读取上下文时，原有简单 adapter 仍是更直接的选择。
 
+当规则需要返回多条违规，或要区分数据无效与执行故障时，使用闭包适配器。
+闭包通过 `PreparedOutcome` 返回验证结果，通过 `ExecutionError` 返回执行错误：
+
+```rust
+let prepared = prepare_text_with_context(|value, context| {
+    let expected = context.text(0)?;
+    if value == expected {
+        Ok(PreparedOutcome::Valid)
+    } else {
+        Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(
+            ViolationCode::new("text.dependency_mismatch"),
+        )]))
+    }
+});
+```
+
+适配器会检查目标值为文本。`BoundValidator` 在调用闭包前检查依赖数量、类型、
+可选性和路径。不要把原始输入写入违规项或公开错误格式。
+
 ## 汇总验证结果与先决条件
 
-`record_outcome` 统一管理出现顺序和报告容量。无效结果至少包含一个违规项。先决条件失败的跳过项通过不透明 `FailureId` 引用同一报告中已保留的违规项；报告会先校验引用再修改状态。引用不占用 `max_violations`，原始违规项只计数一次；`max_skipped` 限制跳过 occurrence 数。`record_outcome` 返回 `RecordedOutcome`：`complete()` 表示本次结果是否完整写入，`failure_ids()` 返回本次保留的原始失败 ID。`ValidationReport::failures()` 只遍历原始违规项，`failure(id)` 可解析对应违规项。拥有型执行原因仅通过显式可信入口 `trusted_source()` 读取，普通错误格式化和 `Error::source()` 不暴露底层文本。
+`record_outcome` 要求成功调用的 occurrence 非递减；同一位置可重复记录多个结果。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，以保持已签发 `FailureId` 的索引稳定。无效结果至少包含一个违规项。先决条件失败的跳过项通过不透明 `FailureId` 引用同一报告中已保留的违规项；报告会先校验引用再修改状态。引用不占用 `max_violations`，原始违规项只计数一次；`max_skipped` 限制跳过 occurrence 数。`record_outcome` 返回 `RecordedOutcome`：`complete()` 表示本次结果是否完整写入，`failure_ids()` 返回本次保留的原始失败 ID。`ValidationReport::failures()` 只遍历原始违规项，`failure(id)` 可解析对应违规项。拥有型执行原因仅通过显式可信入口 `trusted_source()` 读取，普通错误格式化和 `Error::source()` 不暴露底层文本。
 ```rust
 let rule_id = ValidatorId::new("text.required");
 let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
