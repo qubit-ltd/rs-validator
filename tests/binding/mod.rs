@@ -10,4 +10,5 @@ mod bound_validation_context_tests;
 mod bound_validator_tests;
 mod contextual_adapter_tests;
 mod dependency_binding_tests;
+mod domain_rule_adapter_tests;
 mod typed_adapter_tests;
