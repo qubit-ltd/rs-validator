@@ -12,6 +12,22 @@ use super::FailureId;
 
 /// Describes whether an outcome fit the report limits and identifies its
 /// retained failures.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{RecordedOutcome, ValidationOutcome, ValidationPath, ValidationReport};
+///
+/// let mut report = ValidationReport::new();
+/// let receipt: RecordedOutcome = report.record_outcome(
+///     0,
+///     ValidationPath::root(),
+///     ValidationOutcome::valid(),
+/// )?;
+/// assert!(receipt.complete());
+/// assert!(receipt.failure_ids().is_empty());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecordedOutcome {
     complete: bool,

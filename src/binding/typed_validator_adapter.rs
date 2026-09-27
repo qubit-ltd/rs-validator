@@ -21,12 +21,6 @@ use crate::ViolationDraft;
 /// from `T` and converts each domain error with `map_error`; callers should
 /// ensure the mapper does not retain raw input in the resulting draft.
 ///
-/// # Type Parameters
-///
-/// - `T`: Borrowed value type expected by the validator.
-/// - `V`: Validator of `T` with unit context.
-/// - `M`: Mapper from the validator error to a safe violation draft.
-///
 /// # Panics
 ///
 /// This function does not panic. The prepared adapter reports an input-shape

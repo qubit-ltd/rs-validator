@@ -19,6 +19,15 @@ use crate::ValidationValue;
 /// # Parameters
 /// - `name`: Static dependency name declared by the validator signature.
 /// - `value`: Borrowed value for the dependency slot.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{NamedValidationDependency, ValidationValue};
+///
+/// let dependency = NamedValidationDependency::new("email", ValidationValue::Text("a@example.test"));
+/// assert!(!format!("{dependency:?}").contains("a@example.test"));
+/// ```
 #[derive(Clone, Copy)]
 pub struct NamedValidationDependency<'a> {
     /// Static name declared by the selected validator signature.

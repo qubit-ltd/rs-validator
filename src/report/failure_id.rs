@@ -15,6 +15,25 @@ use std::sync::atomic::Ordering;
 ///
 /// IDs are issued by [`super::ValidationReport::record_outcome`]. A caller
 /// cannot construct an ID, and a report rejects IDs issued by another report.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_validator::{FailureId, ValidationOutcome, ValidationPath, ValidationReport, Violation, ViolationCode, ValidatorId};
+///
+/// let mut report = ValidationReport::new();
+/// let outcome = report.record_outcome(
+///     0,
+///     ValidationPath::root(),
+///     ValidationOutcome::invalid(vec![Violation::new(
+///         ValidatorId::new("text.required"),
+///         ViolationCode::new("text.blank"),
+///     )])?,
+/// )?;
+/// let failure: FailureId = outcome.failure_ids()[0];
+/// assert!(report.failure(failure).is_some());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct FailureId {
     /// Process-local identity of the report that issued this failure ID.
