@@ -150,6 +150,11 @@ impl ValidatorDescriptor {
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
+    /// Ensures a factory produced the input and dependency shape it declared.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PreparedSignatureMismatch` when either shape differs.
     fn check_prepared_shape(
         prepared: &dyn super::super::PreparedValidator,
         signature: ValidatorSignature,

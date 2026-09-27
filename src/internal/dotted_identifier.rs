@@ -6,11 +6,16 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Validation for the shared dotted ASCII identifier protocol.
+//! Validation for non-empty dotted identifiers with ASCII letter-led segments.
 
 use super::DottedIdentifierError;
 
-/// Validates a non-empty dotted identifier with ASCII letter-led segments.
+/// Validates the complete dotted identifier protocol.
+///
+/// Every segment must start with an ASCII letter and may continue with ASCII
+/// letters, digits, or underscores. Dots separate non-empty segments; leading,
+/// trailing, or repeated dots are rejected. The function examines bytes so
+/// non-ASCII characters cannot be accepted as letters or digits.
 #[inline]
 pub(crate) const fn validate_dotted_identifier(value: &str) -> Result<(), DottedIdentifierError> {
     let bytes = value.as_bytes();
@@ -37,7 +42,11 @@ pub(crate) const fn validate_dotted_identifier(value: &str) -> Result<(), Dotted
     validate_segment(bytes, segment_start, bytes.len())
 }
 
-/// Validates one non-empty segment using the protocol's ASCII character set.
+/// Validates one segment using the protocol's ASCII character set.
+///
+/// `start` and `end` delimit a non-empty half-open byte range within `bytes`.
+/// The first byte must be an ASCII letter. Remaining bytes may be ASCII
+/// letters, digits, or underscores.
 #[inline]
 const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), DottedIdentifierError> {
     if start == end || !bytes[start].is_ascii_alphabetic() {

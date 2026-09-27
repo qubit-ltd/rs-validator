@@ -33,15 +33,22 @@ use super::internal::TypedContextFnAdapter;
 ///
 /// - `F`: Thread-safe operation for one text input and its dependency context.
 ///
+/// # Parameters
+///
+/// - `dependencies`: Static dependency slots consumed by `call`, in execution
+///   order.
+/// - `call`: Operation invoked with checked text and a borrowed dependency
+///   context.
+///
 /// # Returns
 ///
 /// A shared prepared validator that checks the target is text before invoking
 /// `call`.
 ///
-/// # Errors
+/// # Runtime Errors
 ///
 /// The returned validator forwards errors from `call` unchanged. This function
-/// itself does not fail.
+/// only constructs the adapter and does not return an error itself.
 #[must_use]
 pub fn prepare_text_with_context<F>(dependencies: &'static [DependencySpec], call: F) -> Arc<dyn PreparedValidator>
 where
@@ -66,15 +73,21 @@ where
 /// - `T`: Exact input type, which must be `'static` for `TypeId`.
 /// - `F`: Thread-safe operation for one typed input and its dependency context.
 ///
+/// # Parameters
+///
+/// - `dependencies`: Static dependency slots consumed by `call`, in execution
+///   order.
+/// - `call`: Operation invoked with a checked `T` value and borrowed context.
+///
 /// # Returns
 ///
 /// A shared prepared validator that checks the target has type `T` before
 /// invoking `call`.
 ///
-/// # Errors
+/// # Runtime Errors
 ///
 /// The returned validator forwards errors from `call` unchanged. This function
-/// itself does not fail.
+/// only constructs the adapter and does not return an error itself.
 #[must_use]
 pub fn prepare_typed_with_context<T: 'static, F>(
     dependencies: &'static [DependencySpec],

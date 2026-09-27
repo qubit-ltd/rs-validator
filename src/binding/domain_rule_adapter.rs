@@ -27,9 +27,30 @@ use super::prepare_typed_with_context;
 /// metadata is passed to `map_error` only when the domain result is an error.
 /// Infrastructure failures returned directly by `call` are forwarded.
 ///
-/// # Errors
+/// # Type Parameters
 ///
-/// An empty invalid draft list becomes `AdapterContractViolation` at runtime.
+/// - `V`: Owned domain validator value used by each invocation.
+/// - `E`: Domain error mapped to a safe validation disposition.
+/// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
+/// - `Call`: Operation that invokes the validator with text and context.
+/// - `Map`: Mapper from a domain error and metadata to a disposition.
+///
+/// # Parameters
+///
+/// - `dependencies`: Static dependency slots consumed by `call`.
+/// - `validator`: Domain rule value borrowed by `call` for each validation.
+/// - `call`: Operation separating infrastructure failure from domain result.
+/// - `map_error`: Converts a domain failure to a valid or invalid disposition.
+///
+/// # Returns
+///
+/// A shared prepared validator that accepts text and checks the declared
+/// dependency slots before invoking `call`.
+///
+/// # Runtime Errors
+///
+/// An empty invalid draft list becomes `AdapterContractViolation` when the
+/// returned validator runs.
 ///
 /// # Privacy
 ///
@@ -63,9 +84,31 @@ where
 /// metadata is passed to `map_error` only when the domain result is an error.
 /// Infrastructure failures returned directly by `call` are forwarded.
 ///
-/// # Errors
+/// # Type Parameters
 ///
-/// An empty invalid draft list becomes `AdapterContractViolation` at runtime.
+/// - `T`: Exact `'static` input type accepted by the domain validator.
+/// - `V`: Owned domain validator value used by each invocation.
+/// - `E`: Domain error mapped to a safe validation disposition.
+/// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
+/// - `Call`: Operation that invokes the validator with `T` and context.
+/// - `Map`: Mapper from a domain error and metadata to a disposition.
+///
+/// # Parameters
+///
+/// - `dependencies`: Static dependency slots consumed by `call`.
+/// - `validator`: Domain rule value borrowed by `call` for each validation.
+/// - `call`: Operation separating infrastructure failure from domain result.
+/// - `map_error`: Converts a domain failure to a valid or invalid disposition.
+///
+/// # Returns
+///
+/// A shared prepared validator that accepts `T` and checks the declared
+/// dependency slots before invoking `call`.
+///
+/// # Runtime Errors
+///
+/// An empty invalid draft list becomes `AdapterContractViolation` when the
+/// returned validator runs.
 ///
 /// # Privacy
 ///
@@ -94,6 +137,11 @@ where
     })
 }
 
+/// Maps a domain call result into the prepared validator protocol.
+///
+/// Successful domain results are valid. Failed results are passed with their
+/// invocation metadata to the mapper; an empty invalid draft list is rejected
+/// as an adapter contract violation.
 fn map_domain_result<E, D>(
     result: (Result<(), E>, D),
     map_error: &impl Fn(E, &D) -> DomainErrorDisposition,

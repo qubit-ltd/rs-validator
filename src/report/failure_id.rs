@@ -17,12 +17,17 @@ use std::sync::atomic::Ordering;
 /// cannot construct an ID, and a report rejects IDs issued by another report.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct FailureId {
+    /// Process-local identity of the report that issued this failure ID.
     pub(crate) report: u64,
+    /// Zero-based position of the retained violation in that report.
     pub(crate) index: usize,
 }
 
 impl FailureId {
-    /// Creates an ID for a failure at `index` in `report`.
+    /// Creates an ID for a retained failure at `index` in `report`.
+    ///
+    /// The caller must ensure that the report identity and index refer to an
+    /// entry already retained by the originating report.
     pub(crate) const fn new(report: u64, index: usize) -> Self {
         Self { report, index }
     }

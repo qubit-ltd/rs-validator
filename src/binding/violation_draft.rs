@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 use crate::ValidationPath;
 use crate::ViolationCode;
 use crate::ViolationParam;
+
 /// A safe violation without a rule identity or raw rejected value.
 ///
 /// # Examples
@@ -36,7 +37,13 @@ pub struct ViolationDraft {
     params: BTreeMap<&'static str, ViolationParam>,
 }
 impl ViolationDraft {
-    /// Creates a draft at the root path.
+    /// Creates a draft at the root path using a stable violation code.
+    ///
+    /// # Parameters
+    /// - `code`: Program-declared code that identifies the validation failure.
+    ///
+    /// # Returns
+    /// A draft with no parameters and an empty root path.
     #[inline]
     pub fn new(code: ViolationCode) -> Self {
         Self {
@@ -45,18 +52,38 @@ impl ViolationDraft {
             params: BTreeMap::new(),
         }
     }
-    /// Replaces the violation path.
+    /// Replaces the relative path attached to this violation draft.
+    ///
+    /// # Parameters
+    /// - `path`: Structured location relative to the current validation target.
+    ///
+    /// # Returns
+    /// The draft with `path` stored for later report prefixing.
     #[inline]
     pub fn with_path(mut self, path: ValidationPath) -> Self {
         self.path = path;
         self
     }
-    /// Adds a structured parameter.
+    /// Adds or replaces a safe structured parameter by its declared name.
+    ///
+    /// The value should describe a rule constraint or other program-defined
+    /// metadata and must not contain rejected input.
+    ///
+    /// # Parameters
+    /// - `name`: Static name declared by the application for this parameter.
+    /// - `value`: Safe structured value to associate with `name`.
+    ///
+    /// # Returns
+    /// The draft with the parameter inserted; an existing value with the same
+    /// name is replaced.
     pub fn with_param(mut self, name: &'static str, value: ViolationParam) -> Self {
         self.params.insert(name, value);
         self
     }
     /// Splits the draft into safe components for final violation construction.
+    ///
+    /// The returned values are consumed by the binding layer, which supplies
+    /// the stable rule identity before exposing a [`crate::Violation`].
     pub(crate) fn parts(self) -> (ViolationCode, ValidationPath, BTreeMap<&'static str, ViolationParam>) {
         (self.code, self.path, self.params)
     }

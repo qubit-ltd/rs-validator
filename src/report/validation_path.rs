@@ -45,34 +45,69 @@ pub struct ValidationPath {
 
 impl ValidationPath {
     /// Creates an empty root path.
+    ///
+    /// # Returns
+    ///
+    /// A path with no segments. Rendering this path produces an empty string.
     #[must_use]
     #[inline]
     pub const fn root() -> Self {
         Self { segments: Vec::new() }
     }
 
-    /// Appends a field segment.
+    /// Appends a statically declared field segment.
+    ///
+    /// Use only program-declared field labels. Runtime map keys belong in an
+    /// opaque map-entry segment so their text is not retained.
+    ///
+    /// # Parameters
+    ///
+    /// - `field`: Static label of the declared field.
+    ///
+    /// # Returns
+    ///
+    /// The path with `field` appended after its existing segments.
     #[must_use]
     pub fn with_field(mut self, field: &'static str) -> Self {
         self.segments.push(PathSegment::Field(field));
         self
     }
 
-    /// Appends a sequence index segment.
+    /// Appends a zero-based sequence index segment.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Position of the element in its sequence.
+    ///
+    /// # Returns
+    ///
+    /// The path with the index appended after its existing segments.
     #[must_use]
     pub fn with_index(mut self, index: usize) -> Self {
         self.segments.push(PathSegment::Index(index));
         self
     }
 
-    /// Appends an opaque map entry segment.
+    /// Appends an opaque map entry position without retaining its key.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Stable position assigned by the caller to the map entry.
+    ///
+    /// # Returns
+    ///
+    /// The path with the map-entry position appended.
     #[must_use]
     pub fn with_map_entry(mut self, index: usize) -> Self {
         self.segments.push(PathSegment::MapEntry(index));
         self
     }
 
-    /// Appends the key side of a map entry.
+    /// Appends the key side of a map entry without storing the key itself.
+    ///
+    /// # Returns
+    ///
+    /// The path with a map-key marker appended.
     #[must_use]
     pub fn with_map_key(mut self) -> Self {
         self.segments.push(PathSegment::MapKey);
@@ -80,6 +115,10 @@ impl ValidationPath {
     }
 
     /// Appends the value side of a map entry.
+    ///
+    /// # Returns
+    ///
+    /// The path with a map-value marker appended.
     #[must_use]
     pub fn with_map_value(mut self) -> Self {
         self.segments.push(PathSegment::MapValue);
@@ -87,6 +126,10 @@ impl ValidationPath {
     }
 
     /// Returns the path segments in order.
+    ///
+    /// # Returns
+    ///
+    /// A borrowed slice ordered from the root toward the target.
     #[must_use]
     #[inline]
     pub fn as_segments(&self) -> &[PathSegment] {
@@ -97,6 +140,14 @@ impl ValidationPath {
     ///
     /// Returns a new path and leaves both inputs unchanged. Segments from
     /// `relative` follow this path's segments in their original order.
+    ///
+    /// # Parameters
+    ///
+    /// - `relative`: Relative suffix to append to this path.
+    ///
+    /// # Returns
+    ///
+    /// A newly allocated path containing both segment sequences.
     #[must_use]
     pub fn concat(&self, relative: &Self) -> Self {
         let mut segments = Vec::with_capacity(self.segments.len() + relative.segments.len());
@@ -109,6 +160,11 @@ impl ValidationPath {
     ///
     /// The result can contain program-supplied field labels but never contains
     /// a raw validation value or map key.
+    ///
+    /// # Returns
+    ///
+    /// A newly allocated string containing the rendered field and positional
+    /// segments, or an empty string for the root path.
     #[must_use]
     pub fn render(&self) -> String {
         let mut rendered = String::new();

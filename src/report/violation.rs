@@ -42,7 +42,16 @@ pub struct Violation {
 }
 
 impl Violation {
-    /// Creates a violation at the root path.
+    /// Creates a safe violation at the root path.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Stable identifier of the rule that rejected the value.
+    /// - `code`: Program-declared code describing the violation.
+    ///
+    /// # Returns
+    ///
+    /// A violation with an empty path and no parameters.
     #[inline]
     pub fn new(rule_id: ValidatorId, code: ViolationCode) -> Self {
         Self {
@@ -53,20 +62,43 @@ impl Violation {
         }
     }
 
-    /// Replaces the violation path.
+    /// Replaces the structured location of the rejected value.
+    ///
+    /// # Parameters
+    ///
+    /// - `path`: Path containing only declared fields and opaque positions.
+    ///
+    /// # Returns
+    ///
+    /// The violation with `path` stored in place of its previous path.
     #[inline]
     pub fn with_path(mut self, path: ValidationPath) -> Self {
         self.path = path;
         self
     }
 
-    /// Adds or replaces a safe structured parameter.
+    /// Adds or replaces a safe structured parameter by its declared name.
+    ///
+    /// The parameter must not contain raw rejected input.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Static program-declared parameter name.
+    /// - `value`: Safe scalar or static token associated with the name.
+    ///
+    /// # Returns
+    ///
+    /// The violation with the named parameter inserted or replaced.
     pub fn with_param(mut self, name: &'static str, value: ViolationParam) -> Self {
         self.params.insert(name, value);
         self
     }
 
     /// Returns the stable rule identifier.
+    ///
+    /// # Returns
+    ///
+    /// The identifier assigned by the bound validator.
     #[must_use]
     #[inline]
     pub const fn rule_id(&self) -> ValidatorId {
@@ -74,6 +106,10 @@ impl Violation {
     }
 
     /// Returns the stable violation code.
+    ///
+    /// # Returns
+    ///
+    /// The program-declared code for this violation.
     #[must_use]
     #[inline]
     pub const fn code(&self) -> ViolationCode {
@@ -83,6 +119,10 @@ impl Violation {
     /// Returns the structured path.
     ///
     /// The path contains no raw rejected value or map key.
+    ///
+    /// # Returns
+    ///
+    /// The structured path to the rejected value.
     #[must_use]
     #[inline]
     pub const fn path(&self) -> &ValidationPath {
@@ -92,6 +132,10 @@ impl Violation {
     /// Returns safe structured parameters.
     ///
     /// These parameters never contain the raw rejected input.
+    ///
+    /// # Returns
+    ///
+    /// The safe named parameters associated with this violation.
     #[must_use]
     #[inline]
     pub const fn params(&self) -> &BTreeMap<&'static str, ViolationParam> {

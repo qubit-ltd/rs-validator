@@ -38,6 +38,7 @@ use crate::ViolationDraft;
 ///
 /// # Parameters
 ///
+/// - `dependencies`: Static dependency slots declared in execution order.
 /// - `validator`: Thread-safe validator invoked with checked text and context.
 /// - `map_error`: Converts a domain error to safe violation metadata.
 ///
