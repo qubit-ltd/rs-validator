@@ -62,11 +62,23 @@ prepared instance, and rule ID in the bound validator. `BoundValidator::try_from
 values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
 
-The `prepare_contextual_*_validator` adapters take the static dependency slice as their first argument and map one domain error to one
-violation draft. The `prepare_text_with_context` and
-`prepare_typed_with_context` closure adapters are for rules that need to return
-multiple drafts or distinguish invalid data from an execution failure. Both
-paths still pass through `BoundValidator` input, dependency, and rule-ID checks.
+Descriptor binding attaches the requested rule ID to declaration, selection,
+parameter, preparation, and prepared-shape errors, preserving each error's
+kind and safe parameter or dependency metadata. Registry binding follows the
+same rule-aware error contract.
+
+The `prepare_contextual_*_validator` adapters take the static dependency slice
+as their first argument and map one domain error to one violation draft.
+`prepare_text_domain_rule` and `prepare_typed_domain_rule` accept a typed
+domain rule, dependency-aware invocation closure, and error mapper. The closure
+returns infrastructure failures as `ExecutionError` and returns domain errors
+as a separate result. The mapper may classify a domain error as valid or map it
+to one or more safe violation drafts. Per-invocation metadata can be returned
+alongside the domain result for error mapping. An empty invalid draft list is
+an adapter contract violation. The lower-level `prepare_text_with_context`
+and `prepare_typed_with_context` adapters remain available when the closure
+already constructs `PreparedOutcome`. All paths pass through
+`BoundValidator` input, dependency, and rule-ID checks.
 
 `ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. Successful `record_outcome` calls must use non-decreasing occurrence numbers; repeated numbers are allowed for multiple results at one position. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order rather than sorted so previously issued `FailureId` indices remain stable. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
 

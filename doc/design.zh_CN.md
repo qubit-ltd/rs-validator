@@ -42,10 +42,17 @@ flowchart LR
 
 准备函数解码 `qubit-validator` 提供的 `NamedValidationArgument` 值，并返回拥有所有权的预备实例。绑定过程选择一个签名，并直接在已绑定验证器中存储所选输入类型、签名依赖槽位、预备实例和规则 ID。模型元数据负责校验实际依赖声明。`BoundValidator::try_from_prepared<T>` 会在预备实例的输入类型不是 `T` 或声明了依赖时返回绑定错误。每个预备实例都报告自身输入与依赖形状；绑定时会与静态签名比较，错配错误会附带规则 ID。执行过程先检查类型擦除后的输入和依赖值，再委托给预备实例。随后，已绑定验证器附加自己的规则 ID，把违规项草稿转换为最终违规项。
 
+描述符绑定会在定义、签名选择、参数、准备或预备形状校验失败时附加请求的规则 ID，
+同时保留错误类别及安全的参数或依赖元数据。注册表绑定遵循相同的规则级错误契约。
+
 `prepare_contextual_*_validator` 适用于每个领域错误只映射为一条违规的规则。
-需要返回多条违规，或把数据无效与执行故障分开处理时，使用
-`prepare_text_with_context` 或 `prepare_typed_with_context` 闭包适配器。两种路径
-都会经过 `BoundValidator` 的输入、依赖检查和规则 ID 绑定。
+`prepare_text_domain_rule` 和 `prepare_typed_domain_rule` 接收类型化领域规则、
+依赖调用闭包及错误映射器。闭包把基础设施故障作为 `ExecutionError` 返回，
+把领域错误放在单独的结果中。映射器可将领域错误判为有效，或转换为一条及多条
+安全的违规草稿。闭包可在领域结果旁返回本次调用的元数据，供错误映射使用；
+空违规草稿列表会被视为适配器契约错误。若闭包已经构造好 `PreparedOutcome`，
+仍可使用较底层的 `prepare_text_with_context` 或 `prepare_typed_with_context`。
+所有路径都会经过 `BoundValidator` 的输入、依赖检查和规则 ID 绑定。
 
 `ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。成功的 `record_outcome` 调用必须使用非递减 occurrence；同一位置可以记录多次。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，不做排序，以保持已签发 `FailureId` 的索引稳定。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
 

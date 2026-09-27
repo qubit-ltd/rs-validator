@@ -39,6 +39,7 @@ cargo run --example local_registry --locked
 - 违规项、跳过结果、路径、安全参数和有界报告均采用结构化类型表示；报告由 `ValidationReport::record_outcome` 汇总。
 - 类型化文本规则和依赖感知规则可分别使用简单或 context-aware adapter；
   依赖闭包适配器支持区分违规结果与执行错误。
+- 领域规则适配器将领域错误映射为安全的结构化结果，并保留基础设施执行错误。
 
 直接调用者可使用 `BoundValidator::validate_named` 按签名名称绑定依赖，避免同类型槽位被静默互换。对于绑定阶段已经核验顺序的调用方，`validate` 仍是有序快速入口。局部注册表和可选 inventory 注册可共用每条内置规则的同一个 `ValidatorRegistration` 常量。
 
@@ -50,7 +51,10 @@ cargo run --example local_registry --locked
 
 依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，执行时检查槽位值形状。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。违规参数不得包含被拒绝的输入。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
 
-当规则需要返回多条违规，或需要区分数据无效与执行失败时，可使用
+当类型化领域规则需要依赖上下文并映射领域错误时，可使用
+`prepare_text_domain_rule` 或 `prepare_typed_domain_rule`。映射器可将输入判为有效，
+或返回一条及多条安全的违规草稿；基础设施错误仍作为 `ExecutionError` 传递。
+若闭包已经直接返回 `PreparedOutcome`，可使用较底层的
 `prepare_text_with_context` 或 `prepare_typed_with_context`。报告要求
 `record_outcome` 按非递减 occurrence 调用；同一 occurrence 可以记录多次。
 
