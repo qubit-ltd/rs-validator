@@ -35,7 +35,6 @@ pub use binding::BindErrorKind;
 pub use binding::BoundValidationContext;
 pub use binding::BoundValidator;
 pub use binding::DependencySpec;
-pub use binding::DomainErrorDisposition;
 pub use binding::ExecutionError;
 pub use binding::ExecutionErrorKind;
 pub use binding::InputType;

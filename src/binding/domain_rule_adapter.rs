@@ -13,11 +13,11 @@ use std::sync::Arc;
 
 use super::BoundValidationContext;
 use super::DependencySpec;
-use super::DomainErrorDisposition;
 use super::ExecutionError;
 use super::ExecutionErrorKind;
 use super::PreparedOutcome;
 use super::PreparedValidator;
+use super::ViolationDraft;
 use super::prepare_text_with_context;
 use super::prepare_typed_with_context;
 
@@ -30,17 +30,18 @@ use super::prepare_typed_with_context;
 /// # Type Parameters
 ///
 /// - `V`: Owned domain validator value used by each invocation.
-/// - `E`: Domain error mapped to a safe validation disposition.
+/// - `E`: Domain error mapped to safe violation drafts.
 /// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
 /// - `Call`: Operation that invokes the validator with text and context.
-/// - `Map`: Mapper from a domain error and metadata to a disposition.
+/// - `Map`: Mapper from a domain error and metadata to violation drafts.
 ///
 /// # Parameters
 ///
 /// - `dependencies`: Static dependency slots consumed by `call`.
 /// - `validator`: Domain rule value borrowed by `call` for each validation.
 /// - `call`: Operation separating infrastructure failure from domain result.
-/// - `map_error`: Converts a domain failure to a valid or invalid disposition.
+/// - `map_error`: Converts a domain failure to a non-empty list of safe
+///   violations.
 ///
 /// # Returns
 ///
@@ -71,7 +72,7 @@ where
         + Send
         + Sync
         + 'static,
-    Map: Fn(E, &D) -> DomainErrorDisposition + Send + Sync + 'static,
+    Map: Fn(E, &D) -> Vec<ViolationDraft> + Send + Sync + 'static,
 {
     prepare_text_with_context(dependencies, move |input, context| {
         map_domain_result(call(&validator, input, context)?, &map_error)
@@ -88,17 +89,18 @@ where
 ///
 /// - `T`: Exact `'static` input type accepted by the domain validator.
 /// - `V`: Owned domain validator value used by each invocation.
-/// - `E`: Domain error mapped to a safe validation disposition.
+/// - `E`: Domain error mapped to safe violation drafts.
 /// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
 /// - `Call`: Operation that invokes the validator with `T` and context.
-/// - `Map`: Mapper from a domain error and metadata to a disposition.
+/// - `Map`: Mapper from a domain error and metadata to violation drafts.
 ///
 /// # Parameters
 ///
 /// - `dependencies`: Static dependency slots consumed by `call`.
 /// - `validator`: Domain rule value borrowed by `call` for each validation.
 /// - `call`: Operation separating infrastructure failure from domain result.
-/// - `map_error`: Converts a domain failure to a valid or invalid disposition.
+/// - `map_error`: Converts a domain failure to a non-empty list of safe
+///   violations.
 ///
 /// # Returns
 ///
@@ -130,7 +132,7 @@ where
         + Send
         + Sync
         + 'static,
-    Map: Fn(E, &D) -> DomainErrorDisposition + Send + Sync + 'static,
+    Map: Fn(E, &D) -> Vec<ViolationDraft> + Send + Sync + 'static,
 {
     prepare_typed_with_context::<T, _>(dependencies, move |input, context| {
         map_domain_result(call(&validator, input, context)?, &map_error)
@@ -144,14 +146,11 @@ where
 /// as an adapter contract violation.
 fn map_domain_result<E, D>(
     result: (Result<(), E>, D),
-    map_error: &impl Fn(E, &D) -> DomainErrorDisposition,
+    map_error: &impl Fn(E, &D) -> Vec<ViolationDraft>,
 ) -> Result<PreparedOutcome, ExecutionError> {
     match result.0 {
         Ok(()) => Ok(PreparedOutcome::Valid),
-        Err(error) => match map_error(error, &result.1) {
-            DomainErrorDisposition::Valid => Ok(PreparedOutcome::Valid),
-            DomainErrorDisposition::Invalid(drafts) => PreparedOutcome::invalid(drafts)
-                .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)),
-        },
+        Err(error) => PreparedOutcome::invalid(map_error(error, &result.1))
+            .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)),
     }
 }

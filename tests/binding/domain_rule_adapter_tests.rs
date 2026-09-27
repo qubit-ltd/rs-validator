@@ -10,7 +10,6 @@ use std::sync::Arc;
 
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
-use qubit_validator::DomainErrorDisposition;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
@@ -56,7 +55,7 @@ fn text_domain_adapter_maps_domain_error_into_safe_violation() {
         |error, metadata| {
             assert_eq!(error.to_string(), "secret domain detail");
             assert_eq!(*metadata, "safe-profile");
-            DomainErrorDisposition::Invalid(vec![ViolationDraft::new(ViolationCode::new("domain.rejected"))])
+            vec![ViolationDraft::new(ViolationCode::new("domain.rejected"))]
         },
     );
     assert!(run_text(prepared.as_ref(), "ok").is_ok());
@@ -72,7 +71,7 @@ fn domain_adapter_forwards_infrastructure_errors() {
         &[],
         DomainRule,
         |_, _, _| Err(ExecutionError::new(ExecutionErrorKind::DependencyTypeMismatch)),
-        |_, _| DomainErrorDisposition::Valid,
+        |_, _| vec![],
     );
     let error = run_text(prepared.as_ref(), "secret input").unwrap_err();
     assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
@@ -85,14 +84,14 @@ fn domain_adapter_rejects_empty_invalid_drafts() {
         &[],
         DomainRule,
         |rule, value, _| Ok((rule.validate(value, &()), ())),
-        |_, _| DomainErrorDisposition::Invalid(vec![]),
+        |_, _| vec![],
     );
     let error = run_text(prepared.as_ref(), "bad").unwrap_err();
     assert_eq!(error.kind(), ExecutionErrorKind::AdapterContractViolation);
 }
 
 #[test]
-fn domain_adapter_preserves_multiple_drafts_and_ignores_domain_failure() {
+fn domain_adapter_preserves_multiple_drafts_for_domain_failure() {
     let id = ValidatorId::new("test.domain");
     static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_fixture)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
@@ -104,13 +103,14 @@ fn domain_adapter_preserves_multiple_drafts_and_ignores_domain_failure() {
         if violations.len() == 2 && violations[0].code().as_str() == "first"
             && violations[0].rule_id() == id && violations[1].code().as_str() == "second"));
 
-    let ignored = prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
+    let prepared = prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         &[],
         DomainRule,
         |rule, value, _| Ok((rule.validate(value, &()), ())),
-        |_, _| DomainErrorDisposition::Valid,
+        |_, _| vec![ViolationDraft::new(ViolationCode::new("domain.rejected"))],
     );
-    assert!(matches!(run_text(ignored.as_ref(), "bad"), Ok(PreparedOutcome::Valid)));
+    let rejected = run_text(prepared.as_ref(), "bad").expect("domain failure is an outcome");
+    assert!(matches!(rejected, PreparedOutcome::Invalid(ref drafts) if !drafts.is_empty()));
 }
 
 fn prepare_fixture(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
@@ -119,10 +119,10 @@ fn prepare_fixture(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn Prepared
         DomainRule,
         |rule, value, _| Ok((rule.validate(value, &()), ())),
         |_, _| {
-            DomainErrorDisposition::Invalid(vec![
+            vec![
                 ViolationDraft::new(ViolationCode::new("first")),
                 ViolationDraft::new(ViolationCode::new("second")),
-            ])
+            ]
         },
     ))
 }
@@ -144,12 +144,12 @@ fn typed_domain_adapter_passes_metadata_to_error_mapper() {
         |error, value| {
             if *value == 7 {
                 let _ = error;
-                DomainErrorDisposition::Invalid(vec![
+                vec![
                     ViolationDraft::new(ViolationCode::new("typed.seven"))
                         .with_param("value", ViolationParam::Unsigned(7)),
-                ])
+                ]
             } else {
-                DomainErrorDisposition::Valid
+                vec![ViolationDraft::new(ViolationCode::new("typed.other"))]
             }
         },
     );
