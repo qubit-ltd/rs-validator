@@ -219,6 +219,31 @@ impl BoundValidator {
             }
         }
 
+        if self.dependencies.is_empty() {
+            return self.validate(value, &BoundValidationContext::new(&[]));
+        }
+        if self.dependencies.len() == 1 {
+            let spec = self.dependencies[0];
+            let dependency = dependencies
+                .iter()
+                .find(|dependency| dependency.name == spec.name())
+                .ok_or_else(|| {
+                    ExecutionError::new(ExecutionErrorKind::MissingDependencyBinding)
+                        .with_rule(self.rule_id)
+                        .with_dependency(spec.name())
+                })?;
+            let values = [dependency.value];
+            return match dependency.path {
+                Some(path) => {
+                    let paths = [path.clone()];
+                    let context = BoundValidationContext::new_with_paths(&values, &paths)
+                        .map_err(|error| error.with_rule(self.rule_id))?;
+                    self.validate(value, &context)
+                }
+                None => self.validate(value, &BoundValidationContext::new(&values)),
+            };
+        }
+
         let mut values = Vec::with_capacity(self.dependencies.len());
         let mut paths = Vec::with_capacity(self.dependencies.len());
         for spec in self.dependencies {

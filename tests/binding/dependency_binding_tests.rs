@@ -92,6 +92,59 @@ static TEXT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static TEXT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TEXT_SIGNATURES);
 
+struct NoDependencyAdapter;
+
+impl PreparedValidator for NoDependencyAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::of::<String>()
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        &[]
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+struct SingleTextAdapter;
+
+impl PreparedValidator for SingleTextAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        SINGLE_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        assert_eq!(context.text(0)?, "dependency value");
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+fn prepare_single_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(SingleTextAdapter))
+}
+
+static SINGLE_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("item", InputType::Text, false)];
+static SINGLE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    SINGLE_DEPENDENCIES,
+    prepare_single_text,
+)];
+static SINGLE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SINGLE_SIGNATURES);
+
 #[test]
 fn test_bind_takes_dependency_specs_from_selected_signature() {
     let bound = DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
@@ -226,4 +279,57 @@ fn test_validate_named_reports_dependency_shape_with_rule_and_path() {
     assert_eq!(error.rule_id(), Some(RULE_ID));
     assert_eq!(error.dependency(), Some("first"));
     assert_eq!(error.path(), &first_path);
+}
+
+#[test]
+fn test_validate_named_zero_dependencies_matches_ordered_validation() {
+    let bound = qubit_validator::BoundValidator::try_from_prepared::<String>(RULE_ID, Arc::new(NoDependencyAdapter))
+        .expect("zero-dependency prepared rule binds");
+    let named = bound
+        .validate_named(ValidationValue::Typed(&String::from("target")), &[])
+        .expect("empty named dependencies are valid");
+    let ordered = bound
+        .validate(
+            ValidationValue::Typed(&String::from("target")),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect("empty ordered context is valid");
+    assert_eq!(named, ordered);
+}
+
+#[test]
+fn test_validate_named_one_dependency_preserves_paths_and_shape_errors() {
+    let bound = SINGLE_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let path = ValidationPath::root().with_field("item");
+    let dependency = NamedValidationDependency::new("item", ValidationValue::Text("dependency value"));
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &[dependency])
+            .expect("one named dependency binds"),
+        ValidationOutcome::Valid,
+    );
+
+    let dependency = NamedValidationDependency::new("item", ValidationValue::Text("dependency value")).with_path(&path);
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &[dependency])
+            .expect("one named dependency with a path binds"),
+        ValidationOutcome::Valid,
+    );
+
+    let wrong = NamedValidationDependency::new("item", ValidationValue::Typed(&7_u64)).with_path(&path);
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &[wrong])
+        .expect_err("dependency type mismatch is preserved");
+    assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("item"));
+    assert_eq!(error.path(), &path);
+
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &[])
+        .expect_err("missing dependency is preserved");
+    assert_eq!(error.kind(), ExecutionErrorKind::MissingDependencyBinding);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("item"));
 }
