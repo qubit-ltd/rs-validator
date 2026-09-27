@@ -12,8 +12,10 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::BoundValidator;
+use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
@@ -23,6 +25,7 @@ use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::SkipReason;
 use qubit_validator::ValidationOutcome;
+use qubit_validator::ValidationOutcomeError;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
@@ -81,7 +84,7 @@ impl PreparedValidator for Rejecting {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]
     }
 
@@ -162,7 +165,7 @@ fn test_validation_outcome_constructs_skips_with_consistent_evidence() {
 
     assert!(matches!(
         ValidationOutcome::failed_prerequisite(Vec::new()),
-        Err(qubit_validator::ValidationOutcomeError::EmptyPrerequisites)
+        Err(ValidationOutcomeError::EmptyPrerequisites)
     ));
 }
 
@@ -170,11 +173,11 @@ fn test_validation_outcome_constructs_skips_with_consistent_evidence() {
 fn test_validation_outcome_rejects_failed_prerequisite_without_evidence() {
     assert!(matches!(
         ValidationOutcome::failed_prerequisite(Vec::new()),
-        Err(qubit_validator::ValidationOutcomeError::EmptyPrerequisites)
+        Err(ValidationOutcomeError::EmptyPrerequisites)
     ));
     assert!(matches!(
         PreparedOutcome::Invalid(Vec::new()).into_bound(ValidatorId::new("test.empty")),
-        Err(qubit_validator::ValidationOutcomeError::EmptyViolations)
+        Err(ValidationOutcomeError::EmptyViolations)
     ));
 }
 
@@ -184,7 +187,7 @@ impl PreparedValidator for CountingPrepared {
     fn input_type(&self) -> InputType {
         InputType::Typed(std::any::TypeId::of::<u32>())
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]
     }
 
@@ -204,7 +207,7 @@ fn test_prepared_bound_validator_checks_input_and_empty_dependencies() {
     let prepared = Arc::new(CountingPrepared(AtomicUsize::new(0)));
     let bound = BoundValidator::try_from_prepared::<usize>(rule_id, prepared.clone())
         .expect_err("wrong input type is rejected");
-    assert_eq!(bound.kind(), qubit_validator::BindErrorKind::PreparedSignatureMismatch);
+    assert_eq!(bound.kind(), BindErrorKind::PreparedSignatureMismatch);
     assert_eq!(bound.rule_id(), Some(rule_id));
     let prepared = Arc::new(CountingPrepared(AtomicUsize::new(0)));
     let bound = BoundValidator::try_from_prepared::<u32>(rule_id, prepared.clone()).expect("matching shape");
@@ -242,7 +245,7 @@ impl PreparedValidator for FixedOutcome {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]
     }
 

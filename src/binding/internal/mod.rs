@@ -11,7 +11,9 @@
 mod contextual_fn_validator_adapter;
 mod contextual_text_validator_adapter;
 mod contextual_typed_validator_adapter;
+mod text_context_fn_adapter;
 mod text_validator_adapter;
+mod typed_context_fn_adapter;
 mod typed_validator_adapter;
 
 pub(super) use contextual_fn_validator_adapter::TextContextFnAdapter;

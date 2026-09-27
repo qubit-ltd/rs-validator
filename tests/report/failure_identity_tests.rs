@@ -8,6 +8,7 @@
 
 use qubit_validator::ValidationLimits;
 use qubit_validator::ValidationOutcome;
+use qubit_validator::ValidationOutcomeError;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationReport;
 use qubit_validator::ValidatorId;
@@ -80,10 +81,7 @@ fn test_failure_ids_distinguish_equal_violations_and_reject_foreign_references()
             ValidationOutcome::failed_prerequisite(vec![first]).expect("one foreign reference"),
         )
         .expect_err("a failure ID belongs to its originating report");
-    assert_eq!(
-        error,
-        qubit_validator::ValidationOutcomeError::UnknownPrerequisiteFailure
-    );
+    assert_eq!(error, ValidationOutcomeError::UnknownPrerequisiteFailure);
     assert_eq!(other_report.skipped().len(), before);
     assert_eq!(other_report.failure_count(), 0);
 }
@@ -104,7 +102,7 @@ fn test_duplicate_or_missing_prerequisite_ids_leave_report_unchanged() {
         .expect("shape validation is performed by the report");
     assert_eq!(
         report.record_outcome(1, ValidationPath::root(), duplicate),
-        Err(qubit_validator::ValidationOutcomeError::DuplicatePrerequisiteFailure)
+        Err(ValidationOutcomeError::DuplicatePrerequisiteFailure)
     );
     let mut other_report = ValidationReport::new();
     let foreign = other_report
@@ -118,7 +116,7 @@ fn test_duplicate_or_missing_prerequisite_ids_leave_report_unchanged() {
     let unknown = ValidationOutcome::failed_prerequisite(vec![foreign]).expect("one failure reference has valid shape");
     assert_eq!(
         report.record_outcome(2, ValidationPath::root(), unknown),
-        Err(qubit_validator::ValidationOutcomeError::UnknownPrerequisiteFailure)
+        Err(ValidationOutcomeError::UnknownPrerequisiteFailure)
     );
     assert!(report.skipped().is_empty());
     assert_eq!(report.failure_count(), 1);

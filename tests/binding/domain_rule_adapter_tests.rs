@@ -17,6 +17,7 @@ use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
@@ -99,11 +100,9 @@ fn domain_adapter_preserves_multiple_drafts_and_ignores_domain_failure() {
     let outcome = bound
         .validate(ValidationValue::Text("bad"), &BoundValidationContext::new(&[]))
         .unwrap();
-    assert!(
-        matches!(outcome, qubit_validator::ValidationOutcome::Invalid(ref violations)
+    assert!(matches!(outcome, ValidationOutcome::Invalid(ref violations)
         if violations.len() == 2 && violations[0].code().as_str() == "first"
-            && violations[0].rule_id() == id && violations[1].code().as_str() == "second")
-    );
+            && violations[0].rule_id() == id && violations[1].code().as_str() == "second"));
 
     let ignored = prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         &[],

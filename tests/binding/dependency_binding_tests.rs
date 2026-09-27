@@ -18,6 +18,7 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::NamedValidationDependency;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
@@ -30,7 +31,7 @@ impl PreparedValidator for ValidAdapter {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         DEPENDENCIES
     }
 
@@ -61,7 +62,7 @@ impl PreparedValidator for OrderedTextAdapter {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         TEXT_DEPENDENCIES
     }
 
@@ -170,7 +171,7 @@ fn test_validate_named_reorders_same_type_dependencies_and_paths() {
         bound
             .validate_named(ValidationValue::Text("target"), &dependencies)
             .expect("named dependencies are reordered by signature"),
-        qubit_validator::ValidationOutcome::Valid,
+        ValidationOutcome::Valid,
     );
 }
 

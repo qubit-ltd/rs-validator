@@ -15,6 +15,7 @@ use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
@@ -60,7 +61,7 @@ impl PreparedValidator for CountingAdapter {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]
     }
     fn validate(

@@ -48,7 +48,7 @@ fn valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>
         fn input_type(&self) -> InputType {
             InputType::Text
         }
-        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        fn dependency_specs(&self) -> &'static [DependencySpec] {
             &[]
         }
 
@@ -89,7 +89,7 @@ fn invalid_empty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedVa
         fn input_type(&self) -> InputType {
             InputType::Text
         }
-        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        fn dependency_specs(&self) -> &'static [DependencySpec] {
             &[]
         }
 
@@ -110,7 +110,7 @@ fn invalid_nonempty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn Prepare
         fn input_type(&self) -> InputType {
             InputType::Text
         }
-        fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+        fn dependency_specs(&self) -> &'static [DependencySpec] {
             &[]
         }
 
