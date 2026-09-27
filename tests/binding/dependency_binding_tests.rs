@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
+use qubit_validator::BoundValidator;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
@@ -283,7 +284,7 @@ fn test_validate_named_reports_dependency_shape_with_rule_and_path() {
 
 #[test]
 fn test_validate_named_zero_dependencies_matches_ordered_validation() {
-    let bound = qubit_validator::BoundValidator::try_from_prepared::<String>(RULE_ID, Arc::new(NoDependencyAdapter))
+    let bound = BoundValidator::try_from_prepared::<String>(RULE_ID, Arc::new(NoDependencyAdapter))
         .expect("zero-dependency prepared rule binds");
     let named = bound
         .validate_named(ValidationValue::Typed(&String::from("target")), &[])
