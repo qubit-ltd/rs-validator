@@ -10,20 +10,6 @@ This guide is for Rust library and application authors who need ordinary
 typed validation as well as configured rule lookup by stable ID. It covers the
 public API without assuming a model framework, code generator, or scheduler.
 
-## Conceptual Model
-
-| Concept | Meaning |
-| --- | --- |
-| `Validator<T, C>` | Typed rule called directly with a borrowed value and domain context. It returns the rule's domain error. |
-| `PreparedValidator` | Reusable, type-erased instance created after configuration is decoded. |
-| `BoundValidator` | Prepared instance paired with a stable rule ID and selected signature. It checks target and dependency shapes before execution. |
-| `ValidationOutcome` | Result of a completed validation: valid, invalid, or skipped. Invalid data is not an execution error. |
-| `ExecutionError` | A shape, dependency, adapter, or external execution failure returned as `Err`. It retains an owned cause for explicit trusted diagnostics through `trusted_source()`; ordinary formatting and `Error::source()` do not expose it. |
-| `ValidationReport` | Caller-owned collection of violations and skipped occurrences, with optional count limits. |
-
-An adapter maps a rule's domain error to a safe `ViolationDraft`. The bound
-validator attaches the stable rule ID and returns a final `Violation`.
-
 ## Scenario: Validate a Configured Display Name
 
 The example validates a display name with a `NonBlank` rule. It registers the
@@ -34,6 +20,155 @@ is [`examples/local_registry.rs`](../examples/local_registry.rs); run it with:
 ```bash
 cargo run --example local_registry --locked
 ```
+
+The following application flow uses the same `text.non_blank` rule. These
+snippets belong to one application module: later snippets use types and
+functions declared earlier. The application owns its profile store and request
+response.
+
+First, define the typed rule and its domain error:
+
+```rust
+use std::{error::Error, fmt};
+use qubit_validator::Validator;
+
+#[derive(Debug)]
+struct BlankText;
+
+impl fmt::Display for BlankText {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("text must not be blank")
+    }
+}
+
+impl Error for BlankText {}
+
+struct NonBlank;
+
+impl Validator<str> for NonBlank {
+    type Error = BlankText;
+
+    fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
+        if value.trim().is_empty() { Err(BlankText) } else { Ok(()) }
+    }
+}
+```
+
+Next, define a preparation function and describe the accepted input. This
+rule takes no parameters, so `finish()` rejects unexpected configuration:
+
+```rust
+use std::sync::Arc;
+use qubit_validator::{
+    ArgumentReader, BindError, InputType, NamedValidationArgument,
+    PreparedValidator, ValidatorDescriptor, ValidatorSignature,
+    ViolationCode, ViolationDraft, prepare_text_validator,
+};
+
+fn prepare_non_blank(
+    params: &[NamedValidationArgument<'_>],
+) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    ArgumentReader::new(params)?.finish()?;
+    Ok(prepare_text_validator(NonBlank, |_| {
+        ViolationDraft::new(ViolationCode::new("text.blank"))
+    }))
+}
+
+static SIGNATURES: &[ValidatorSignature] = &[
+    ValidatorSignature::new(InputType::Text, &[], prepare_non_blank),
+];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+```
+
+At startup, register and bind the rule once, then inject the resulting
+`BoundValidator` into the profile service:
+
+```rust
+use qubit_validator::{
+    BoundValidator, RegistrationSource, ValidatorId,
+    ValidatorRegistration, ValidatorRegistry,
+};
+
+fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Error>> {
+    let registration = ValidatorRegistration::new(
+        ValidatorId::new("text.non_blank"),
+        &DESCRIPTOR,
+        RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+    Ok(registry.bind("text.non_blank", InputType::Text, &[])?)
+}
+```
+
+For each request, record the result at the field path. The caller checks the
+report before asking its own store to save the value:
+
+```rust
+use qubit_validator::{
+    BoundValidationContext, ValidationPath, ValidationReport, ValidationValue,
+};
+
+fn check_display_name(
+    validator: &BoundValidator,
+    display_name: &str,
+) -> Result<ValidationReport, Box<dyn std::error::Error>> {
+    let context = BoundValidationContext::new(&[]);
+    let outcome = validator.validate(ValidationValue::Text(display_name), &context)?;
+    let mut report = ValidationReport::new();
+    report.record_outcome(
+        0,
+        ValidationPath::root().with_field("display_name"),
+        outcome,
+    )?;
+    Ok(report)
+}
+
+trait ProfileStore {
+    fn save_display_name(
+        &self,
+        user_id: &str,
+        display_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>>;
+}
+
+enum UpdateProfileResult {
+    Updated,
+    Rejected(ValidationReport),
+}
+
+fn update_profile(
+    store: &dyn ProfileStore,
+    validator: &BoundValidator,
+    user_id: &str,
+    incoming_display_name: &str,
+) -> Result<UpdateProfileResult, Box<dyn std::error::Error>> {
+    let report = check_display_name(validator, incoming_display_name)?;
+    if !report.is_valid() {
+        return Ok(UpdateProfileResult::Rejected(report));
+    }
+    store.save_display_name(user_id, incoming_display_name)?;
+    Ok(UpdateProfileResult::Updated)
+}
+```
+
+`"Ada"` reaches the store and returns `Updated`; a blank name returns
+`Rejected(report)` without calling the store. Store failures remain application
+errors. An HTTP handler can map the violation code and controlled field path to
+an API response without including the incoming value in messages or logs.
+
+## Conceptual Model
+
+| Concept | Meaning |
+| --- | --- |
+| `Validator<T, C>` | Typed rule called directly with a borrowed value and domain context. It returns the rule's domain error. |
+| `PreparedValidator` | Reusable, type-erased instance created after configuration is decoded. |
+| `BoundValidator` | Prepared instance paired with a stable rule ID and selected signature. It checks target and dependency shapes before execution. |
+| `ValidationOutcome` | Result of a completed validation: valid, invalid, or skipped. Invalid data is not an execution error. |
+| `ExecutionError` | A shape, dependency, adapter, or external execution failure returned as `Err`. It retains an owned cause for explicit trusted diagnostics through `trusted_source()`; `Display`, `Debug`, and `Error::source()` do not expose it. |
+| `ValidationReport` | Caller-owned collection of violations and skipped occurrences, with optional count limits. |
+
+An adapter maps a rule's domain error to a safe `ViolationDraft`. The bound
+validator attaches the stable rule ID and returns a final `Violation`.
 
 ## Installation and Minimal Configuration
 
@@ -210,9 +345,9 @@ registrations are discovered; it does not change binding or execution rules.
   input shapes, malformed parameters, or dependency declaration mismatches.
 - `ValidatorRegistryError` reports duplicate IDs and invalid descriptors.
 - `ExecutionError` reports target/dependency shape, adapter contract, or
-  external execution failures. Its `Display`, `Debug`, and standard error chain
-  expose the owned cause only through the explicit trusted `trusted_source()` accessor;
-  ordinary formatting and `Error::source()` remain redacted.
+  external execution failures. Its `Display`, `Debug`, and `Error::source()`
+  keep the owned cause redacted. Trusted diagnostic code may inspect it through
+  the explicit `trusted_source()` accessor.
 - `ValidationOutcome::Invalid` is a completed validation result. It is not an
   `ExecutionError`.
 

@@ -339,4 +339,4 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 - [设计与不变量](design.zh_CN.md)
 - [中文 README](../README.zh_CN.md)
 - [API 文档](https://docs.rs/qubit-validator)
-- [English user guide](user_guide.md)：英文手册为独立版本，内容可能未与本文逐节同步。
+- [English user guide](user_guide.md)：英文手册介绍相同的资料验证主流程，并按英文读者的阅读习惯组织内容。
