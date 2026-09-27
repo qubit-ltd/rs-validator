@@ -46,7 +46,7 @@ small, explicit binding boundary when configured execution is needed.
 - Prepared and bound validators for reusable configured execution.
 - Static signatures and descriptors for input and dependency contracts.
 - Deterministic local registries keyed by stable validator IDs.
-- Structured violations, skipped outcomes, paths, safe parameters, and bounded
+- Structured violations, skipped outcomes, paths, restricted parameters, and bounded
   reports assembled through `ValidationReport::record_outcome`.
 - Context-aware text and typed adapters, including closure adapters for rules
   that read ordered dependency slots.
@@ -70,11 +70,11 @@ and local `ValidatorRegistry` values work without optional features. Enable
 `inventory` only when process-wide registration through `register_validator!`
 and `ValidatorRegistry::try_global` is needed.
 
-Dependencies are declared as ordered slots on each signature. Binding a selected signature copies its dependency specifications directly into the bound validator; model metadata validates actual dependency declarations and execution checks runtime slot shape. `ExecutionError` retains an owned cause only for explicit trusted diagnostics through `trusted_source()`. Ordinary formatting and `Error::source()` remain redacted. Violation parameters must not contain rejected input. Failed-prerequisite skips reference retained violations by opaque `FailureId`, so the original failure is counted and rendered once. `record_outcome` returns a `RecordedOutcome` with completion status and IDs retained from that occurrence. Failure references do not consume `max_violations`; `max_skipped` limits skipped occurrences. `ValidationReport::failures()` iterates original violations only. Parameter `Debug` output redacts names and values.
+Dependencies are declared as ordered slots on each signature. Binding a selected signature copies its dependency specifications directly into the bound validator; model metadata validates actual dependency declarations and execution checks runtime slot shape. `ExecutionError` retains an owned cause only for explicit trusted diagnostics through `trusted_source()`. Ordinary formatting and `Error::source()` remain redacted. `ViolationParam` restricts the representation of diagnostic values, but does not prove their provenance: `Unsigned(minimum)` from rule configuration is allowed, while `Unsigned(rejected_number)` from rejected input is not. A `Token`'s `'static` lifetime also does not prove that it came from a trusted declaration. Callers must never include rejected input or sensitive values derived from it. Failed-prerequisite skips reference retained violations by opaque `FailureId`, so the original failure is counted and rendered once. `record_outcome` returns a `RecordedOutcome` with completion status and IDs retained from that occurrence. Failure references do not consume `max_violations`; `max_skipped` limits skipped occurrences. `ValidationReport::failures()` iterates original violations only. Parameter `Debug` output redacts names and values.
 
 Use `prepare_text_domain_rule` or `prepare_typed_domain_rule` when a typed
 domain rule needs dependency context and its domain error needs mapping. The
-mapper can mark the input valid or return one or more safe violation drafts;
+mapper turns a domain error into one or more safe violation drafts;
 infrastructure errors remain `ExecutionError`. Use the lower-level
 `prepare_text_with_context` or `prepare_typed_with_context` adapters when the
 operation already returns `PreparedOutcome`. Reports require

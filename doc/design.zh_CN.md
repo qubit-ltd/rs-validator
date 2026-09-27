@@ -48,8 +48,8 @@ flowchart LR
 `prepare_contextual_*_validator` 适用于每个领域错误只映射为一条违规的规则。
 `prepare_text_domain_rule` 和 `prepare_typed_domain_rule` 接收类型化领域规则、
 依赖调用闭包及错误映射器。闭包把基础设施故障作为 `ExecutionError` 返回，
-把领域错误放在单独的结果中。映射器可将领域错误判为有效，或转换为一条及多条
-安全的违规草稿。闭包可在领域结果旁返回本次调用的元数据，供错误映射使用；
+把领域错误放在单独的结果中。映射器会将每个领域错误转换为一条及多条安全的
+违规草稿，不能将失败的领域结果判为有效。闭包可在领域结果旁返回本次调用的元数据，供错误映射使用；
 空违规草稿列表会被视为适配器契约错误。若闭包已经构造好 `PreparedOutcome`，
 仍可使用较底层的 `prepare_text_with_context` 或 `prepare_typed_with_context`。
 所有路径都会经过 `BoundValidator` 的输入、依赖检查和规则 ID 绑定。
@@ -96,9 +96,9 @@ API 将预期的无效数据与配置或执行失败分开：
 `Field` 和 `with_field` 只接受 `&'static str`，避免意外保留普通运行时键。这个类型不能证明静态字符串的来源；调用方仍应只传入声明字段名，并用不保存键文本的 `MapEntry` 表示运行时 map 位置。
 `ValidationPath::concat` 直接拼接路径片段，不渲染或解析字符串。传给 `record_outcome` 的出现路径是无效结果中各违规项路径的基路径；违规项的根路径表示出现位置本身。先决条件证据保留原始绝对路径。
 
-`ValidationValue` 和验证参数都是借用视图；其 `Debug` 输出会隐藏名称和值。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 可保留拥有型原因，供可信调用点通过 `trusted_source()` 显式读取。公共 `Display`、`Debug` 和标准 `Error::source()` 不暴露该原因。违规项参数仅限于公共的 `ViolationParam` 词汇。
+`ValidationValue` 和验证参数都是借用视图；其 `Debug` 输出会隐藏名称和值。`BindError` 存储参数名称或依赖名称，而不是参数值。`ExecutionError` 可保留拥有型原因，供可信调用点通过 `trusted_source()` 显式读取。公共 `Display`、`Debug` 和标准 `Error::source()` 不暴露该原因。`ViolationParam` 是受限的诊断参数词汇，只限制表示形式，不能证明来源：来自规则配置的 `Unsigned(minimum)` 可以使用，来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期也不能证明其来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。
 
-原始被拒绝输入绝不能复制到违规项中、由执行错误保留，或插入公共错误格式化内容。适配器应把领域错误映射为稳定代码和适合展示的安全参数。
+原始被拒绝输入绝不能复制到违规项中、由执行错误保留，或插入公共错误格式化内容。适配器应把领域错误映射为稳定代码和由调用方按披露策略选择的参数。
 
 ## 局部注册表与 inventory feature 边界
 

@@ -14,7 +14,7 @@ use crate::ValidationPath;
 use crate::ViolationCode;
 use crate::ViolationParam;
 
-/// A safe violation without a rule identity or raw rejected value.
+/// A structured violation draft without a rule identity.
 ///
 /// # Examples
 ///
@@ -33,7 +33,7 @@ pub struct ViolationDraft {
     code: ViolationCode,
     /// Structured location of the violation.
     path: ValidationPath,
-    /// Safe structured parameters keyed by program-declared names.
+    /// Structured parameters keyed by program-declared names.
     params: BTreeMap<&'static str, ViolationParam>,
 }
 impl ViolationDraft {
@@ -64,14 +64,16 @@ impl ViolationDraft {
         self.path = path;
         self
     }
-    /// Adds or replaces a safe structured parameter by its declared name.
+    /// Adds or replaces a structured parameter by its declared name.
     ///
-    /// The value should describe a rule constraint or other program-defined
-    /// metadata and must not contain rejected input.
+    /// The type restricts representation but cannot prove provenance. Supply
+    /// only program-declared tokens or rule configuration values, never
+    /// rejected input or sensitive values derived from it.
     ///
     /// # Parameters
     /// - `name`: Static name declared by the application for this parameter.
-    /// - `value`: Safe structured value to associate with `name`.
+    /// - `value`: Structured value to associate with `name`, subject to the
+    ///   caller's provenance and redaction responsibility.
     ///
     /// # Returns
     /// The draft with the parameter inserted; an existing value with the same

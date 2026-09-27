@@ -82,6 +82,12 @@ assert!(!report.is_valid());
    when the caller needs an aggregate. The crate does not traverse objects or
    schedule rule groups.
 
+`ViolationParam` is a restricted vocabulary for diagnostic values, not proof
+that a value is safe or trusted. `Unsigned(minimum)` from rule configuration is
+allowed; `Unsigned(rejected_number)` from rejected input is not. A `Token`'s
+`'static` lifetime does not prove its source. Callers must not include rejected
+input or sensitive values derived from it.
+
 For an already prepared rule with no dependencies, use
 `BoundValidator::try_from_prepared<T>`. It skips registry and parameter preparation and returns `BindError` unless the prepared validator accepts exactly `T` and has no dependencies.
 
@@ -217,7 +223,8 @@ reading supported parameters, call `finish` to reject unconsumed names.
 `ValidationPath` remains structured. `Display` and `Debug` avoid exposing
 field names and map positions; trusted presentation code must explicitly call
 `ValidationPath::render` when disclosure is appropriate. Keep rejected input
-out of errors and `ViolationParam` values.
+out of errors and `ViolationParam` values; the type restricts representation,
+but callers remain responsible for provenance and redaction.
 
 ## Troubleshooting
 

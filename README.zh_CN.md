@@ -36,7 +36,7 @@ cargo run --example local_registry --locked
 - 预备验证器和已绑定验证器支持可复用的配置化执行。
 - 静态签名与描述符声明输入形状和依赖契约。
 - 局部注册表按稳定验证器 ID 确定性查找规则。
-- 违规项、跳过结果、路径、安全参数和有界报告均采用结构化类型表示；报告由 `ValidationReport::record_outcome` 汇总。
+- 违规项、跳过结果、路径、受限参数和有界报告均采用结构化类型表示；报告由 `ValidationReport::record_outcome` 汇总。
 - 类型化文本规则和依赖感知规则可分别使用简单或 context-aware adapter；
   依赖闭包适配器支持区分违规结果与执行错误。
 - 领域规则适配器将领域错误映射为安全的结构化结果，并保留基础设施执行错误。
@@ -49,11 +49,11 @@ cargo run --example local_registry --locked
 
 默认不启用任何 feature。直接验证、适配器、描述符和局部 `ValidatorRegistry` 都可直接使用。只有需要通过 `register_validator!` 与 `ValidatorRegistry::try_global` 进行进程级注册时才启用 `inventory`。
 
-依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，执行时检查槽位值形状。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。违规参数不得包含被拒绝的输入。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
+依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，执行时检查槽位值形状。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。`ViolationParam` 限制诊断值的表示形式，但不能证明值的来源：来自规则配置的 `Unsigned(minimum)` 可以使用，来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期也不能证明它来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
 
 当类型化领域规则需要依赖上下文并映射领域错误时，可使用
-`prepare_text_domain_rule` 或 `prepare_typed_domain_rule`。映射器可将输入判为有效，
-或返回一条及多条安全的违规草稿；基础设施错误仍作为 `ExecutionError` 传递。
+`prepare_text_domain_rule` 或 `prepare_typed_domain_rule`。映射器会把领域错误转换为
+一条及多条安全的违规草稿；基础设施错误仍作为 `ExecutionError` 传递。
 若闭包已经直接返回 `PreparedOutcome`，可使用较底层的
 `prepare_text_with_context` 或 `prepare_typed_with_context`。报告要求
 `record_outcome` 按非递减 occurrence 调用；同一 occurrence 可以记录多次。

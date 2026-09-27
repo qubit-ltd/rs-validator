@@ -57,6 +57,8 @@ impl Validator<str> for NonBlank {
 
 如果资料模块要按配置中的 `text.non_blank` 查找规则，就在启动前定义它的准备函数和签名。准备函数负责读取配置参数，并把领域错误映射为稳定的违规代码 `text.blank`；这里没有参数，因此 `finish()` 会拒绝任何多余参数。映射器不要放入原始名称或领域错误文本。
 
+`ViolationParam` 是受限的诊断值词汇，不是值安全或可信来源的证明。来自规则配置的 `Unsigned(minimum)` 可以使用；来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期不能证明它来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。
+
 ```rust
 use std::sync::Arc;
 use qubit_validator::{
@@ -302,7 +304,7 @@ let report = ValidationReport::with_limits(ValidationLimits {
 
 ## 何时使用其他适配器或注册方式
 
-规则需要一次返回多条违规，或要把外部执行失败与业务输入无效分开时，可用 `prepare_text_with_context` / `prepare_typed_with_context`：闭包返回 `PreparedOutcome` 表示已执行的验证结果，返回 `ExecutionError` 表示执行故障。已有带上下文的领域规则则可用 `prepare_text_domain_rule` / `prepare_typed_domain_rule`，把领域错误映射为 `DomainErrorDisposition`；基础设施错误继续以 `ExecutionError` 返回。无效草稿列表不能是空的，否则会成为适配器契约错误。
+规则需要一次返回多条违规，或要把外部执行失败与业务输入无效分开时，可用 `prepare_text_with_context` / `prepare_typed_with_context`：闭包返回 `PreparedOutcome` 表示已执行的验证结果，返回 `ExecutionError` 表示执行故障。已有带上下文的领域规则则可用 `prepare_text_domain_rule` / `prepare_typed_domain_rule`，将领域错误映射为一条或多条安全违规草稿；基础设施错误继续以 `ExecutionError` 返回。草稿列表不能是空的，否则会成为适配器契约错误。
 
 默认优先使用显式的 `ValidatorRegistry::from_registrations`：一个进程可以构造多组注册表，也便于测试和控制启动配置。只有确需从已链接 crate 自动发现规则，才启用 `inventory`：
 

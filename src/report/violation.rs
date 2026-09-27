@@ -37,7 +37,7 @@ pub struct Violation {
     code: ViolationCode,
     /// Structured location of the rejected value.
     path: ValidationPath,
-    /// Safe structured parameters with no raw rejected value.
+    /// Structured parameters whose provenance must be checked by their caller.
     params: BTreeMap<&'static str, ViolationParam>,
 }
 
@@ -77,14 +77,17 @@ impl Violation {
         self
     }
 
-    /// Adds or replaces a safe structured parameter by its declared name.
+    /// Adds or replaces a structured parameter by its declared name.
     ///
-    /// The parameter must not contain raw rejected input.
+    /// The type restricts representation but cannot prove provenance. Supply
+    /// only program-declared tokens or rule configuration values, never
+    /// rejected input or sensitive values derived from it.
     ///
     /// # Parameters
     ///
     /// - `name`: Static program-declared parameter name.
-    /// - `value`: Safe scalar or static token associated with the name.
+    /// - `value`: Scalar or static token associated with the name, subject to
+    ///   the caller's provenance and redaction responsibility.
     ///
     /// # Returns
     ///
@@ -129,13 +132,15 @@ impl Violation {
         &self.path
     }
 
-    /// Returns safe structured parameters.
+    /// Returns structured parameters supplied by the caller.
     ///
-    /// These parameters never contain the raw rejected input.
+    /// The type restricts their representation but does not prove provenance;
+    /// callers remain responsible for keeping rejected input and sensitive
+    /// values derived from it out of this collection.
     ///
     /// # Returns
     ///
-    /// The safe named parameters associated with this violation.
+    /// The named parameters associated with this violation.
     #[must_use]
     #[inline]
     pub const fn params(&self) -> &BTreeMap<&'static str, ViolationParam> {

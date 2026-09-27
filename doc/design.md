@@ -72,9 +72,10 @@ as their first argument and map one domain error to one violation draft.
 `prepare_text_domain_rule` and `prepare_typed_domain_rule` accept a typed
 domain rule, dependency-aware invocation closure, and error mapper. The closure
 returns infrastructure failures as `ExecutionError` and returns domain errors
-as a separate result. The mapper may classify a domain error as valid or map it
-to one or more safe violation drafts. Per-invocation metadata can be returned
-alongside the domain result for error mapping. An empty invalid draft list is
+as a separate result. The mapper converts each domain error to one or more safe
+violation drafts; it cannot classify a failed domain result as valid.
+Per-invocation metadata can be returned alongside the domain result for error
+mapping. An empty draft list is
 an adapter contract violation. The lower-level `prepare_text_with_context`
 and `prepare_typed_with_context` adapters remain available when the closure
 already constructs `PreparedOutcome`. All paths pass through
@@ -161,11 +162,17 @@ evidence retains its absolute path.
 `ValidationValue` and validation arguments are borrowed views and redact names and values in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.
 `ExecutionError` may retain an owned source for explicit trusted access through `trusted_source()`. Its public `Display`, `Debug`, and standard `Error::source()` do not expose the retained cause. Violation
-parameters are restricted to the public `ViolationParam` vocabulary.
+parameters use the restricted public `ViolationParam` vocabulary, which limits
+representation but does not prove provenance. `Unsigned(minimum)` from rule
+configuration is allowed, while `Unsigned(rejected_number)` from rejected
+input is not. A `Token`'s `'static` lifetime does not prove it came from a
+trusted declaration. Callers must never include rejected input or sensitive
+values derived from it.
 
 The original rejected input must never be copied into a violation, retained by
 an execution error, or interpolated into public error formatting. Adapters map
-domain errors to stable codes and presentation-safe parameters instead.
+domain errors to stable codes and parameters whose content is chosen by the
+caller to meet its disclosure policy.
 
 ## Local and Inventory Feature Boundary
 

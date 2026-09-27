@@ -21,7 +21,9 @@ use super::next_report_id;
 
 /// A bounded collection of validation violations and skipped occurrences.
 ///
-/// Reports retain only structured violation metadata, never raw rejected input.
+/// Reports retain structured violation metadata. Callers must ensure that
+/// violation parameters contain no rejected input or sensitive values derived
+/// from it.
 ///
 /// # Examples
 ///

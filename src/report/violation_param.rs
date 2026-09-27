@@ -6,9 +6,12 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! Safe, structured validation violation parameters.
+//! Restricted vocabulary for structured validation diagnostic parameters.
 
-/// A parameter that is safe to carry in a public violation.
+/// A restricted vocabulary for diagnostic parameters. The type limits how a
+/// value is represented; it cannot prove where the value came from. Callers
+/// must supply only program-declared tokens or rule configuration values, never
+/// rejected input or sensitive values derived from it.
 ///
 /// # Examples
 ///
@@ -36,9 +39,9 @@ pub enum ViolationParam {
         /// Safe unsigned integer metadata.
         u128,
     ),
-    /// A static, program-declared token.
+    /// A token with a static lifetime; the lifetime does not prove its source.
     Token(
-        /// Static, program-declared token rather than raw input.
+        /// Callers must provide a program-declared token, not rejected input.
         &'static str,
     ),
 }
