@@ -46,6 +46,10 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
     Ok(Arc::new(Always))
 }
 
+fn prepare_with_error(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Err(BindError::new(BindErrorKind::MissingParameter).with_parameter("minimum"))
+}
+
 static SIG_A: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static D_A: ValidatorDescriptor = ValidatorDescriptor::new(SIG_A);
 
@@ -144,5 +148,66 @@ fn test_binding_rejects_prepared_dependency_shape_mismatch() {
         .bind(rule, 0, &[])
         .expect_err("factory declares no dependencies");
     assert_eq!(error.kind(), BindErrorKind::PreparedSignatureMismatch);
+    assert_eq!(error.rule_id(), Some(rule));
+}
+
+#[test]
+fn test_descriptor_preparation_errors_include_rule_and_keep_details() {
+    static FAILING: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_with_error)];
+    static FAILING_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(FAILING);
+    let descriptor = ValidatorDescriptor::new(FAILING);
+    let rule = ValidatorId::new("test.prepare_failure");
+
+    let error = descriptor.bind(rule, 0, &[]).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+    assert_eq!(error.parameter(), Some("minimum"));
+
+    let error = descriptor.bind_for(rule, InputType::Text, &[]).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+    assert_eq!(error.parameter(), Some("minimum"));
+
+    let registry = ValidatorRegistry::from_registrations([registration(
+        "test.prepare_failure",
+        "failing.rs",
+        &FAILING_DESCRIPTOR,
+    )])
+    .unwrap();
+    let error = registry.bind("test.prepare_failure", InputType::Text, &[]).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+    assert_eq!(error.parameter(), Some("minimum"));
+}
+
+#[test]
+fn test_descriptor_selection_errors_include_rule() {
+    let rule = ValidatorId::new("test.selection");
+    let invalid_selection = D_A.bind(rule, 1, &[]).unwrap_err();
+    assert_eq!(invalid_selection.kind(), BindErrorKind::InvalidSelection);
+    assert_eq!(invalid_selection.rule_id(), Some(rule));
+
+    let unsupported_input = D_A.bind_for(rule, InputType::of::<u32>(), &[]).unwrap_err();
+    assert_eq!(unsupported_input.kind(), BindErrorKind::UnsupportedInput);
+    assert_eq!(unsupported_input.rule_id(), Some(rule));
+}
+
+#[test]
+fn test_descriptor_definition_errors_include_rule() {
+    static EMPTY: &[ValidatorSignature] = &[];
+    let empty = ValidatorDescriptor::new(EMPTY);
+    let rule = ValidatorId::new("test.empty_descriptor");
+    let error = empty.bind(rule, 0, &[]).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::InvalidDeclaration);
+    assert_eq!(error.rule_id(), Some(rule));
+
+    static DUPLICATE: &[ValidatorSignature] = &[
+        ValidatorSignature::new(InputType::Text, &[], prepare),
+        ValidatorSignature::new(InputType::Text, &[], prepare),
+    ];
+    let error = ValidatorDescriptor::new(DUPLICATE)
+        .bind_for(rule, InputType::Text, &[])
+        .unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
     assert_eq!(error.rule_id(), Some(rule));
 }

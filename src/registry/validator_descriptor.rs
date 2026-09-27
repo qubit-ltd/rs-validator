@@ -104,13 +104,13 @@ impl ValidatorDescriptor {
         signature_index: usize,
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
-        self.validate_definition()?;
+        self.validate_definition().map_err(|error| error.with_rule(rule_id))?;
         let signature = self
             .signatures
             .get(signature_index)
             .copied()
-            .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection))?;
-        let prepared = (signature.prepare())(params)?;
+            .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection).with_rule(rule_id))?;
+        let prepared = (signature.prepare())(params).map_err(|error| error.with_rule(rule_id))?;
         Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
@@ -127,7 +127,7 @@ impl ValidatorDescriptor {
         input: super::InputType,
         params: &[NamedValidationArgument<'_>],
     ) -> Result<BoundValidator, BindError> {
-        self.validate_definition()?;
+        self.validate_definition().map_err(|error| error.with_rule(rule_id))?;
         self.bind_for_validated(rule_id, input, params)
     }
 
@@ -144,8 +144,8 @@ impl ValidatorDescriptor {
             .iter()
             .copied()
             .find(|signature| signature.input() == input)
-            .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput))?;
-        let prepared = (signature.prepare())(params)?;
+            .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput).with_rule(rule_id))?;
+        let prepared = (signature.prepare())(params).map_err(|error| error.with_rule(rule_id))?;
         Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
