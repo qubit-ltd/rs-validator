@@ -8,6 +8,8 @@
 
 //! Strict, one-pass decoding of named validator parameters.
 
+use std::fmt;
+
 use super::BindError;
 use super::BindErrorKind;
 use crate::NamedValidationArgument;
@@ -133,6 +135,39 @@ impl<'a> ArgumentReader<'a> {
         }
     }
 
+    /// Reads an optional string argument once without allocating.
+    ///
+    /// The returned string borrows the value supplied when this reader was
+    /// created. A missing parameter is not consumed and can be queried again.
+    /// A present parameter is consumed before its type is checked, including
+    /// when the value has the wrong type.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the optional string parameter.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` with the original borrowed string when the parameter is
+    /// present, or `None` when it is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParameterAlreadyConsumed` when the present parameter was
+    /// previously read, or `ParameterTypeMismatch` when its value is not a
+    /// string. Both errors include the parameter name. A failed read consumes
+    /// the present parameter; callers must propagate the error instead of
+    /// continuing with other reads.
+    pub fn optional_str(&mut self, name: &str) -> Result<Option<&'a str>, BindError> {
+        let Some(value) = self.take_optional(name)? else {
+            return Ok(None);
+        };
+        match value {
+            ValidationArgument::String(value) => Ok(Some(value)),
+            _ => Err(Self::type_error(name)),
+        }
+    }
+
     /// Reads an optional boolean argument once.
     ///
     /// # Returns
@@ -217,10 +252,10 @@ impl<'a> ArgumentReader<'a> {
     }
 }
 
-impl std::fmt::Debug for ArgumentReader<'_> {
+impl fmt::Debug for ArgumentReader<'_> {
     /// Formats only the parameter count so argument names and values stay
     /// private.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ArgumentReader")
             .field("argument_count", &self.args.len())

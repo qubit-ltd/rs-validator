@@ -150,6 +150,59 @@ fn test_optional_usize_decodes_values_and_reports_errors() {
 }
 
 #[test]
+fn test_optional_str_borrows_present_values_and_accepts_empty_strings() {
+    let value = String::from("configured text");
+    let empty = String::new();
+    let args = [
+        NamedValidationArgument::new("value", ValidationArgument::String(&value)),
+        NamedValidationArgument::new("empty", ValidationArgument::String(&empty)),
+    ];
+    let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
+
+    let decoded = reader
+        .optional_str("value")
+        .expect("string should decode")
+        .expect("value is present");
+    assert!(std::ptr::eq(decoded, value.as_str()));
+    assert_eq!(
+        reader.optional_str("empty").expect("empty string should decode"),
+        Some("")
+    );
+    reader.finish().expect("both present parameters were consumed");
+}
+
+#[test]
+fn test_optional_str_returns_none_for_absent_parameter() {
+    let mut reader = ArgumentReader::new(&[]).expect("empty arguments should be valid");
+
+    assert_eq!(
+        reader.optional_str("label").expect("missing optional value is valid"),
+        None
+    );
+    assert_eq!(reader.optional_str("label").expect("missing value stays absent"), None);
+    reader.finish().expect("no parameter was left unread");
+}
+
+#[test]
+fn test_optional_str_type_error_consumes_parameter() {
+    let args = [NamedValidationArgument::new("label", ValidationArgument::Bool(true))];
+    let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
+
+    let error = reader.optional_str("label").expect_err("boolean is not a string");
+    assert_eq!(error.kind(), BindErrorKind::ParameterTypeMismatch);
+    assert_eq!(error.parameter(), Some("label"));
+
+    let repeated = reader
+        .optional_str("label")
+        .expect_err("failed reads consume present parameters");
+    assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    assert_eq!(repeated.parameter(), Some("label"));
+    reader
+        .finish()
+        .expect("the failed typed read still consumed the parameter");
+}
+
+#[test]
 fn test_optional_usize_handles_missing_and_repeated_reads() {
     let mut empty_reader = ArgumentReader::new(&[]).expect("empty arguments should be valid");
     assert_eq!(
