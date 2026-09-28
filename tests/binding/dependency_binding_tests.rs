@@ -74,12 +74,51 @@ impl PreparedValidator for OrderedTextAdapter {
     ) -> Result<PreparedOutcome, ExecutionError> {
         assert_eq!(context.text(0)?, "first value");
         assert_eq!(context.text(1)?, "second value");
+        assert_eq!(
+            context.dependency_path(0)?,
+            &ValidationPath::root().with_field("first_value")
+        );
+        assert_eq!(
+            context.dependency_path(1)?,
+            &ValidationPath::root().with_field("second_value")
+        );
         Ok(PreparedOutcome::valid())
     }
 }
 
 fn prepare_ordered_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(OrderedTextAdapter))
+}
+
+struct RootFirstTextAdapter;
+
+impl PreparedValidator for RootFirstTextAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        TEXT_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        assert_eq!(context.text(0)?, "first value");
+        assert_eq!(context.text(1)?, "second value");
+        assert_eq!(context.dependency_path(0)?, &ValidationPath::root());
+        assert_eq!(
+            context.dependency_path(1)?,
+            &ValidationPath::root().with_field("second_value")
+        );
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+fn prepare_root_first_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(RootFirstTextAdapter))
 }
 
 static TEXT_DEPENDENCIES: &[DependencySpec] = &[
@@ -92,6 +131,12 @@ static TEXT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
     prepare_ordered_text,
 )];
 static TEXT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TEXT_SIGNATURES);
+static ROOT_FIRST_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    TEXT_DEPENDENCIES,
+    prepare_root_first_text,
+)];
+static ROOT_FIRST_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(ROOT_FIRST_SIGNATURES);
 
 struct NoDependencyAdapter;
 
@@ -225,6 +270,23 @@ fn test_validate_named_reorders_same_type_dependencies_and_paths() {
         bound
             .validate_named(ValidationValue::Text("target"), &dependencies)
             .expect("named dependencies are reordered by signature"),
+        ValidationOutcome::Valid,
+    );
+}
+
+#[test]
+fn test_validate_named_defaults_missing_dependency_path_to_root_after_reordering() {
+    let bound = ROOT_FIRST_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let second_path = ValidationPath::root().with_field("second_value");
+    let dependencies = [
+        NamedValidationDependency::new("second", ValidationValue::Text("second value")).with_path(&second_path),
+        NamedValidationDependency::new("first", ValidationValue::Text("first value")),
+    ];
+
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &dependencies)
+            .expect("named dependencies are reordered and missing paths default to root"),
         ValidationOutcome::Valid,
     );
 }

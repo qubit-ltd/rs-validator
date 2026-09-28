@@ -6,26 +6,17 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use std::any::TypeId;
-use std::error::Error;
 use std::sync::Arc;
 
-use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
-use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
-use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
-use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
-use qubit_validator::SkipReason;
-use qubit_validator::SkippedValidation;
-use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationReport;
@@ -35,575 +26,84 @@ use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
-use qubit_validator::Violation;
 use qubit_validator::ViolationCode;
-use qubit_validator::ViolationCodeError;
 use qubit_validator::ViolationDraft;
-use qubit_validator::ViolationParam;
-use qubit_validator::prepare_text_with_context;
 
-fn valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    struct Valid;
-    impl PreparedValidator for Valid {
-        fn input_type(&self) -> InputType {
-            InputType::Text
-        }
-        fn dependency_specs(&self) -> &'static [DependencySpec] {
-            &[]
-        }
+struct Rejecting;
 
-        fn validate(
-            &self,
-            _: ValidationValue<'_>,
-            _: &BoundValidationContext<'_>,
-        ) -> Result<PreparedOutcome, ExecutionError> {
-            Ok(PreparedOutcome::Valid)
-        }
+impl PreparedValidator for Rejecting {
+    fn input_type(&self) -> InputType {
+        InputType::Text
     }
-    Ok(Arc::new(Valid))
-}
 
-static CONTRACT_DEPENDENCIES: &[DependencySpec] = &[
-    DependencySpec::new("required", InputType::Text, false),
-    DependencySpec::new("optional", InputType::of::<u32>(), true),
-];
-fn valid_with_contract_dependencies(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(prepare_text_with_context(CONTRACT_DEPENDENCIES, |_, _| {
-        Ok(PreparedOutcome::Valid)
-    }))
-}
-static SELECTED_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
-fn valid_with_selected_dependencies(
-    _: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(prepare_text_with_context(SELECTED_DEPENDENCIES, |_, _| {
-        Ok(PreparedOutcome::Valid)
-    }))
-}
-
-fn invalid_empty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    struct Invalid;
-    impl PreparedValidator for Invalid {
-        fn input_type(&self) -> InputType {
-            InputType::Text
-        }
-        fn dependency_specs(&self) -> &'static [DependencySpec] {
-            &[]
-        }
-
-        fn validate(
-            &self,
-            _: ValidationValue<'_>,
-            _: &BoundValidationContext<'_>,
-        ) -> Result<PreparedOutcome, ExecutionError> {
-            Ok(PreparedOutcome::Invalid(vec![]))
-        }
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        &[]
     }
-    Ok(Arc::new(Invalid))
-}
 
-fn invalid_nonempty(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    struct Invalid;
-    impl PreparedValidator for Invalid {
-        fn input_type(&self) -> InputType {
-            InputType::Text
+    fn validate(
+        &self,
+        value: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        match value {
+            ValidationValue::Text("ok") => Ok(PreparedOutcome::Valid),
+            ValidationValue::Text(_) => Ok(PreparedOutcome::Invalid(vec![
+                ViolationDraft::new(ViolationCode::new("text.rejected"))
+                    .with_path(ValidationPath::root().with_field("value")),
+            ])),
+            _ => unreachable!("bound validation enforces the declared text input"),
         }
-        fn dependency_specs(&self) -> &'static [DependencySpec] {
-            &[]
-        }
-
-        fn validate(
-            &self,
-            _: ValidationValue<'_>,
-            _: &BoundValidationContext<'_>,
-        ) -> Result<PreparedOutcome, ExecutionError> {
-            Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(ViolationCode::new(
-                "test.invalid",
-            ))]))
-        }
-    }
-    Ok(Arc::new(Invalid))
-}
-
-fn prepared_error(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Err(BindError::new(BindErrorKind::InvalidPattern))
-}
-
-static TEXT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], valid)];
-static TEXT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TEXT_SIGNATURES);
-
-fn registration(id: &'static str) -> ValidatorRegistration {
-    ValidatorRegistration::new(
-        ValidatorId::new(id),
-        &TEXT_DESCRIPTOR,
-        RegistrationSource::new("test", "next_contract_tests", "next_contract_tests.rs", 1),
-    )
-}
-
-#[test]
-fn test_argument_reader_covers_typed_and_optional_parameters() {
-    let args = [
-        NamedValidationArgument::new("count", ValidationArgument::Unsigned(7)),
-        NamedValidationArgument::new("signed", ValidationArgument::Integer(8)),
-        NamedValidationArgument::new("name", ValidationArgument::String("value")),
-        NamedValidationArgument::new("enabled", ValidationArgument::Bool(true)),
-    ];
-    let mut reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(reader.required_u32("count").unwrap(), 7);
-    assert_eq!(reader.optional_u32("signed").unwrap(), Some(8));
-    assert_eq!(reader.required_str("name").unwrap(), "value");
-    assert_eq!(reader.optional_bool("enabled").unwrap(), Some(true));
-    assert_eq!(reader.optional_u32("missing").unwrap(), None);
-    reader.finish().unwrap();
-    assert!(format!("{reader:?}").contains("argument_count"));
-}
-
-#[test]
-fn test_argument_reader_reports_missing_type_range_and_unknown_errors() {
-    let mut reader = ArgumentReader::new(&[]).unwrap();
-    assert_eq!(
-        reader.required_u32("count").unwrap_err().kind(),
-        BindErrorKind::MissingParameter
-    );
-    assert_eq!(
-        reader.required_str("name").unwrap_err().kind(),
-        BindErrorKind::MissingParameter
-    );
-
-    let args = [
-        NamedValidationArgument::new("count", ValidationArgument::String("x")),
-        NamedValidationArgument::new("enabled", ValidationArgument::Unsigned(1)),
-    ];
-    let mut reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(
-        reader.required_u32("count").unwrap_err().kind(),
-        BindErrorKind::ParameterTypeMismatch
-    );
-    assert_eq!(
-        reader.optional_bool("enabled").unwrap_err().kind(),
-        BindErrorKind::ParameterTypeMismatch
-    );
-
-    let args = [NamedValidationArgument::new("count", ValidationArgument::Integer(-1))];
-    let mut reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(
-        reader.required_u32("count").unwrap_err().kind(),
-        BindErrorKind::ParameterOutOfRange
-    );
-
-    let args = [NamedValidationArgument::new(
-        "count",
-        ValidationArgument::Unsigned(u128::from(u32::MAX) + 1),
-    )];
-    let mut reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(
-        reader.required_u32("count").unwrap_err().kind(),
-        BindErrorKind::ParameterOutOfRange
-    );
-
-    let args = [NamedValidationArgument::new("other", ValidationArgument::Bool(false))];
-    let reader = ArgumentReader::new(&args).unwrap();
-    assert_eq!(reader.finish().unwrap_err().kind(), BindErrorKind::UnknownParameter);
-    assert_eq!(
-        ArgumentReader::new(&[args[0], args[0]]).unwrap_err().kind(),
-        BindErrorKind::DuplicateParameter
-    );
-}
-
-#[test]
-fn test_values_paths_and_input_shapes_are_safe() {
-    let number = 4_u32;
-    let text = ValidationValue::Text("secret");
-    let typed = ValidationValue::Typed(&number);
-    let missing = ValidationValue::Missing;
-    assert_eq!(text.input_type(), Some(InputType::Text));
-    assert_eq!(typed.input_type(), Some(InputType::of::<u32>()));
-    assert_eq!(missing.input_type(), None);
-    assert_eq!(text.as_text(), Some("secret"));
-    assert_eq!(typed.typed::<u32>(), Some(&number));
-    assert_eq!(typed.typed::<u64>(), None);
-    assert!(missing.is_missing());
-    assert!(format!("{text:?}").contains("redacted"));
-    assert!(InputType::Text.accepts(text));
-    assert!(!InputType::Text.accepts(typed));
-    assert!(InputType::of::<u32>().accepts(typed));
-
-    let path = ValidationPath::root()
-        .with_field("user")
-        .with_index(2)
-        .with_map_entry(3)
-        .with_map_key()
-        .with_map_value();
-    assert_eq!(path.render(), "user[2].<map-entry:3>.<map-key>.<map-value>");
-    assert_eq!(path.as_segments()[0], PathSegment::Field("user"));
-    assert_eq!(path.to_string(), "<validation-path>");
-    assert!(format!("{path:?}").contains("segment_count"));
-}
-
-#[test]
-fn test_context_checks_paths_shapes_and_dependencies() {
-    let value = 9_u32;
-    let values = [
-        ValidationValue::Typed(&value),
-        ValidationValue::Missing,
-        ValidationValue::Text("text"),
-    ];
-    let context = BoundValidationContext::new(&values);
-    assert_eq!(context.typed::<u32>(0).unwrap(), &value);
-    assert_eq!(context.optional_typed::<u32>(1).unwrap(), None);
-    assert_eq!(context.text(2).unwrap(), "text");
-    assert_eq!(context.dependency_path(0).unwrap(), &ValidationPath::root());
-    assert_eq!(context.value(0).unwrap().typed::<u32>(), Some(&value));
-    assert_eq!(
-        context.typed::<u64>(0).unwrap_err().kind(),
-        ExecutionErrorKind::DependencyTypeMismatch
-    );
-    assert_eq!(
-        context.typed::<u32>(1).unwrap_err().kind(),
-        ExecutionErrorKind::MissingRequiredDependencyValue
-    );
-    assert_eq!(
-        context.text(1).unwrap_err().kind(),
-        ExecutionErrorKind::MissingRequiredDependencyValue
-    );
-    assert_eq!(
-        context.text(0).unwrap_err().kind(),
-        ExecutionErrorKind::DependencyTypeMismatch
-    );
-    assert_eq!(
-        context.optional_typed::<u32>(2).unwrap_err().kind(),
-        ExecutionErrorKind::DependencyTypeMismatch
-    );
-    assert_eq!(
-        context.value(3).unwrap_err().kind(),
-        ExecutionErrorKind::AdapterContractViolation
-    );
-    assert_eq!(
-        context.dependency_path(3).unwrap_err().kind(),
-        ExecutionErrorKind::AdapterContractViolation
-    );
-
-    let path = ValidationPath::root().with_field("dependency");
-    let paths = [path.clone(), ValidationPath::root(), ValidationPath::root()];
-    let with_paths = BoundValidationContext::new_with_paths(&values, &paths).unwrap();
-    assert_eq!(with_paths.dependency_path(0).unwrap(), &path);
-    assert_eq!(
-        BoundValidationContext::new_with_paths(&values, &[]).unwrap_err().kind(),
-        ExecutionErrorKind::AdapterContractViolation
-    );
-}
-
-#[test]
-fn test_descriptor_binding_and_bound_validation_cover_contract_errors() {
-    let args = [NamedValidationArgument::new("unused", ValidationArgument::Bool(false))];
-    assert_eq!(
-        TEXT_DESCRIPTOR
-            .bind(ValidatorId::new("test.rule"), 9, &[])
-            .unwrap_err()
-            .kind(),
-        BindErrorKind::InvalidSelection
-    );
-    assert_eq!(
-        TEXT_DESCRIPTOR
-            .bind_for(ValidatorId::new("test.rule"), InputType::of::<u32>(), &[])
-            .unwrap_err()
-            .kind(),
-        BindErrorKind::UnsupportedInput
-    );
-    assert!(
-        TEXT_DESCRIPTOR
-            .bind_for(ValidatorId::new("test.rule"), InputType::Text, &[])
-            .is_ok()
-    );
-    static ERROR_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepared_error)];
-    let error_descriptor = ValidatorDescriptor::new(ERROR_SIGNATURES);
-    assert_eq!(
-        error_descriptor
-            .bind(ValidatorId::new("test.rule"), 0, &args)
-            .unwrap_err()
-            .kind(),
-        BindErrorKind::InvalidPattern
-    );
-
-    static INVALID_SIGNATURES: &[ValidatorSignature] = &[
-        ValidatorSignature::new(InputType::Text, &[], valid),
-        ValidatorSignature::new(InputType::Text, &[], valid),
-    ];
-    assert_eq!(
-        ValidatorDescriptor::try_new(INVALID_SIGNATURES).unwrap_err().kind(),
-        BindErrorKind::AmbiguousSignature
-    );
-
-    static DEPENDENCIES: &[DependencySpec] = &[
-        DependencySpec::new("same", InputType::Text, false),
-        DependencySpec::new("same", InputType::Text, true),
-    ];
-    static BAD_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, valid)];
-    assert_eq!(
-        ValidatorDescriptor::try_new(BAD_SIGNATURES).unwrap_err().kind(),
-        BindErrorKind::InvalidDeclaration
-    );
-
-    let bound = TEXT_DESCRIPTOR.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
-    assert_eq!(bound.input_type(), InputType::Text);
-    assert!(bound.dependency_specs().is_empty());
-    assert_eq!(bound.rule_id(), ValidatorId::new("test.rule"));
-    assert_eq!(
-        bound
-            .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
-            .unwrap(),
-        ValidationOutcome::Valid
-    );
-    assert_eq!(
-        bound
-            .validate(ValidationValue::Missing, &BoundValidationContext::new(&[]))
-            .unwrap_err()
-            .kind(),
-        ExecutionErrorKind::InputTypeMismatch
-    );
-}
-
-#[test]
-fn test_bound_validation_checks_dependency_contracts_and_outcome_contracts() {
-    static DEPENDENCIES: &[DependencySpec] = CONTRACT_DEPENDENCIES;
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-        InputType::Text,
-        DEPENDENCIES,
-        valid_with_contract_dependencies,
-    )];
-    static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
-    let bound = DESCRIPTOR.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
-
-    let number = 1_u32;
-    let missing_optional = [ValidationValue::Text("dependency"), ValidationValue::Missing];
-    assert_eq!(
-        bound
-            .validate(
-                ValidationValue::Text("ok"),
-                &BoundValidationContext::new(&missing_optional)
-            )
-            .unwrap(),
-        ValidationOutcome::Valid
-    );
-    let wrong = [ValidationValue::Typed(&number), ValidationValue::Missing];
-    let error = bound
-        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&wrong))
-        .unwrap_err();
-    assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
-    assert_eq!(error.rule_id(), Some(ValidatorId::new("test.rule")));
-    let missing = [ValidationValue::Missing, ValidationValue::Missing];
-    assert_eq!(
-        bound
-            .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&missing))
-            .unwrap_err()
-            .kind(),
-        ExecutionErrorKind::MissingRequiredDependencyValue
-    );
-    let contract_error = bound
-        .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
-        .unwrap_err();
-    assert_eq!(contract_error.kind(), ExecutionErrorKind::AdapterContractViolation);
-    assert_eq!(contract_error.rule_id(), Some(ValidatorId::new("test.rule")));
-
-    static INVALID_SIGNATURE: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_empty)];
-    let invalid = ValidatorDescriptor::new(INVALID_SIGNATURE)
-        .bind(ValidatorId::new("test.rule"), 0, &[])
-        .unwrap();
-    assert_eq!(
-        invalid
-            .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
-            .unwrap_err()
-            .kind(),
-        ExecutionErrorKind::AdapterContractViolation
-    );
-}
-
-#[test]
-fn test_selected_signature_owns_its_dependency_specs() {
-    static DEPENDENCIES: &[DependencySpec] = SELECTED_DEPENDENCIES;
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
-        InputType::Text,
-        DEPENDENCIES,
-        valid_with_selected_dependencies,
-    )];
-    static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
-    let bound = DESCRIPTOR.bind(ValidatorId::new("test.dependencies"), 0, &[]).unwrap();
-    assert_eq!(bound.dependency_specs(), DEPENDENCIES);
-}
-
-#[test]
-fn test_errors_reports_violations_and_registries_expose_structured_data() {
-    let source = RegistrationSource::new("crate", "module", "file.rs", 42);
-    assert_eq!(
-        (source.crate_name(), source.module_path(), source.file(), source.line()),
-        ("crate", "module", "file.rs", 42)
-    );
-    let error = BindError::new(BindErrorKind::MissingDependencyDeclaration)
-        .with_rule(ValidatorId::new("test.rule"))
-        .with_parameter("minimum")
-        .with_dependency("other");
-    assert_eq!(error.rule_id(), Some(ValidatorId::new("test.rule")));
-    assert_eq!(error.parameter(), Some("minimum"));
-    assert_eq!(error.dependency(), Some("other"));
-    assert!(format!("{error:?}").contains("has_parameter"));
-    assert!(error.to_string().contains("missing dependency declaration"));
-
-    let execution = ExecutionError::new(ExecutionErrorKind::ExternalFailure)
-        .with_rule(ValidatorId::new("test.rule"))
-        .with_path(ValidationPath::root().with_field("secret"));
-    assert_eq!(execution.rule_id(), Some(ValidatorId::new("test.rule")));
-    assert!(Error::source(&execution).is_none());
-    assert!(!execution.to_string().contains("private"));
-    assert!(format!("{execution:?}").contains("ExecutionError"));
-
-    let skipped = SkippedValidation::missing_optional(3, ValidationPath::root());
-    assert_eq!(
-        (skipped.occurrence(), skipped.reason()),
-        (3, SkipReason::MissingOptional)
-    );
-    assert_eq!(skipped.path(), &ValidationPath::root());
-    let violation = Violation::new(ValidatorId::new("test.rule"), ViolationCode::new("test.invalid"))
-        .with_path(ValidationPath::root().with_field("name"))
-        .with_param("ok", ViolationParam::Bool(false))
-        .with_param("count", ViolationParam::Unsigned(2));
-    assert_eq!(violation.code().as_str(), "test.invalid");
-    assert_eq!(violation.rule_id(), ValidatorId::new("test.rule"));
-    assert_eq!(violation.path().render(), "name");
-    assert_eq!(violation.params().len(), 2);
-    assert_eq!(violation.to_string(), "test.invalid");
-    assert!(format!("{violation:?}").contains("Violation"));
-
-    let mut report = ValidationReport::default();
-    assert!(report.is_valid());
-    assert!(
-        report
-            .record_outcome(3, ValidationPath::root(), ValidationOutcome::missing_optional())
-            .unwrap()
-            .complete()
-    );
-    assert!(report.is_valid());
-    assert!(!report.is_truncated());
-    assert!(report.violations().is_empty());
-    assert!(report.to_string().contains("0 violation"));
-    assert!(format!("{report:?}").contains("violation_count"));
-
-    let registry = ValidatorRegistry::from_registrations([registration("test.registry")]).unwrap();
-    assert!(format!("{registry:?}").contains("ValidatorRegistry"));
-    let reference = registration("test.reference");
-    let copied = ValidatorRegistry::from_registrations([&reference]).unwrap();
-    assert!(copied.get("test.reference").is_some());
-    let bound = registry.bind("test.registry", InputType::Text, &[]).unwrap();
-    assert_eq!(bound.rule_id(), ValidatorId::new("test.registry"));
-    assert_eq!(
-        registry.bind("missing", InputType::Text, &[]).unwrap_err().kind(),
-        BindErrorKind::MissingRule
-    );
-}
-
-#[test]
-fn test_debug_and_error_trait_surfaces_are_covered() {
-    let dependency = DependencySpec::new("dependency", InputType::Text, true);
-    assert_eq!(
-        (dependency.name(), dependency.input(), dependency.optional()),
-        ("dependency", InputType::Text, true)
-    );
-    assert!(format!("{dependency:?}").contains("DependencySpec"));
-
-    let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
-        ValidatorSignature::new(InputType::Text, &[], valid),
-        ValidatorSignature::new(InputType::of::<u32>(), &[], valid),
-    ]));
-    let descriptor = ValidatorDescriptor::new(signatures);
-    assert!(format!("{descriptor:?}").contains("signature_count"));
-    assert_eq!(signatures[0].input(), InputType::Text);
-    assert!(signatures[0].dependencies().is_empty());
-    assert!(format!("{:?}", signatures[0]).contains("ValidatorSignature"));
-
-    let context = BoundValidationContext::new(&[]);
-    assert!(format!("{context:?}").contains("slot_count"));
-    let bound = descriptor.bind(ValidatorId::new("test.rule"), 0, &[]).unwrap();
-    assert!(format!("{bound:?}").contains("BoundValidator"));
-
-    let error = ExecutionError::new(ExecutionErrorKind::ExternalFailure);
-    assert!(Error::source(&error).is_none());
-
-    for segment in [
-        PathSegment::Field("field"),
-        PathSegment::Index(1),
-        PathSegment::MapEntry(2),
-        PathSegment::MapKey,
-        PathSegment::MapValue,
-    ] {
-        assert!(!format!("{segment:?}").is_empty());
     }
 }
 
-#[test]
-fn test_bound_validator_accepts_valid_and_nonempty_invalid_outcomes() {
-    static INVALID: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], invalid_nonempty)];
-    let invalid = ValidatorDescriptor::new(INVALID)
-        .bind(ValidatorId::new("test.rule"), 0, &[])
-        .unwrap();
-    assert!(matches!(
-        invalid.validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[])).unwrap(),
-        ValidationOutcome::Invalid(issues) if issues.len() == 1 && issues[0].rule_id() == ValidatorId::new("test.rule")
-    ));
+fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(Rejecting))
 }
 
+static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+static REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
+    ValidatorId::new("test.cross_layer"),
+    &DESCRIPTOR,
+    RegistrationSource::new("test", "cross_layer", "cross_layer_contract_tests.rs", 1),
+);
+
 #[test]
-fn test_protocol_and_enum_display_values_are_stable() {
-    for kind in [
-        BindErrorKind::UnknownParameter,
-        BindErrorKind::DuplicateParameter,
-        BindErrorKind::MissingParameter,
-        BindErrorKind::ParameterTypeMismatch,
-        BindErrorKind::ParameterOutOfRange,
-        BindErrorKind::InvalidBounds,
-        BindErrorKind::InvalidPattern,
-        BindErrorKind::MissingRule,
-        BindErrorKind::UnsupportedInput,
-        BindErrorKind::MissingDependencyDeclaration,
-        BindErrorKind::UnknownDependencyDeclaration,
-        BindErrorKind::DependencyTypeMismatch,
-        BindErrorKind::UnreadablePath,
-        BindErrorKind::AmbiguousSignature,
-        BindErrorKind::UnsupportedConstraint,
-        BindErrorKind::MissingFeature,
-        BindErrorKind::InvalidDeclaration,
-        BindErrorKind::InvalidSelection,
-    ] {
-        assert!(!kind.to_string().is_empty());
-    }
-    for kind in [
-        ExecutionErrorKind::InputTypeMismatch,
-        ExecutionErrorKind::MissingRequiredDependencyValue,
-        ExecutionErrorKind::DependencyTypeMismatch,
-        ExecutionErrorKind::PropertyReadFailed,
-        ExecutionErrorKind::TraversalLimit,
-        ExecutionErrorKind::AdapterContractViolation,
-        ExecutionErrorKind::ExternalFailure,
-    ] {
-        assert!(!kind.to_string().is_empty());
-    }
-    assert_eq!(ViolationCode::try_new("").unwrap_err(), ViolationCodeError::Empty);
-    assert_eq!(
-        ViolationCode::try_new("a.").unwrap_err(),
-        ViolationCodeError::EmptySegment
-    );
-    assert_eq!(
-        ViolationCode::try_new("a..b").unwrap_err(),
-        ViolationCodeError::EmptySegment
-    );
-    assert_eq!(
-        ViolationCode::try_new("1bad").unwrap_err(),
-        ViolationCodeError::InvalidSegment
-    );
-    assert_eq!(
-        ViolationCode::try_new("a-b").unwrap_err(),
-        ViolationCodeError::InvalidSegment
-    );
-    assert_eq!(ViolationCode::try_new("a.b_2").unwrap().as_str(), "a.b_2");
-    assert_eq!(InputType::of::<u32>(), InputType::Typed(TypeId::of::<u32>()));
+fn test_registry_validation_report_and_prerequisite_flow_preserves_failure_identity() {
+    let registry = ValidatorRegistry::from_registrations([REGISTRATION]).expect("registration is valid");
+    let bound = registry
+        .bind("test.cross_layer", InputType::Text, &[])
+        .expect("text signature binds");
+    let outcome = bound
+        .validate(
+            ValidationValue::Text("private input"),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect("domain rejection becomes a validation outcome");
+    let mut report = ValidationReport::new();
+    let prefix = ValidationPath::root().with_field("profile");
+    let receipt = report
+        .record_outcome(0, prefix.clone(), outcome)
+        .expect("validation outcome records");
+
+    assert!(receipt.complete());
+    assert_eq!(receipt.failure_ids().len(), 1);
+    let failure_id = receipt.failure_ids()[0];
+    let failure = report.failure(failure_id).expect("receipt identifies retained failure");
+    assert_eq!(failure.rule_id(), ValidatorId::new("test.cross_layer"));
+    assert_eq!(failure.code().as_str(), "text.rejected");
+    assert_eq!(failure.path(), &prefix.with_field("value"));
+    assert!(!format!("{report:?}").contains("private input"));
+
+    let skipped = report
+        .record_outcome(
+            1,
+            ValidationPath::root().with_field("dependent"),
+            ValidationOutcome::failed_prerequisite(vec![failure_id]).expect("one prerequisite failure is well-formed"),
+        )
+        .expect("dependent skip references the retained failure");
+    assert!(skipped.complete());
+    assert_eq!(report.failure_count(), 1);
+    assert_eq!(report.skipped().len(), 1);
+    assert_eq!(report.skipped()[0].prerequisites(), &[failure_id]);
 }

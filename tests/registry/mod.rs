@@ -8,4 +8,5 @@
 
 mod inventory_registration_tests;
 mod validator_descriptor_tests;
+mod validator_registration_tests;
 mod validator_registry_tests;

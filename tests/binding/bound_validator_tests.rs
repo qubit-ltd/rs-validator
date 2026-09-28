@@ -321,3 +321,57 @@ fn test_bound_validate_binds_draft_metadata() {
     assert!(!format!("{violation:?}").contains("secret input"));
     assert!(!violation.to_string().contains("secret input"));
 }
+
+struct CountingAdapter {
+    calls: Arc<AtomicUsize>,
+}
+
+impl PreparedValidator for CountingAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::of::<String>()
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        &[]
+    }
+
+    fn validate(
+        &self,
+        value: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        assert!(value.typed::<String>().is_some_and(|value| value == "ok"));
+        Ok(PreparedOutcome::Valid)
+    }
+}
+
+#[test]
+fn test_bound_validator_clone_shares_its_prepared_instance() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let bound = BoundValidator::try_from_prepared::<String>(
+        ValidatorId::new("test.counting"),
+        Arc::new(CountingAdapter {
+            calls: Arc::clone(&calls),
+        }),
+    )
+    .expect("text adapter binds");
+    let clone = bound.clone();
+    let context = BoundValidationContext::new(&[]);
+    let value = String::from("ok");
+
+    assert_eq!(
+        clone
+            .validate(ValidationValue::Typed(&value), &context)
+            .expect("clone shares a valid adapter"),
+        ValidationOutcome::Valid
+    );
+    assert_eq!(
+        bound
+            .validate(ValidationValue::Typed(&value), &context)
+            .expect("original shares a valid adapter"),
+        ValidationOutcome::Valid
+    );
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+}
