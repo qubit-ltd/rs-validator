@@ -45,8 +45,10 @@ use super::prepare_typed_with_context;
 ///
 /// # Returns
 ///
-/// A shared prepared validator that accepts text and checks the declared
-/// dependency slots before invoking `call`.
+/// A shared prepared validator that accepts text and exposes declared
+/// dependency slots through the context passed to `call`. When invoked through
+/// `BoundValidator`, dependency shape is checked before `call`; direct callers
+/// of the prepared validator must supply a context suitable for the closure.
 ///
 /// # Runtime Errors
 ///
@@ -104,8 +106,10 @@ where
 ///
 /// # Returns
 ///
-/// A shared prepared validator that accepts `T` and checks the declared
-/// dependency slots before invoking `call`.
+/// A shared prepared validator that accepts `T` and exposes declared
+/// dependency slots through the context passed to `call`. When invoked through
+/// `BoundValidator`, dependency shape is checked before `call`; direct callers
+/// of the prepared validator must supply a context suitable for the closure.
 ///
 /// # Runtime Errors
 ///

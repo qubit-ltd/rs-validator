@@ -8,6 +8,7 @@
 
 //! Configured validator occurrences.
 
+use std::fmt;
 use std::sync::Arc;
 
 use super::BindError;
@@ -94,20 +95,6 @@ pub struct BoundValidator {
 }
 
 impl BoundValidator {
-    /// Creates a bound occurrence from a prepared implementation and signature.
-    pub(crate) fn new(
-        prepared: Arc<dyn PreparedValidator>,
-        signature: ValidatorSignature,
-        rule_id: ValidatorId,
-    ) -> Self {
-        Self {
-            prepared,
-            input: signature.input(),
-            dependencies: signature.dependencies(),
-            rule_id,
-        }
-    }
-
     /// Creates a zero-dependency binding for an already prepared typed rule.
     ///
     /// The binding checks that calls supply exactly `T` and no dependency
@@ -128,6 +115,11 @@ impl BoundValidator {
     ///
     /// A reusable bound validator accepting values of type `T` without
     /// dependencies.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PreparedSignatureMismatch` with `rule_id` attached when the
+    /// prepared validator does not accept exactly `T` or declares dependencies.
     #[must_use = "handle binding errors before using the bound validator"]
     pub fn try_from_prepared<T: 'static>(
         rule_id: ValidatorId,
@@ -281,6 +273,20 @@ impl BoundValidator {
         self.rule_id
     }
 
+    /// Creates a bound occurrence from a prepared implementation and signature.
+    pub(crate) fn new(
+        prepared: Arc<dyn PreparedValidator>,
+        signature: ValidatorSignature,
+        rule_id: ValidatorId,
+    ) -> Self {
+        Self {
+            prepared,
+            input: signature.input(),
+            dependencies: signature.dependencies(),
+            rule_id,
+        }
+    }
+
     /// Checks the erased input against the selected signature.
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.input.accepts(value) {
@@ -297,10 +303,10 @@ impl BoundValidator {
     }
 }
 
-impl std::fmt::Debug for BoundValidator {
+impl fmt::Debug for BoundValidator {
     /// Formats structural metadata without exposing the prepared
     /// implementation.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BoundValidator")
             .field("rule_id", &self.rule_id)

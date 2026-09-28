@@ -254,7 +254,7 @@ fn read_max_length(params: &[NamedValidationArgument<'_>]) -> Result<u32, BindEr
 }
 ```
 
-上面只展示参数解码；调用方仍需把 `maximum` 保存到自己的预备规则，并在规则执行时使用。传入 `NamedValidationArgument::new("maximum", ValidationArgument::Unsigned(40))` 可得到 `40`；缺少、类型错误、越界或出现未消费参数会在绑定阶段返回 `BindError`。每个已提供参数首次按类型读取后即被消费，即使转换失败也一样；再次读取会返回 `ParameterAlreadyConsumed`。配置修正后应重新绑定，不要在同一个 reader 上重试。
+上面只展示参数解码；调用方仍需把 `maximum` 保存到自己的预备规则，并在规则执行时使用。传入 `NamedValidationArgument::new("maximum", ValidationArgument::Unsigned(40))` 可得到 `40`；缺少、类型错误、越界或出现未消费参数会在绑定阶段返回 `BindError`。`optional_str("minimum")` 会在参数缺失时返回 `None`，存在时借用原字符串；即使类型错误，该参数也会被消费。每个已提供参数首次按类型读取后即被消费，即使转换失败也一样；再次读取会返回 `ParameterAlreadyConsumed`。配置修正后应重新绑定，不要在同一个 reader 上重试。
 
 ## 多条规则如何汇总与跳过
 
@@ -300,7 +300,9 @@ let report = ValidationReport::with_limits(ValidationLimits {
 });
 ```
 
-`max_violations` 计入保留的原始违规项，跳过项对失败 ID 的引用不重复占用该额度；`max_skipped` 限制跳过记录数量。容量不足时 `record_outcome` 可能返回 `!complete()`，报告也会标记 `is_truncated()`。这时不能把未收集到的错误解释为“其余字段都通过”。如果调用方自行提前停止执行，应调用 `mark_truncated()` 表明报告并不完整。
+`max_violations` 计入保留的原始违规项，跳过项对失败 ID 的引用不重复占用该额度；`max_skipped` 独立限制跳过记录数量。先决条件失败的跳过项必须引用本报告中已经保留的一条或多条原始违规项，即使违规项额度已满，这些引用仍可使用且不额外占用额度。跳过记录被 `max_skipped` 拒绝时，`record_outcome` 返回 `!complete()` 并标记 `is_truncated()`。容量不足时不能把未收集到的错误解释为“其余字段都通过”。如果调用方自行提前停止执行，应调用 `mark_truncated()` 表明报告并不完整。
+
+这些限额只约束最终保留的违规项和跳过记录数量，不限制输入大小、验证工作量、依赖路径大小、先决条件引用列表长度或传入前已分配的 outcome 内存。应用应在输入与执行边界单独限制这些资源。
 
 ## 何时使用其他适配器或注册方式
 

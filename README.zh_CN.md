@@ -49,7 +49,7 @@ cargo run --example local_registry --locked
 
 默认不启用任何 feature。直接验证、适配器、描述符和局部 `ValidatorRegistry` 都可直接使用。只有需要通过 `register_validator!` 与 `ValidatorRegistry::try_global` 进行进程级注册时才启用 `inventory`。
 
-依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，执行时检查槽位值形状。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。`ViolationParam` 限制诊断值的表示形式，但不能证明值的来源：来自规则配置的 `Unsigned(minimum)` 可以使用，来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期也不能证明它来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
+依赖以签名上的有序槽位声明。绑定所选签名时，会直接把该签名的依赖规格写入 bound validator；模型元数据负责核验实际依赖声明，bound 执行时检查槽位值形状。直接调用预备验证器的调用方须自行提供适用的上下文。`ValidationLimits` 只限制保留的违规项与跳过记录数量；输入大小、验证工作量、依赖路径大小、先决条件列表长度以及已分配 outcome 的内存须由应用边界另行限制。`ExecutionError` 只通过显式可信诊断入口 `trusted_source()` 保留并读取拥有型原因；普通格式化和 `Error::source()` 不暴露原因文本。`ViolationParam` 限制诊断值的表示形式，但不能证明值的来源：来自规则配置的 `Unsigned(minimum)` 可以使用，来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期也不能证明它来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。先决条件失败的跳过项通过不透明 `FailureId` 引用已记录违规项，因此原始失败只计数和展示一次。`record_outcome` 返回 `RecordedOutcome`，包含收集是否完整以及该 occurrence 保留的失败 ID。引用失败不占用 `max_violations`；`max_skipped` 限制跳过 occurrence 数量。`ValidationReport::failures()` 只遍历原始违规项。参数的 `Debug` 输出会隐藏名称和值。
 
 当类型化领域规则需要依赖上下文并映射领域错误时，可使用
 `prepare_text_domain_rule` 或 `prepare_typed_domain_rule`。映射器会把领域错误转换为
@@ -92,8 +92,7 @@ Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
 ## 贡献
 
-欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
-Pull Request 前运行 `./align-ci.sh` 格式化代码，运行 `./ci-check.sh` 对齐 CI 要求。
+欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交 Pull Request 前运行 `./align-ci.sh` 格式化代码，并运行 `./ci-check.sh` 对齐 CI 要求。
 
 ## 作者
 

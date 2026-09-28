@@ -318,9 +318,11 @@ assert_eq!(report.failures().count(), report.failure_count());
 ```
 
 `RecordedOutcome::complete()` reports whether the outcome fit its configured limits; it does not report whether validation passed. A capacity rejection returns an incomplete receipt and marks the report truncated. An invalid outcome shape returns `ValidationOutcomeError` and leaves the report unchanged. `max_violations` bounds retained original violations.
-If no failure capacity remains, a failed-prerequisite skip is not stored with
-an empty evidence list. A skip rejected by `max_skipped` consumes no failure
-capacity.
+Failed-prerequisite skips must reference one or more original violations
+already retained by this report. Those references remain valid even when
+`max_violations` is full and consume no additional violation capacity;
+`max_skipped` independently limits retained skip entries. A skip rejected by
+`max_skipped` marks the report truncated and returns an incomplete receipt.
 
 ## Local and Inventory Registries
 
@@ -354,6 +356,9 @@ registrations are discovered; it does not change binding or execution rules.
 `ArgumentReader` consumes a present parameter on its first typed read, even if
 conversion fails. A second read returns `ParameterAlreadyConsumed`. After
 reading supported parameters, call `finish` to reject unconsumed names.
+For an optional string setting, `optional_str("minimum")` returns `None` when
+absent and borrows the supplied string when present; a type error consumes the
+parameter just like other typed reads.
 
 `ValidationPath` remains structured. `Display` and `Debug` avoid exposing
 field names and map positions; trusted presentation code must explicitly call
@@ -384,8 +389,11 @@ but callers remain responsible for provenance and redaction.
   every caller and validator implementation.
 - Use `ValidationReport::with_limits` for untrusted or large workloads.
   `max_violations` bounds retained original violations; references from skips
-  consume no additional failure capacity. `max_skipped` bounds skipped occurrences. Collection
-  stops retaining excess evidence and marks the report truncated.
+  consume no additional failure capacity. `max_skipped` bounds skipped
+  occurrences. These limits do not bound input size, validation work, path
+  size, prerequisite-reference list length, or memory already allocated for
+  outcomes. Enforce those budgets at the application boundary. Collection
+  stops retaining excess entries and marks the report truncated.
 - Validation is synchronous and borrows values for each call. Prepared
   validators require `Send + Sync`; the crate does not create threads or assume
   an async runtime.

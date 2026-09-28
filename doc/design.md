@@ -56,8 +56,8 @@ flowchart LR
 ```
 
 A preparation function decodes `NamedValidationArgument` values provided by `qubit-validator` and returns an
-owned prepared instance. Binding selects one signature, validates the caller's
-dependency declaration, and stores the selected input shape, dependency slots,
+owned prepared instance. Binding selects one signature and stores the selected
+input shape, dependency slots,
 prepared instance, and rule ID in the bound validator. `BoundValidator::try_from_prepared<T>` returns a binding error unless the prepared instance accepts exactly `T` and declares no dependencies. Every prepared instance reports its input and dependency shape; binding compares both against the selected static signature and attaches the rule ID to a mismatch. Execution checks the erased input and dependency
 values before delegating to the prepared instance. The bound validator then
 turns violation drafts into final violations by attaching its rule ID.
@@ -78,10 +78,18 @@ Per-invocation metadata can be returned alongside the domain result for error
 mapping. An empty draft list is
 an adapter contract violation. The lower-level `prepare_text_with_context`
 and `prepare_typed_with_context` adapters remain available when the closure
-already constructs `PreparedOutcome`. All paths pass through
-`BoundValidator` input, dependency, and rule-ID checks.
+already constructs `PreparedOutcome`. Calls through `BoundValidator` pass
+through its input, dependency, and rule-ID checks. Callers invoking a prepared
+validator directly are responsible for supplying a context that meets its
+declared contract.
 
-`ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. Successful `record_outcome` calls must use non-decreasing occurrence numbers; repeated numbers are allowed for multiple results at one position. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order rather than sorted so previously issued `FailureId` indices remain stable. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
+`ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. Successful `record_outcome` calls must use non-decreasing occurrence numbers; repeated numbers are allowed for multiple results at one position. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order rather than sorted so previously issued `FailureId` indices remain stable. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit; a failed-prerequisite skip still needs at least one already-retained reference, even when that limit is full. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
+
+`ValidationLimits` bounds only retained violation and skipped-entry counts. It
+does not bound input sizes, validation work, dependency path sizes, the number
+of prerequisite references submitted at once, or memory already used to
+construct an outcome. Applications enforce those resource limits at their
+input and execution boundaries.
 
 ## Descriptor, Signature, and Slot Invariants
 

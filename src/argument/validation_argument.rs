@@ -8,6 +8,8 @@
 
 //! Domain-neutral validator parameter values.
 
+use std::fmt;
+
 /// One statically typed validator parameter value.
 ///
 /// # Type Parameters
@@ -67,8 +69,9 @@ pub enum ValidationArgument<'a> {
     ),
 }
 
-impl std::fmt::Debug for ValidationArgument<'_> {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for ValidationArgument<'_> {
+    /// Redacts scalar contents and reports only collection lengths.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bool(_) => formatter.write_str("Bool(<redacted>)"),
             Self::Integer(_) => formatter.write_str("Integer(<redacted>)"),

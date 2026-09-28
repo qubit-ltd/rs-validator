@@ -8,6 +8,8 @@
 
 //! Immutable multi-signature validator descriptors.
 
+use std::fmt;
+
 use super::BindError;
 use super::BindErrorKind;
 use super::BoundValidator;
@@ -131,8 +133,15 @@ impl ValidatorDescriptor {
         self.bind_for_validated(rule_id, input, params)
     }
 
-    /// Binds an input signature after a containing registry validated this
-    /// descriptor while freezing its registrations.
+    /// Binds the unique signature for an input shape after a containing
+    /// registry validated this descriptor while freezing its registrations.
+    ///
+    /// # Errors
+    ///
+    /// Returns `UnsupportedInput` when no signature accepts `input`. Returns
+    /// the preparation error or `PreparedSignatureMismatch` when preparing
+    /// the selected signature fails or returns a mismatched shape. Errors
+    /// carry `rule_id`.
     pub(crate) fn bind_for_validated(
         &self,
         rule_id: ValidatorId,
@@ -204,8 +213,9 @@ impl ValidatorDescriptor {
     }
 }
 
-impl std::fmt::Debug for ValidatorDescriptor {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for ValidatorDescriptor {
+    /// Formats the number of signatures without exposing preparation details.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ValidatorDescriptor")
             .field("signature_count", &self.signatures.len())

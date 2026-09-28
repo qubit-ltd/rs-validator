@@ -52,9 +52,11 @@ flowchart LR
 违规草稿，不能将失败的领域结果判为有效。闭包可在领域结果旁返回本次调用的元数据，供错误映射使用；
 空违规草稿列表会被视为适配器契约错误。若闭包已经构造好 `PreparedOutcome`，
 仍可使用较底层的 `prepare_text_with_context` 或 `prepare_typed_with_context`。
-所有路径都会经过 `BoundValidator` 的输入、依赖检查和规则 ID 绑定。
+通过 `BoundValidator` 执行时会进行输入、依赖检查并绑定规则 ID。直接调用预备验证器的调用方须自行提供符合其声明契约的上下文。
 
-`ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。成功的 `record_outcome` 调用必须使用非递减 occurrence；同一位置可以记录多次。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，不做排序，以保持已签发 `FailureId` 的索引稳定。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
+`ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。成功的 `record_outcome` 调用必须使用非递减 occurrence；同一位置可以记录多次。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，不做排序，以保持已签发 `FailureId` 的索引稳定。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；即使该限额已满，先决条件跳过项也必须引用至少一条此前保留的失败。`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
+
+`ValidationLimits` 只限制最终保留的违规项和跳过记录数量，不限制输入大小、验证工作量、依赖路径大小、一次提交的先决条件引用数量或构造 outcome 时已使用的内存。应用应在输入与执行边界管理这些资源限额。
 
 ## 描述符、签名和槽位不变量
 

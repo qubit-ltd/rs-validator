@@ -10,6 +10,12 @@
 
 /// Explicit bounds applied while collecting a validation report.
 ///
+/// These limits bound retained violation and skipped-entry counts only. They
+/// do not bound input sizes, validation work, dependency path sizes, the
+/// number of prerequisite references in an outcome, or memory already used to
+/// construct an outcome. Applications should enforce those resource policies
+/// at their input and execution boundaries.
+///
 /// # Examples
 ///
 /// ```

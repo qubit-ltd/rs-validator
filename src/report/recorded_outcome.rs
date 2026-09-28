@@ -41,6 +41,9 @@ impl RecordedOutcome {
     }
 
     /// Returns whether every part of the outcome fit the configured limits.
+    ///
+    /// This reports collection completeness, not validation success. It is
+    /// `false` when a violation or skipped occurrence could not be retained.
     #[must_use]
     #[inline]
     pub const fn complete(&self) -> bool {
@@ -49,7 +52,9 @@ impl RecordedOutcome {
 
     /// Returns IDs for failures retained from this outcome.
     ///
-    /// Skipped and valid outcomes return an empty slice.
+    /// Returns only failures newly retained from this outcome. Valid and
+    /// skipped outcomes return an empty slice; an invalid outcome can also
+    /// return an empty slice when no failure from it fit the report limit.
     #[must_use]
     #[inline]
     pub fn failure_ids(&self) -> &[FailureId] {

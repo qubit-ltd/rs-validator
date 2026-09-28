@@ -9,6 +9,7 @@
 //! Aggregated validation results.
 
 use std::collections::HashSet;
+use std::fmt;
 
 use super::FailureId;
 use super::RecordedOutcome;
@@ -197,19 +198,6 @@ impl ValidationReport {
         result
     }
 
-    /// Returns the remaining shared capacity for top-level and prerequisite
-    /// violations, or the largest possible count when unbounded.
-    fn remaining_failure_capacity(&self) -> usize {
-        self.limits
-            .max_violations
-            .map_or(usize::MAX, |limit| limit.saturating_sub(self.violations.len()))
-    }
-
-    /// Returns whether one more skipped occurrence fits the configured limit.
-    fn has_skipped_capacity(&self) -> bool {
-        self.limits.max_skipped.is_none_or(|limit| self.skipped.len() < limit)
-    }
-
     /// Returns whether validation completed with no failures.
     ///
     /// # Returns
@@ -291,6 +279,19 @@ impl ValidationReport {
     pub const fn limits(&self) -> ValidationLimits {
         self.limits
     }
+
+    /// Returns the remaining shared capacity for top-level and prerequisite
+    /// violations, or the largest possible count when unbounded.
+    fn remaining_failure_capacity(&self) -> usize {
+        self.limits
+            .max_violations
+            .map_or(usize::MAX, |limit| limit.saturating_sub(self.violations.len()))
+    }
+
+    /// Returns whether one more skipped occurrence fits the configured limit.
+    fn has_skipped_capacity(&self) -> bool {
+        self.limits.max_skipped.is_none_or(|limit| self.skipped.len() < limit)
+    }
 }
 
 impl Default for ValidationReport {
@@ -301,9 +302,9 @@ impl Default for ValidationReport {
     }
 }
 
-impl std::fmt::Debug for ValidationReport {
+impl fmt::Debug for ValidationReport {
     /// Formats counts and truncation state without exposing report contents.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ValidationReport")
             .field("violation_count", &self.failure_count())
@@ -313,9 +314,9 @@ impl std::fmt::Debug for ValidationReport {
     }
 }
 
-impl std::fmt::Display for ValidationReport {
+impl fmt::Display for ValidationReport {
     /// Formats counts and truncation state without exposing report contents.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
             "validation report: {} violation(s), {} skipped, truncated={}",

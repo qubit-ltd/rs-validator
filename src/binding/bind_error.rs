@@ -8,6 +8,9 @@
 
 //! Structured validation binding failures.
 
+use std::error::Error;
+use std::fmt;
+
 use super::BindErrorKind;
 use crate::ValidatorId;
 
@@ -110,9 +113,9 @@ impl BindError {
     }
 }
 
-impl std::fmt::Debug for BindError {
+impl fmt::Debug for BindError {
     /// Formats structural metadata without exposing raw parameter values.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BindError")
             .field("kind", &self.kind)
@@ -123,11 +126,11 @@ impl std::fmt::Debug for BindError {
     }
 }
 
-impl std::fmt::Display for BindError {
+impl fmt::Display for BindError {
     /// Formats a stable summary without exposing raw parameter values.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "validation binding failed: {}", self.kind)
     }
 }
 
-impl std::error::Error for BindError {}
+impl Error for BindError {}

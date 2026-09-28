@@ -8,6 +8,9 @@
 
 //! Structured validation execution failures.
 
+use std::error::Error;
+use std::fmt;
+
 use super::ExecutionErrorKind;
 use crate::ValidatorId;
 
@@ -37,7 +40,7 @@ pub struct ExecutionError {
     /// Optional dependency name associated with the failure.
     dependency: Option<&'static str>,
     /// Optional cause available through the explicit trusted accessor.
-    trusted_source: Option<Box<dyn std::error::Error + Send + Sync + 'static>>,
+    trusted_source: Option<Box<dyn Error + Send + Sync + 'static>>,
 }
 
 impl ExecutionError {
@@ -81,7 +84,7 @@ impl ExecutionError {
     /// This error with the trusted cause attached.
     pub fn with_trusted_source<E>(mut self, source: E) -> Self
     where
-        E: std::error::Error + Send + Sync + 'static,
+        E: Error + Send + Sync + 'static,
     {
         self.trusted_source = Some(Box::new(source));
         self
@@ -136,14 +139,14 @@ impl ExecutionError {
     /// `None` means no owned cause was supplied. This accessor may reveal
     /// details unsuitable for ordinary logs or user-facing output.
     #[must_use]
-    pub fn trusted_source(&self) -> Option<&(dyn std::error::Error + Send + Sync + 'static)> {
+    pub fn trusted_source(&self) -> Option<&(dyn Error + Send + Sync + 'static)> {
         self.trusted_source.as_deref()
     }
 }
 
-impl std::fmt::Debug for ExecutionError {
+impl fmt::Debug for ExecutionError {
     /// Formats structural metadata without exposing raw input or source text.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ExecutionError")
             .field("kind", &self.kind)
@@ -154,11 +157,11 @@ impl std::fmt::Debug for ExecutionError {
     }
 }
 
-impl std::fmt::Display for ExecutionError {
+impl fmt::Display for ExecutionError {
     /// Formats a stable summary without exposing raw input or source text.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "validation execution failed: {}", self.kind)
     }
 }
 
-impl std::error::Error for ExecutionError {}
+impl Error for ExecutionError {}

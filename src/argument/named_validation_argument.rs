@@ -8,6 +8,8 @@
 
 //! Named validator parameter values.
 
+use std::fmt;
+
 use crate::ValidationArgument;
 
 /// One named validator parameter.
@@ -80,8 +82,9 @@ impl<'a> NamedValidationArgument<'a> {
     }
 }
 
-impl std::fmt::Debug for NamedValidationArgument<'_> {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for NamedValidationArgument<'_> {
+    /// Omits the parameter name and relies on the value's redacted formatter.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("NamedValidationArgument")
             .field("value", &self.value)
