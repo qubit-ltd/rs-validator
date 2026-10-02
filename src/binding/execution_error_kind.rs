@@ -24,6 +24,8 @@
 pub enum ExecutionErrorKind {
     /// The supplied input has the wrong erased type.
     InputTypeMismatch,
+    /// The validation selection contains no matching validation path.
+    InvalidSelection,
     /// A dependency has the wrong erased type.
     DependencyTypeMismatch,
     /// A required dependency value is absent.
@@ -49,6 +51,7 @@ impl std::fmt::Display for ExecutionErrorKind {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::InputTypeMismatch => "input type mismatch",
+            Self::InvalidSelection => "invalid validation selection",
             Self::DependencyTypeMismatch => "dependency type mismatch",
             Self::MissingRequiredDependencyValue => "missing required dependency value",
             Self::DuplicateDependencyBinding => "duplicate dependency binding",
