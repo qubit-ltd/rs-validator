@@ -49,8 +49,7 @@ fn test_execution_error_kinds_have_stable_nonempty_display_values() {
 #[test]
 fn test_invalid_selection_has_stable_display_and_preserves_path() {
     let path = ValidationPath::root().with_field("submitted_field");
-    let error = ExecutionError::new(ExecutionErrorKind::InvalidSelection)
-        .with_path(path.clone());
+    let error = ExecutionError::new(ExecutionErrorKind::InvalidSelection).with_path(path.clone());
 
     assert_eq!(error.kind(), ExecutionErrorKind::InvalidSelection);
     assert_eq!(error.kind().to_string(), "invalid validation selection");
