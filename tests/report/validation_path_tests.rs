@@ -68,3 +68,52 @@ fn test_validation_path_renders_only_the_declared_safe_location() {
     assert_eq!(path.to_string(), "<validation-path>");
     assert!(format!("{path:?}").contains("segment_count"));
 }
+
+#[test]
+fn test_validation_path_renders_special_fields_unambiguously() {
+    let dotted_field = ValidationPath::root().with_field("a.b");
+    let nested_fields = ValidationPath::root().with_field("a").with_field("b");
+    let indexed_field = ValidationPath::root().with_field("a[2]");
+    let field_then_index = ValidationPath::root().with_field("a").with_index(2);
+
+    assert_eq!(dotted_field.render(), r#"["a.b"]"#);
+    assert_eq!(nested_fields.render(), "a.b");
+    assert_ne!(dotted_field.render(), nested_fields.render());
+
+    assert_eq!(indexed_field.render(), r#"["a[2]"]"#);
+    assert_eq!(field_then_index.render(), "a[2]");
+    assert_ne!(indexed_field.render(), field_then_index.render());
+
+    assert_eq!(ValidationPath::root().with_field("").render(), r#"[""]"#);
+    assert_eq!(
+        ValidationPath::root().with_field("<map-key>").render(),
+        r#"["<map-key>"]"#
+    );
+    assert_ne!(
+        ValidationPath::root().with_field("<map-key>").render(),
+        ValidationPath::root().with_map_key().render()
+    );
+    assert_ne!(
+        ValidationPath::root().with_field("<map-entry:0>").render(),
+        ValidationPath::root().with_map_entry(0).render()
+    );
+    assert_ne!(
+        ValidationPath::root().with_field("<map-value>").render(),
+        ValidationPath::root().with_map_value().render()
+    );
+    assert_eq!(ValidationPath::root().with_field("x\\y").render(), r#"["x\\y"]"#);
+    assert_eq!(ValidationPath::root().with_field("a\"b").render(), r#"["a\"b"]"#);
+    assert_eq!(ValidationPath::root().with_field("a\n").render(), r#"["a\n"]"#);
+    assert_eq!(
+        ValidationPath::root().with_field("a\u{0001}").render(),
+        r#"["a\u0001"]"#
+    );
+    assert_eq!(
+        ValidationPath::root()
+            .with_field("items")
+            .with_index(2)
+            .with_field("a.b")
+            .render(),
+        r#"items[2].["a.b"]"#
+    );
+}

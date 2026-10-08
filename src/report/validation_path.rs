@@ -10,6 +10,38 @@
 
 use super::PathSegment;
 
+fn is_simple_field(field: &str) -> bool {
+    let mut bytes = field.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == b'_') && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
+fn append_quoted_field(output: &mut String, field: &str) {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    output.push_str("[\"");
+    for character in field.chars() {
+        match character {
+            '"' => output.push_str("\\\""),
+            '\\' => output.push_str("\\\\"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            '\u{0008}' => output.push_str("\\b"),
+            '\u{000c}' => output.push_str("\\f"),
+            control if (control as u32) < 0x20 => {
+                let byte = control as u8;
+                output.push_str("\\u00");
+                output.push(HEX[(byte >> 4) as usize] as char);
+                output.push(HEX[(byte & 0x0f) as usize] as char);
+            }
+            other => output.push(other),
+        }
+    }
+    output.push_str("\"]");
+}
+
 /// A structured path to a value being validated.
 ///
 /// `Debug` and `Display` do not reveal field labels. Call [`Self::render`]
@@ -159,7 +191,9 @@ impl ValidationPath {
     /// Explicitly renders this path for a trusted presentation layer.
     ///
     /// The result can contain program-supplied field labels but never contains
-    /// a raw validation value or map key.
+    /// a raw validation value or map key. Simple ASCII identifiers use dotted
+    /// notation; other field labels use JSON-escaped `[...]` notation. This
+    /// changes the rendered format for special field labels.
     ///
     /// # Returns
     ///
@@ -174,7 +208,11 @@ impl ValidationPath {
                     if !rendered.is_empty() {
                         rendered.push('.');
                     }
-                    rendered.push_str(field);
+                    if is_simple_field(field) {
+                        rendered.push_str(field);
+                    } else {
+                        append_quoted_field(&mut rendered, field);
+                    }
                 }
                 PathSegment::Index(index) => {
                     rendered.push('[');
