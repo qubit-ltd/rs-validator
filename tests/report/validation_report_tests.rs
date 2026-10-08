@@ -120,6 +120,20 @@ fn test_zero_violation_capacity_returns_no_failure_ids() {
 }
 
 #[test]
+fn test_mark_truncated_marks_incomplete_report_invalid() {
+    let mut report = ValidationReport::new();
+
+    assert!(report.is_valid());
+    assert!(!report.is_truncated());
+
+    report.mark_truncated();
+    report.mark_truncated();
+
+    assert!(report.is_truncated());
+    assert!(!report.is_valid());
+}
+
+#[test]
 fn test_malformed_skips_leave_report_state_and_occurrence_unchanged() {
     let mut report = ValidationReport::new();
     record_failure(&mut report, 0);

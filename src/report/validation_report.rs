@@ -262,11 +262,12 @@ impl ValidationReport {
         &self.skipped
     }
 
-    /// Returns whether validation was truncated.
+    /// Returns whether this report is incomplete.
     ///
     /// # Returns
     ///
-    /// Returns `true` when a collection limit prevented exhaustive results.
+    /// Returns `true` when a collection limit rejected part of an outcome or
+    /// the caller marked execution incomplete with [`Self::mark_truncated`].
     #[must_use]
     #[inline]
     pub const fn is_truncated(&self) -> bool {
