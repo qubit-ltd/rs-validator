@@ -115,9 +115,12 @@ full license text.
 
 ## Contributing
 
-Contributions are welcome. Please follow the Rust API guidelines, keep public
-API documentation and tests current, and run `./.infra/bin/align-ci.sh` to format code and
-`./.infra/bin/ci-check.sh` to satisfy CI requirements before submitting a pull request.
+Contributions are welcome. Please follow the Rust API guidelines and keep
+public API documentation and tests current. This repository uses
+`./.infra/bin/align-ci.sh` as its formatting command and
+`./.infra/bin/ci-check.sh` as its final check. Default `cargo fmt --check` may
+report differences from the project format; do not apply its full-repository
+diff.
 
 ## Author
 

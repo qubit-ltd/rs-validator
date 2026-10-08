@@ -144,7 +144,10 @@ execution:
 - `ExecutionError` represents erased-shape, dependency-value, external, or
   adapter-contract failures.
 - `ValidationReport` aggregates violations and skips and records whether
-  configured limits truncated collection. `failure_count()` equals the number of retained original violations; skips store IDs only.
+  collection was incomplete. `is_truncated()` is true when configured limits
+  reject records or when the caller stops validation early and calls
+  `mark_truncated()`; it does not identify the reason. `failure_count()` equals
+  the number of retained original violations; skips store IDs only.
 
 An invalid prepared outcome with no violation drafts is an adapter contract
 failure. The skipped variants also have shape invariants: `MissingOptional`
@@ -158,6 +161,9 @@ positions can be useful to a trusted presentation layer, but default formatting
 is deliberately conservative: `Display` emits a placeholder and `Debug`
 reports shape rather than field contents. A trusted caller explicitly chooses
 `ValidationPath::render` when disclosure is appropriate.
+Simple ASCII identifiers retain dotted paths, while other field names render
+as JSON-escaped `["..."]` segments. For example, `a.b` and `["a.b"]` denote
+different structures.
 `Field` and `with_field` accept `&'static str` so ordinary runtime keys cannot
 be retained accidentally. This type does not prove where a static string came
 from; callers must still use declared field names and represent runtime map

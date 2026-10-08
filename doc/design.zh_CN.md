@@ -88,13 +88,14 @@ API 将预期的无效数据与配置或执行失败分开：
 - `ValidationOutcome::Invalid` 携带最终 `Violation` 值，它是成功的执行结果，而不是 `ExecutionError`。
 - `ValidationOutcome::Skipped` 使用 `SkipReason` 和不透明失败 ID 记录有意不执行的情况；失败 ID 必须属于同一报告中已保留的原始违规项。
 - `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败；可信调用方可显式访问其拥有型原因。
-- `ValidationReport` 汇总违规项与跳过记录，并记录配置限制是否截断了收集过程。`failure_count()` 等于已保留的原始违规项数量；跳过项只保存 ID。
+- `ValidationReport` 汇总违规项与跳过记录，并记录收集结果是否完整。配置限制拒绝记录，或调用方提前停止验证并调用 `mark_truncated()`，都会使 `is_truncated()` 返回 true；它本身不说明截断原因。`failure_count()` 等于已保留的原始违规项数量；跳过项只保存 ID。
 
 不包含任何违规项草稿的无效预备结果属于适配器契约失败。跳过 variant 也有形状不变量：`MissingOptional` 不携带先决条件违规项，而 `FailedPrerequisite` 至少携带一个违规项。
 
 ## 路径与脱敏
 
 `ValidationPath` 存储结构化的 `PathSegment` 值。字段名和 map 位置对受信任的展示层可能有用，但默认格式化会刻意保持保守：`Display` 输出占位符，`Debug` 只报告形状而不报告字段内容。只有在适合披露时，受信任的调用方才显式选择 `ValidationPath::render`。
+简单 ASCII 标识符仍以点号连接路径；其他字段名显示为经过 JSON 转义的 `["..."]` 片段。例如，`a.b` 与 `["a.b"]` 表示不同的结构。
 `Field` 和 `with_field` 只接受 `&'static str`，避免意外保留普通运行时键。这个类型不能证明静态字符串的来源；调用方仍应只传入声明字段名，并用不保存键文本的 `MapEntry` 表示运行时 map 位置。
 `ValidationPath::concat` 直接拼接路径片段，不渲染或解析字符串。传给 `record_outcome` 的出现路径是无效结果中各违规项路径的基路径；违规项的根路径表示出现位置本身。先决条件证据保留原始绝对路径。
 

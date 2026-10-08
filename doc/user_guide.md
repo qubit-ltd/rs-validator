@@ -377,7 +377,7 @@ but callers remain responsible for provenance and redaction.
 | `UnknownParameter` | Read supported values and then call `ArgumentReader::finish`. |
 | `ParameterAlreadyConsumed` | Decode each parameter once and store the result in the prepared validator. |
 | `AdapterContractViolation` | Check custom `PreparedValidator` output. Invalid outcomes need violations; `PreparedOutcome` has only valid and invalid states. |
-| `!recorded.complete()` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. |
+| `!recorded.complete()` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. If the caller stops validation early, call `mark_truncated()` so the report is identified as incomplete. |
 
 ## Limitations and Best Practices
 
