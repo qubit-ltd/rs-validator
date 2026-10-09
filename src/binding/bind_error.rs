@@ -75,11 +75,16 @@ impl BindError {
         self.kind
     }
 
-    /// Returns the associated rule identifier, if any.
+    /// Returns the resolved rule identifier attached to this error, if any.
+    ///
+    /// A registry lookup that fails with `MissingRule` has no resolved
+    /// [`ValidatorId`], so this returns `None`. The caller retains the
+    /// requested ID text when it needs to report which lookup failed.
     ///
     /// # Returns
     ///
-    /// Returns `Some` when a rule has been attached, or `None` otherwise.
+    /// The resolved identifier for a selected rule, or `None` when no rule
+    /// was selected.
     #[must_use]
     #[inline]
     pub const fn rule_id(&self) -> Option<ValidatorId> {

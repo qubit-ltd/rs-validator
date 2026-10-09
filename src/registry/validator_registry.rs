@@ -118,7 +118,9 @@ impl ValidatorRegistry {
     ///
     /// # Errors
     ///
-    /// Returns a missing-rule, signature, or parameter binding error.
+    /// Returns `MissingRule` when `id` has no registration. This error has
+    /// no resolved rule ID; callers that need the requested text retain `id`.
+    /// Signature and preparation errors for a found rule carry its ID.
     pub fn bind(
         &self,
         id: &str,

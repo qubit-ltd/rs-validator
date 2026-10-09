@@ -9,6 +9,7 @@
 use std::sync::Arc;
 
 use qubit_validator::BindError;
+use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
@@ -109,6 +110,17 @@ fn test_empty_registry_has_no_rules() {
 
     assert!(registry.registrations().is_empty());
     assert!(registry.get("missing").is_none());
+}
+
+#[test]
+fn test_missing_rule_has_no_resolved_rule_id() {
+    let registry = ValidatorRegistry::empty();
+    let error = registry
+        .bind("example.missing", InputType::Text, &[])
+        .expect_err("the requested rule is not registered");
+
+    assert_eq!(error.kind(), BindErrorKind::MissingRule);
+    assert_eq!(error.rule_id(), None);
 }
 
 #[test]
