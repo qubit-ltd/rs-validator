@@ -64,8 +64,10 @@ turns violation drafts into final violations by attaching its rule ID.
 
 Descriptor binding attaches the requested rule ID to declaration, selection,
 parameter, preparation, and prepared-shape errors, preserving each error's
-kind and safe parameter or dependency metadata. Registry binding follows the
-same rule-aware error contract.
+kind and safe parameter or dependency metadata. Registry binding attaches
+the registered rule ID to errors after lookup succeeds. If lookup fails with
+`MissingRule`, no rule ID has been resolved, so `BindError::rule_id()` returns
+`None`; the caller retains the requested ID text for its own diagnostics.
 
 The `prepare_contextual_*_validator` adapters take the static dependency slice
 as their first argument and map one domain error to one violation draft.
