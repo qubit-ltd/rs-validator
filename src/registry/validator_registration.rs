@@ -20,7 +20,7 @@ use crate::ValidatorId;
 /// use std::sync::Arc;
 ///
 /// use qubit_validator::{
-///     BindError, BoundValidationContext, ExecutionError, InputType, NamedValidationArgument,
+///     ArgumentReader, BindError, BoundValidationContext, ExecutionError, InputType,
 ///     PreparedOutcome, PreparedValidator, RegistrationSource, ValidationValue, ValidatorDescriptor,
 ///     ValidatorId, ValidatorRegistration, ValidatorSignature,
 /// };
@@ -37,7 +37,7 @@ use crate::ValidatorId;
 ///         Ok(PreparedOutcome::valid())
 ///     }
 /// }
-/// fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+/// fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
 ///     Ok(Arc::new(Accept))
 /// }
 /// static SIGNATURES: &[ValidatorSignature] = &[

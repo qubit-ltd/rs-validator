@@ -34,11 +34,12 @@ qubit-validator = "0.1"
 
 The default features are enough for this path. Define the business rule in the profile module. Its domain error stays useful to code that calls the rule directly; the configured path will map it to a stable violation code.
 
+<!-- validator-guide:rules -->
 ```rust
 // src/profile/rules.rs
 use std::{error::Error, fmt, sync::Arc};
 use qubit_validator::{
-    ArgumentReader, BindError, InputType, NamedValidationArgument,
+    ArgumentReader, BindError, InputType,
     PreparedValidator, Validator, ValidatorDescriptor, ValidatorSignature,
     ViolationCode, ViolationDraft, prepare_text_validator,
 };
@@ -60,10 +61,9 @@ impl Validator<str> for NonBlank {
     }
 }
 
-fn prepare(params: &[NamedValidationArgument<'_>])
+fn prepare(_reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
@@ -75,8 +75,9 @@ static SIGNATURES: &[ValidatorSignature] = &[
 pub static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 ```
 
-`finish()` rejects unexpected parameters because this rule declares none. The mapper uses a fixed code and does not copy the rejected name or the domain error's text into the violation. At application startup, register and bind the rule. Keep the resulting `BoundValidator` in the profile service rather than rebuilding it for every request:
+The binding layer rejects unexpected parameters after this factory succeeds, because the rule consumes none. The mapper uses a fixed code and does not copy the rejected name or the domain error's text into the violation. At application startup, register and bind the rule. Keep the resulting `BoundValidator` in the profile service rather than rebuilding it for every request:
 
+<!-- validator-guide:startup -->
 ```rust
 // src/profile/startup.rs
 use qubit_validator::{
@@ -100,6 +101,7 @@ pub fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Er
 
 For each request, the profile service validates the borrowed name and records the result at a path chosen by the application:
 
+<!-- validator-guide:service -->
 ```rust
 // src/profile/service.rs
 use qubit_validator::{
@@ -142,6 +144,7 @@ fn check_display_name(
 
 The application supplies `ProfileStore` and the HTTP handler. This service boundary makes the decision explicit:
 
+<!-- validator-guide:service-continuation -->
 ```rust
 // Continue in src/profile/service.rs; check_display_name is defined above.
 trait ProfileStore {
@@ -198,7 +201,7 @@ Suppose the profile form has `email` and `email_confirmation`. The confirmation 
 use std::sync::Arc;
 use qubit_validator::{
     ArgumentReader, BindError, BoundValidator, DependencySpec, ExecutionError,
-    InputType, NamedValidationArgument, NamedValidationDependency,
+    InputType, NamedValidationDependency,
     PreparedOutcome, PreparedValidator, RegistrationSource, ValidationOutcome,
     ValidationValue, ValidatorDescriptor, ValidatorId, ValidatorRegistration,
     ValidatorRegistry, ValidatorSignature, ViolationCode, ViolationDraft,
@@ -209,10 +212,9 @@ static EMAIL_DEPENDENCIES: &[DependencySpec] = &[
     DependencySpec::new("email", InputType::Text, false),
 ];
 
-fn prepare_confirmation(params: &[NamedValidationArgument<'_>])
+fn prepare_confirmation(_reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_with_context(EMAIL_DEPENDENCIES, |confirmation, context| {
         let email = context.text(0)?;
         Ok(if confirmation == email {
@@ -270,12 +272,10 @@ use qubit_validator::{
     ValidatorSignature, ViolationCode, ViolationDraft, prepare_text_with_context,
 };
 
-fn prepare_max_length(params: &[NamedValidationArgument<'_>])
+fn prepare_max_length(reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    let mut reader = ArgumentReader::new(params)?;
     let maximum = reader.required_u32("maximum")?;
-    reader.finish()?;
     Ok(prepare_text_with_context(&[], move |name, _| {
         Ok(if name.chars().count() <= maximum as usize {
             PreparedOutcome::Valid

@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
@@ -18,6 +19,7 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
+use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
@@ -25,7 +27,7 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
 
-fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct AlwaysValid;
 
     impl PreparedValidator for AlwaysValid {
@@ -121,6 +123,21 @@ fn test_missing_rule_has_no_resolved_rule_id() {
 
     assert_eq!(error.kind(), BindErrorKind::MissingRule);
     assert_eq!(error.rule_id(), None);
+}
+
+#[test]
+fn test_registry_bind_rejects_unknown_parameter_when_factory_ignores_reader() {
+    let rule = ValidatorId::new("example.valid");
+    let registry =
+        ValidatorRegistry::from_registrations([registration(rule.as_str(), "valid.rs")]).expect("valid registry");
+    let arguments = [NamedValidationArgument::new("unknown", ValidationArgument::Unsigned(1))];
+
+    let error = registry
+        .bind(rule.as_str(), InputType::Text, &arguments)
+        .expect_err("unknown parameter must be rejected");
+
+    assert_eq!(error.kind(), BindErrorKind::UnknownParameter);
+    assert_eq!(error.rule_id(), Some(rule));
 }
 
 #[test]

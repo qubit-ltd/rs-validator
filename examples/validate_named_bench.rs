@@ -10,13 +10,13 @@ use std::hint::black_box;
 use std::sync::Arc;
 use std::time::Instant;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::BoundValidator;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::NamedValidationDependency;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
@@ -57,15 +57,15 @@ static D4: &[DependencySpec] = &[
     DependencySpec::new("d", InputType::of::<u64>(), false),
 ];
 
-fn prepare0(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare0(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(Accept { dependencies: D0 }))
 }
 
-fn prepare1(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare1(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(Accept { dependencies: D1 }))
 }
 
-fn prepare4(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare4(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(Accept { dependencies: D4 }))
 }
 

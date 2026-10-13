@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
@@ -19,7 +20,6 @@ use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PathSegment;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
@@ -99,7 +99,7 @@ impl PreparedValidator for Rejecting {
     }
 }
 
-fn prepare_rejecting(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_rejecting(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(Rejecting))
 }
 
@@ -258,7 +258,7 @@ impl PreparedValidator for FixedOutcome {
     }
 }
 
-fn prepare_empty_invalid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_empty_invalid(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(FixedOutcome {
         make: || PreparedOutcome::Invalid(Vec::new()),
     }))
@@ -282,7 +282,7 @@ fn test_bound_validate_rejects_empty_prepared_outcome_with_bound_rule() {
     assert!(!error.to_string().contains("secret input"));
 }
 
-fn prepare_draft_with_metadata(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_draft_with_metadata(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(FixedOutcome {
         make: || {
             PreparedOutcome::Invalid(vec![

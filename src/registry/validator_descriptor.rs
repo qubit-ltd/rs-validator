@@ -9,12 +9,15 @@
 //! Immutable multi-signature validator descriptors.
 
 use std::fmt;
+use std::sync::Arc;
 
 use super::BindError;
 use super::BindErrorKind;
 use super::BoundValidator;
 use super::ValidatorSignature;
+use crate::ArgumentReader;
 use crate::NamedValidationArgument;
+use crate::PreparedValidator;
 use crate::ValidatorId;
 
 /// A definition containing one or more input/dependency signatures.
@@ -26,9 +29,9 @@ use crate::ValidatorId;
 /// use std::sync::Arc;
 ///
 /// use qubit_validator::prepare_text_validator;
+/// use qubit_validator::ArgumentReader;
 /// use qubit_validator::BindError;
 /// use qubit_validator::InputType;
-/// use qubit_validator::NamedValidationArgument;
 /// use qubit_validator::PreparedValidator;
 /// use qubit_validator::Validator;
 /// use qubit_validator::ValidatorDescriptor;
@@ -45,7 +48,7 @@ use crate::ValidatorId;
 /// }
 ///
 /// fn prepare(
-///     _: &[NamedValidationArgument<'_>],
+///     _reader: &mut ArgumentReader<'_>,
 /// ) -> Result<Arc<dyn PreparedValidator>, BindError> {
 ///     Ok(prepare_text_validator(AcceptAll, |never| match never {}))
 /// }
@@ -100,11 +103,11 @@ impl ValidatorDescriptor {
     ///
     /// Returns parameter or preparation errors, and rejects malformed
     /// descriptors.
-    pub fn bind(
+    pub fn bind<'a>(
         &self,
         rule_id: ValidatorId,
         signature_index: usize,
-        params: &[NamedValidationArgument<'_>],
+        params: &'a [NamedValidationArgument<'a>],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition().map_err(|error| error.with_rule(rule_id))?;
         let signature = self
@@ -112,8 +115,7 @@ impl ValidatorDescriptor {
             .get(signature_index)
             .copied()
             .ok_or_else(|| BindError::new(BindErrorKind::InvalidSelection).with_rule(rule_id))?;
-        let prepared = (signature.prepare())(params).map_err(|error| error.with_rule(rule_id))?;
-        Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
+        let prepared = Self::prepare_checked(rule_id, signature, params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
@@ -123,11 +125,11 @@ impl ValidatorDescriptor {
     ///
     /// Returns an ambiguity, unsupported-input, preparation, or declaration
     /// error.
-    pub fn bind_for(
+    pub fn bind_for<'a>(
         &self,
         rule_id: ValidatorId,
         input: super::InputType,
-        params: &[NamedValidationArgument<'_>],
+        params: &'a [NamedValidationArgument<'a>],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition().map_err(|error| error.with_rule(rule_id))?;
         self.bind_for_validated(rule_id, input, params)
@@ -142,11 +144,11 @@ impl ValidatorDescriptor {
     /// the preparation error or `PreparedSignatureMismatch` when preparing
     /// the selected signature fails or returns a mismatched shape. Errors
     /// carry `rule_id`.
-    pub(crate) fn bind_for_validated(
+    pub(crate) fn bind_for_validated<'a>(
         &self,
         rule_id: ValidatorId,
         input: super::InputType,
-        params: &[NamedValidationArgument<'_>],
+        params: &'a [NamedValidationArgument<'a>],
     ) -> Result<BoundValidator, BindError> {
         let signature = self
             .signatures
@@ -154,9 +156,27 @@ impl ValidatorDescriptor {
             .copied()
             .find(|signature| signature.input() == input)
             .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput).with_rule(rule_id))?;
-        let prepared = (signature.prepare())(params).map_err(|error| error.with_rule(rule_id))?;
-        Self::check_prepared_shape(prepared.as_ref(), signature, rule_id)?;
+        let prepared = Self::prepare_checked(rule_id, signature, params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
+    }
+
+    /// Checks all parameters and the prepared shape after a signature is
+    /// selected.
+    ///
+    /// # Errors
+    ///
+    /// Returns a rule-tagged error for duplicate parameters, factory failures,
+    /// unconsumed parameters, or a prepared signature mismatch.
+    fn prepare_checked<'a>(
+        rule_id: ValidatorId,
+        signature: ValidatorSignature,
+        params: &'a [NamedValidationArgument<'a>],
+    ) -> Result<Arc<dyn PreparedValidator>, BindError> {
+        let mut reader = ArgumentReader::new(params).map_err(|error| error.with_rule(rule_id))?;
+        let prepared = (signature.prepare())(&mut reader).map_err(|error| error.with_rule(rule_id))?;
+        reader.finish().map_err(|error| error.with_rule(rule_id))?;
+        Self::check_prepared_shape(prepared.as_ref(), signature).map_err(|error| error.with_rule(rule_id))?;
+        Ok(prepared)
     }
 
     /// Ensures a factory produced the input and dependency shape it declared.
@@ -164,13 +184,9 @@ impl ValidatorDescriptor {
     /// # Errors
     ///
     /// Returns `PreparedSignatureMismatch` when either shape differs.
-    fn check_prepared_shape(
-        prepared: &dyn super::super::PreparedValidator,
-        signature: ValidatorSignature,
-        rule_id: ValidatorId,
-    ) -> Result<(), BindError> {
+    fn check_prepared_shape(prepared: &dyn PreparedValidator, signature: ValidatorSignature) -> Result<(), BindError> {
         if prepared.input_type() != signature.input() || prepared.dependency_specs() != signature.dependencies() {
-            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch).with_rule(rule_id));
+            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch));
         }
         Ok(())
     }

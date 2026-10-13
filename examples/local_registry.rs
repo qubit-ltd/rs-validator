@@ -62,8 +62,7 @@ impl Validator<str> for NonBlank {
     }
 }
 
-fn prepare_non_blank(params: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    ArgumentReader::new(params)?.finish()?;
+fn prepare_non_blank(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
@@ -106,7 +105,7 @@ impl PreparedValidator for CheckDependencySlots {
     }
 }
 
-fn prepare_dependency_slots(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_dependency_slots(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(CheckDependencySlots))
 }
 

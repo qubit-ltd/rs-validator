@@ -10,12 +10,12 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
@@ -46,7 +46,7 @@ impl PreparedValidator for AlwaysValid {
     }
 }
 
-fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(AlwaysValid))
 }
 

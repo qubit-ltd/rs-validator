@@ -9,9 +9,9 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
 use qubit_validator::Validator;
@@ -30,7 +30,7 @@ impl Validator<str> for AcceptAll {
     }
 }
 
-fn prepare_valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_valid(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(qubit_validator::prepare_text_validator(AcceptAll, |_| {
         qubit_validator::ViolationDraft::new(qubit_validator::ViolationCode::new("test.invalid"))
     }))

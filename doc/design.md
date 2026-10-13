@@ -12,7 +12,8 @@ The crate has four goals:
 - support configured execution through a small, safe type-erased boundary;
 - make registration deterministic and diagnosable; and
 - represent violations, skips, binding failures, and execution failures as
-  distinct public concepts without retaining rejected inputs.
+  distinct public concepts while avoiding automatic exposure of rejected
+  inputs in reports and ordinary error formatting.
 
 It does not discover object properties, traverse object graphs, compile model
 paths, schedule sets of validators, localize messages, or prescribe how an
@@ -55,8 +56,12 @@ flowchart LR
     O --> Q[ValidationReport]
 ```
 
-A preparation function decodes `NamedValidationArgument` values provided by `qubit-validator` and returns an
-owned prepared instance. Binding selects one signature and stores the selected
+A descriptor binding creates an `ArgumentReader`, which rejects duplicate
+parameter names before calling the selected signature's preparation function.
+The factory reads the parameters it recognizes and returns an owned prepared
+instance; after successful preparation, the binding layer checks for any
+unconsumed parameters. Required parameters and value constraints remain the
+factory's responsibility. Binding selects one signature and stores the selected
 input shape, dependency slots,
 prepared instance, and rule ID in the bound validator. `BoundValidator::try_from_prepared<T>` returns a binding error unless the prepared instance accepts exactly `T` and declares no dependencies. Every prepared instance reports its input and dependency shape; binding compares both against the selected static signature and attaches the rule ID to a mismatch. Execution checks the erased input and dependency
 values before delegating to the prepared instance. The bound validator then
@@ -117,16 +122,18 @@ and binding validate descriptors before use.
 
 ## One-Pass Parameter Consumption
 
-`ArgumentReader` rejects duplicate names when it is created. Each present
-parameter can then be consumed by one typed read. The read marks the parameter
-consumed before decoding, so a type or range error cannot be bypassed by trying
-a different reader afterward. A second read returns
+Descriptor binding creates the `ArgumentReader`, which rejects duplicate names
+before the preparation function runs. The factory then reads the parameters it
+recognizes. Each present parameter can be consumed by one typed read. The read
+marks the parameter consumed before decoding, so a type or range error cannot
+be bypassed by trying a different reader afterward. A second read returns
 `ParameterAlreadyConsumed`.
 
-After extracting all supported parameters, a preparation function calls
-`ArgumentReader::finish`. Any unconsumed value is reported as
-`UnknownParameter`. Together, duplicate rejection, one-pass reads, and
-`finish` make parameter handling explicit and deterministic.
+After successful preparation, the binding layer calls `ArgumentReader::finish`.
+Any unconsumed value is reported as `UnknownParameter`. Required parameters and
+value constraints remain the factory's responsibility. Together, duplicate
+rejection, one-pass reads, and the binding layer's final check make parameter
+handling explicit and deterministic.
 
 ## Error Classification
 
@@ -177,7 +184,12 @@ evidence retains its absolute path.
 
 `ValidationValue` and validation arguments are borrowed views and redact names and values in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.
-`ExecutionError` may retain an owned source for explicit trusted access through `trusted_source()`. Its public `Display`, `Debug`, and standard `Error::source()` do not expose the retained cause. Violation
+Reports and ordinary error formatting do not automatically expose raw input.
+`ExecutionError::with_trusted_source` can retain any owned cause, and
+`trusted_source()` explicitly provides it to trusted callers. Consumers are
+responsible for not forwarding sensitive causes to logs or clients. Public
+`Display`, `Debug`, and standard `Error::source()` do not expose the retained
+cause. Violation
 parameters use the restricted public `ViolationParam` vocabulary, which limits
 representation but does not prove provenance. `Unsigned(minimum)` from rule
 configuration is allowed, while `Unsigned(rejected_number)` from rejected
@@ -185,10 +197,12 @@ input is not. A `Token`'s `'static` lifetime does not prove it came from a
 trusted declaration. Callers must never include rejected input or sensitive
 values derived from it.
 
-The original rejected input must never be copied into a violation, retained by
-an execution error, or interpolated into public error formatting. Adapters map
-domain errors to stable codes and parameters whose content is chosen by the
-caller to meet its disclosure policy.
+The original rejected input must never be copied into a violation or
+interpolated into ordinary public error formatting. Because an explicitly
+retained execution-error cause can contain arbitrary data, callers must keep
+sensitive causes out of logs and client-facing output. Adapters map domain
+errors to stable codes and parameters whose content is chosen by the caller to
+meet its disclosure policy.
 
 ## Local and Inventory Feature Boundary
 

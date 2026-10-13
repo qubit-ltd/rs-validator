@@ -39,7 +39,7 @@ impl Validator<str> for Accept {
     }
 }
 
-fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(qubit_validator::prepare_text_validator(Accept, |never| match never {}))
 }
 

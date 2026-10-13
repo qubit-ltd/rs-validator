@@ -12,6 +12,36 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::ValidationArgument;
 
 #[test]
+fn test_required_argument_returns_raw_value_and_consumes_parameter() {
+    let values = ["first", "second"];
+    let args = [NamedValidationArgument::new(
+        "choices",
+        ValidationArgument::StringList(&values),
+    )];
+    let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
+
+    assert_eq!(
+        reader
+            .required_argument("choices")
+            .expect("present parameter should be returned"),
+        ValidationArgument::StringList(&values)
+    );
+    reader.finish().expect("the parameter was consumed");
+
+    let repeated = reader
+        .required_argument("choices")
+        .expect_err("second read should be rejected");
+    assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    assert_eq!(repeated.parameter(), Some("choices"));
+
+    let missing = reader
+        .required_argument("missing")
+        .expect_err("absent parameter should be rejected");
+    assert_eq!(missing.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(missing.parameter(), Some("missing"));
+}
+
+#[test]
 fn test_required_parameter_cannot_be_read_twice() {
     let args = [NamedValidationArgument::new("limit", ValidationArgument::Unsigned(10))];
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");

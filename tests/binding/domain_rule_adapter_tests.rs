@@ -8,13 +8,13 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationOutcome;
@@ -50,7 +50,7 @@ impl Validator<str> for DomainRule {
 
 static DOMAIN_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("required", InputType::Text, false)];
 
-fn prepare_domain_with_dependency(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_domain_with_dependency(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         DOMAIN_DEPENDENCIES,
         DomainRule,
@@ -78,7 +78,7 @@ impl std::fmt::Display for TypedFailure {
 impl std::error::Error for TypedFailure {}
 
 fn prepare_typed_with_safe_configuration(
-    _: &[NamedValidationArgument<'_>],
+    _reader: &mut ArgumentReader<'_>,
 ) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_typed_domain_rule::<u32, _, _, u32, _, _>(
         &[],
@@ -167,7 +167,7 @@ fn domain_adapter_preserves_multiple_drafts_for_domain_failure() {
     assert!(matches!(rejected, PreparedOutcome::Invalid(ref drafts) if !drafts.is_empty()));
 }
 
-fn prepare_fixture(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_fixture(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         &[],
         DomainRule,
@@ -183,7 +183,8 @@ fn prepare_fixture(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn Prepared
 
 #[test]
 fn test_prepared_domain_call_relies_on_bound_validator_for_dependency_contracts() {
-    let prepared = prepare_domain_with_dependency(&[]).expect("domain adapter prepares");
+    let mut reader = ArgumentReader::new(&[]).expect("empty arguments are valid");
+    let prepared = prepare_domain_with_dependency(&mut reader).expect("domain adapter prepares");
     let direct = prepared
         .validate(ValidationValue::Text("ok"), &BoundValidationContext::new(&[]))
         .expect("direct prepared calls execute the supplied closure");

@@ -35,7 +35,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use qubit_validator::{
-    ArgumentReader, BoundValidationContext, InputType, NamedValidationArgument, PreparedValidator,
+    ArgumentReader, BoundValidationContext, InputType, PreparedValidator,
     RegistrationSource, ValidationPath, ValidationReport, ValidationValue, Validator,
     ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry, ValidatorSignature,
     ViolationCode, ViolationDraft, prepare_text_validator,
@@ -63,9 +63,8 @@ impl Validator<str> for NonBlank {
 }
 
 fn prepare_non_blank(
-    params: &[NamedValidationArgument<'_>],
+    _reader: &mut ArgumentReader<'_>,
 ) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
@@ -105,9 +104,8 @@ impl Validator<str> for AsciiEmail {
     }
 }
 fn prepare_email(
-    params: &[NamedValidationArgument<'_>],
+    _reader: &mut ArgumentReader<'_>,
 ) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(AsciiEmail, |_| {
         ViolationDraft::new(ViolationCode::new("text.email"))
     }))

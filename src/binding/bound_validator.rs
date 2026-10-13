@@ -37,11 +37,11 @@ use crate::ValidatorId;
 /// ```
 /// use std::sync::Arc;
 ///
+/// use qubit_validator::ArgumentReader;
 /// use qubit_validator::BindError;
 /// use qubit_validator::BoundValidationContext;
 /// use qubit_validator::ExecutionError;
 /// use qubit_validator::InputType;
-/// use qubit_validator::NamedValidationArgument;
 /// use qubit_validator::PreparedOutcome;
 /// use qubit_validator::PreparedValidator;
 /// use qubit_validator::ValidationOutcome;
@@ -65,7 +65,7 @@ use crate::ValidatorId;
 /// }
 ///
 /// fn prepare(
-///     _: &[NamedValidationArgument<'_>],
+///     _reader: &mut ArgumentReader<'_>,
 /// ) -> Result<Arc<dyn PreparedValidator>, BindError> {
 ///     Ok(Arc::new(AcceptAll))
 /// }
@@ -120,7 +120,6 @@ impl BoundValidator {
     ///
     /// Returns `PreparedSignatureMismatch` with `rule_id` attached when the
     /// prepared validator does not accept exactly `T` or declares dependencies.
-    #[must_use = "handle binding errors before using the bound validator"]
     pub fn try_from_prepared<T: 'static>(
         rule_id: ValidatorId,
         prepared: Arc<dyn PreparedValidator>,
