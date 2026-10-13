@@ -1,8 +1,17 @@
+// =============================================================================
+//    Copyright (c) 2025 - 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 const MANIFEST_MARKER: &str = "<!-- validator-quick-start:manifest -->";
 const SOURCE_MARKER: &str = "<!-- validator-quick-start:source -->";
@@ -75,7 +84,15 @@ impl Drop for TemporaryApp {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process::Command;
+
+    use super::INSTALLATION;
+    use super::MANIFEST_MARKER;
+    use super::SOURCE_MARKER;
+    use super::TemporaryApp;
+    use super::extract_quick_start;
 
     const VALID_README: &str = r#"
 <!-- validator-quick-start:manifest -->
