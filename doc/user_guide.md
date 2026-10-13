@@ -201,7 +201,7 @@ Suppose the profile form has `email` and `email_confirmation`. The confirmation 
 use std::sync::Arc;
 use qubit_validator::{
     ArgumentReader, BindError, BoundValidator, DependencySpec, ExecutionError,
-    InputType, NamedValidationArgument, NamedValidationDependency,
+    InputType, NamedValidationDependency,
     PreparedOutcome, PreparedValidator, RegistrationSource, ValidationOutcome,
     ValidationValue, ValidatorDescriptor, ValidatorId, ValidatorRegistration,
     ValidatorRegistry, ValidatorSignature, ViolationCode, ViolationDraft,
@@ -212,10 +212,9 @@ static EMAIL_DEPENDENCIES: &[DependencySpec] = &[
     DependencySpec::new("email", InputType::Text, false),
 ];
 
-fn prepare_confirmation(params: &[NamedValidationArgument<'_>])
+fn prepare_confirmation(_reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_with_context(EMAIL_DEPENDENCIES, |confirmation, context| {
         let email = context.text(0)?;
         Ok(if confirmation == email {
@@ -273,12 +272,10 @@ use qubit_validator::{
     ValidatorSignature, ViolationCode, ViolationDraft, prepare_text_with_context,
 };
 
-fn prepare_max_length(params: &[NamedValidationArgument<'_>])
+fn prepare_max_length(reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    let mut reader = ArgumentReader::new(params)?;
     let maximum = reader.required_u32("maximum")?;
-    reader.finish()?;
     Ok(prepare_text_with_context(&[], move |name, _| {
         Ok(if name.chars().count() <= maximum as usize {
             PreparedOutcome::Valid
