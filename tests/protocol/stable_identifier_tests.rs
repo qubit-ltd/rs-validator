@@ -8,10 +8,10 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationLimits;
 use qubit_validator::ValidationOutcome;
@@ -46,7 +46,7 @@ impl Validator<str> for RejectSensitiveText {
     }
 }
 
-fn prepare_sensitive_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_sensitive_text(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_validator(RejectSensitiveText, |_| {
         ViolationDraft::new(ViolationCode::new("credentials.rejected"))
             .with_param("retry_after", ViolationParam::Unsigned(3))

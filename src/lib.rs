@@ -55,7 +55,7 @@
 //! use std::sync::Arc;
 //!
 //! use qubit_validator::{
-//!     BindError, BoundValidationContext, InputType, NamedValidationArgument,
+//!     ArgumentReader, BindError, BoundValidationContext, InputType,
 //!     PreparedValidator, RegistrationSource, ValidationOutcome, ValidationPath,
 //!     ValidationReport, ValidationValue, Validator, ValidatorDescriptor, ValidatorId,
 //!     ValidatorRegistration, ValidatorRegistry, ValidatorSignature, ViolationCode,
@@ -80,7 +80,7 @@
 //!     }
 //! }
 //!
-//! fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+//! fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
 //!     Ok(prepare_text_validator(NonBlank, |_| {
 //!         qubit_validator::ViolationDraft::new(qubit_validator::ViolationCode::new("text.blank"))
 //!     }))

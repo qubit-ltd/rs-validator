@@ -8,11 +8,11 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
@@ -41,7 +41,7 @@ impl Validator<i64> for AtLeastThree {
     }
 }
 
-fn prepare_at_least_three(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_at_least_three(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_typed_validator(AtLeastThree, |_| {
         ViolationDraft::new(ViolationCode::new("number.too_small"))
             .with_path(ValidationPath::root().with_field("value"))
@@ -75,7 +75,7 @@ impl Validator<str> for NonBlankText {
     }
 }
 
-fn prepare_non_blank_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_non_blank_text(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_validator(NonBlankText, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))

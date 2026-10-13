@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::BoundValidator;
@@ -15,7 +16,6 @@ use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::NamedValidationDependency;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
@@ -45,7 +45,7 @@ impl PreparedValidator for ValidAdapter {
     }
 }
 
-fn prepare_valid(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_valid(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(ValidAdapter))
 }
 
@@ -86,7 +86,7 @@ impl PreparedValidator for OrderedTextAdapter {
     }
 }
 
-fn prepare_ordered_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_ordered_text(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(OrderedTextAdapter))
 }
 
@@ -117,7 +117,7 @@ impl PreparedValidator for RootFirstTextAdapter {
     }
 }
 
-fn prepare_root_first_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_root_first_text(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(RootFirstTextAdapter))
 }
 
@@ -162,7 +162,7 @@ impl PreparedValidator for NineSlotAdapter {
     }
 }
 
-fn prepare_nine_slot(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_nine_slot(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(NineSlotAdapter))
 }
 
@@ -225,7 +225,7 @@ impl PreparedValidator for SingleTextAdapter {
     }
 }
 
-fn prepare_single_text(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_single_text(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(SingleTextAdapter))
 }
 

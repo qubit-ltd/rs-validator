@@ -8,13 +8,13 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
 use qubit_validator::DependencySpec;
 use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
-use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::ValidationOutcome;
@@ -56,7 +56,7 @@ static TEXT_DEPENDENCIES: &[DependencySpec] = &[
     DependencySpec::new("second", InputType::Text, false),
 ];
 
-fn prepare_dependency_pair(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_dependency_pair(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_contextual_text_validator(
         TEXT_DEPENDENCIES,
         MatchesDependencyPair,
@@ -90,7 +90,7 @@ impl<'a> Validator<u32, BoundValidationContext<'a>> for OptionalMinimum {
 
 static OPTIONAL_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("minimum", InputType::of::<u32>(), true)];
 
-fn prepare_optional_minimum(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_optional_minimum(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_contextual_typed_validator::<u32, _, _, _>(
         OPTIONAL_DEPENDENCIES,
         OptionalMinimum,
@@ -262,7 +262,7 @@ fn test_typed_context_closure_rejects_wrong_target_type_before_invocation() {
 
 static FALLIBLE_DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("expected", InputType::Text, false)];
 
-fn prepare_fallible_dependency(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_fallible_dependency(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(prepare_text_with_context(FALLIBLE_DEPENDENCIES, |_, context| {
         context.text(0)?;
         Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
