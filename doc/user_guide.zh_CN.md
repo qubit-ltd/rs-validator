@@ -21,7 +21,7 @@
 
 `qubit-validator` 将这些步骤分开：`Validator<T, C>` 是带类型的普通规则；描述符和注册表按 ID 绑定规则；已绑定的规则在每次调用时检查输入形状；`ValidationReport` 把结果附到应用指定的字段路径。资料模块仍负责选字段、安排检查顺序、决定是否保存和生成用户文案。本库不会自动遍历资料对象，也不负责写入数据库。
 
-仓库的[局部注册表示例](../examples/local_registry.rs)可用 `cargo run --example local_registry --locked` 运行。它验证相同的 `text.non_blank` 规则和绑定流程，还覆盖命名依赖与参数读取；它没有实现资料存储或汇总报告。下文展示资料模块与这些边界如何衔接。若要根据字段注解自动校验整个对象，参见[用户注册示例](../README.zh_CN.md#快速开始)和[模型校验手册](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.zh_CN.md#实战场景续校验一个用户实例)。
+仓库的[局部注册表示例](../examples/local_registry.rs)可用 `cargo run --example local_registry --locked` 运行。它验证相同的 `text.non_blank` 规则和绑定流程，还覆盖命名依赖与参数读取；它没有实现资料存储或汇总报告。下文展示资料模块与这些边界如何衔接。若要根据字段注解自动校验整个对象，可先看[模型注解集成](../README.zh_CN.md#模型注解集成)中的本地依赖配置，再按[模型校验手册](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.zh_CN.md#实战场景续校验一个用户实例)完成模型级校验流程。
 
 ## 接入资料修改流程
 
