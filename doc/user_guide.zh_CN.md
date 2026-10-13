@@ -34,11 +34,12 @@ qubit-validator = "0.1"
 
 默认功能已足够完成此流程。先在资料模块定义“全空白名称无效”规则。直接调用这条规则的代码可以处理它自己的领域错误；按配置执行时，再把领域错误转换为稳定违规代码。
 
+<!-- validator-guide:rules -->
 ```rust
 // src/profile/rules.rs
 use std::{error::Error, fmt, sync::Arc};
 use qubit_validator::{
-    ArgumentReader, BindError, InputType, NamedValidationArgument,
+    ArgumentReader, BindError, InputType,
     PreparedValidator, Validator, ValidatorDescriptor, ValidatorSignature,
     ViolationCode, ViolationDraft, prepare_text_validator,
 };
@@ -60,10 +61,9 @@ impl Validator<str> for NonBlank {
     }
 }
 
-fn prepare(params: &[NamedValidationArgument<'_>])
+fn prepare(_reader: &mut ArgumentReader<'_>)
     -> Result<Arc<dyn PreparedValidator>, BindError>
 {
-    ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
@@ -75,8 +75,9 @@ static SIGNATURES: &[ValidatorSignature] = &[
 pub static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 ```
 
-`finish()` 会拒绝多余参数，因为这条规则不需要配置值。映射器只生成固定代码 `text.blank`，不把被拒绝的名称或领域错误文字放入违规项。应用启动时注册并绑定一次规则，把得到的 `BoundValidator` 放入资料服务，不要每次请求都重新绑定：
+这条规则不读取配置参数。工厂成功返回后，绑定层会拒绝多余参数。映射器只生成固定代码 `text.blank`，不把被拒绝的名称或领域错误文字放入违规项。应用启动时注册并绑定一次规则，把得到的 `BoundValidator` 放入资料服务，不要每次请求都重新绑定：
 
+<!-- validator-guide:startup -->
 ```rust
 // src/profile/startup.rs
 use qubit_validator::{
@@ -100,6 +101,7 @@ pub fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Er
 
 收到请求后，资料服务借用输入名称执行规则，并把结果记在自己指定的字段路径：
 
+<!-- validator-guide:service -->
 ```rust
 // src/profile/service.rs
 use qubit_validator::{
@@ -142,6 +144,7 @@ fn check_display_name(
 
 `ProfileStore` 和 HTTP handler 由应用提供。资料服务可以按下面的方式明确“通过才保存”的决策：
 
+<!-- validator-guide:service-continuation -->
 ```rust
 // 接续 src/profile/service.rs；check_display_name 已在上文定义。
 trait ProfileStore {
