@@ -209,7 +209,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 ```toml
 [dependencies]
-qubit-validator = { path = "../rust-common/rs-validator" }
+qubit-validator = { version = "0.1", path = "../rust-common/rs-validator" }
 qubit-model-metadata = { path = "../rust-common/rs-model-metadata", features = ["validation"] }
 qubit-model-derive = { path = "../rust-common/rs-model-metadata/derive" }
 qubit-reflect = { path = "../rust-common/rs-reflect" }
