@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use super::ArgumentReader;
 use super::BindError;
 use super::BoundValidationContext;
 use super::DependencySpec;
@@ -17,7 +18,6 @@ use super::ExecutionError;
 use super::InputType;
 use super::PreparedOutcome;
 use super::ValidationValue;
-use crate::NamedValidationArgument;
 
 /// A configured, immutable validator instance safe to share between calls.
 ///
@@ -82,8 +82,11 @@ pub trait PreparedValidator: Send + Sync {
 
 /// Constructs an owned prepared validator from declaration parameters.
 ///
-/// The function returns a binding error when parameters are missing, unknown,
-/// duplicated, or cannot be decoded by the validator implementation.
+/// When binding through a descriptor or registry, the binding layer rejects
+/// duplicate parameter names before calling the factory and rejects unconsumed
+/// parameters after it returns. The factory's reader calls decide which
+/// parameters are required and reject invalid types or ranges. Calling the
+/// factory directly does not provide the binding layer's checks.
 ///
 /// # Examples
 ///
@@ -91,7 +94,7 @@ pub trait PreparedValidator: Send + Sync {
 /// use std::sync::Arc;
 ///
 /// use qubit_validator::{
-///     BindError, BoundValidationContext, ExecutionError, NamedValidationArgument,
+///     ArgumentReader, BindError, BoundValidationContext, ExecutionError,
 ///     PrepareFn, PreparedOutcome, PreparedValidator, ValidationValue,
 /// };
 ///
@@ -114,16 +117,18 @@ pub trait PreparedValidator: Send + Sync {
 ///     }
 /// }
 ///
-/// fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+/// fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
 ///     Ok(Arc::new(Accept))
 /// }
 ///
 /// let factory: PrepareFn = prepare;
-/// let prepared = factory(&[])?;
+/// let mut reader = ArgumentReader::new(&[])?;
+/// let prepared = factory(&mut reader)?;
+/// reader.finish()?;
 /// assert_eq!(prepared.validate(
 ///     ValidationValue::Text("ready"),
 ///     &BoundValidationContext::new(&[]),
 /// )?, PreparedOutcome::valid());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub type PrepareFn = fn(&[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError>;
+pub type PrepareFn = for<'a> fn(&mut ArgumentReader<'a>) -> Result<Arc<dyn PreparedValidator>, BindError>;

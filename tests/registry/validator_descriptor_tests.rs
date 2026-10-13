@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
 use qubit_validator::BoundValidationContext;
@@ -18,6 +19,7 @@ use qubit_validator::NamedValidationArgument;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
+use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
@@ -25,7 +27,7 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
 
-fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Always;
     impl PreparedValidator for Always {
         fn input_type(&self) -> InputType {
@@ -46,12 +48,71 @@ fn prepare(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidato
     Ok(Arc::new(Always))
 }
 
-fn prepare_with_error(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare_with_error(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Err(BindError::new(BindErrorKind::MissingParameter).with_parameter("minimum"))
+}
+
+fn prepare_ignoring_reader(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    prepare(_reader)
+}
+
+fn prepare_requiring_maximum(reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    let _maximum = reader.required_u32("maximum")?;
+    prepare_ignoring_reader(reader)
 }
 
 static SIG_A: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static D_A: ValidatorDescriptor = ValidatorDescriptor::new(SIG_A);
+
+#[test]
+fn test_bind_rejects_duplicate_parameter_even_when_factory_ignores_reader() {
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    let descriptor = ValidatorDescriptor::new(SIGNATURES);
+    let rule = ValidatorId::new("test.duplicate_parameter");
+    let params = [
+        NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1)),
+        NamedValidationArgument::new("extra", ValidationArgument::Unsigned(2)),
+    ];
+
+    let error = descriptor.bind(rule, 0, &params).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::DuplicateParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+}
+
+#[test]
+fn test_bind_rejects_unconsumed_parameter() {
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    let descriptor = ValidatorDescriptor::new(SIGNATURES);
+    let rule = ValidatorId::new("test.unconsumed_parameter");
+    let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
+
+    let error = descriptor.bind(rule, 0, &params).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::UnknownParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+}
+
+#[test]
+fn test_bind_for_rejects_unconsumed_parameter() {
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    let descriptor = ValidatorDescriptor::new(SIGNATURES);
+    let rule = ValidatorId::new("test.unconsumed_parameter_for");
+    let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
+
+    let error = descriptor.bind_for(rule, InputType::Text, &params).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::UnknownParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+}
+
+#[test]
+fn test_bind_reports_missing_required_parameter() {
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_requiring_maximum)];
+    let descriptor = ValidatorDescriptor::new(SIGNATURES);
+    let rule = ValidatorId::new("test.missing_maximum");
+
+    let error = descriptor.bind(rule, 0, &[]).unwrap_err();
+    assert_eq!(error.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(error.rule_id(), Some(rule));
+}
 
 fn registration(
     id: &'static str,
