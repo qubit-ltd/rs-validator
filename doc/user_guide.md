@@ -1,73 +1,68 @@
-# qubit-validator User Guide
+# Qubit Validator user guide
 
-[简体中文](user_guide.zh_CN.md)
+[README](../README.md) · [简体中文](user_guide.zh_CN.md) · [API reference](https://docs.rs/qubit-validator)
 
-Applies to `qubit-validator` 0.1.x · Minimum supported Rust: 1.94
+This guide covers `qubit-validator` 0.1.x on Rust 1.94 or newer. It is for developers adding typed validation to a Rust application, especially when several request paths select rules from configuration. Follow [Integrate a profile update](#integrate-a-profile-update) and [Check the result before saving](#check-the-result-before-saving) for the basic path. The remaining sections answer specific questions about dependencies, parameters, reports, registration, and failures.
 
-## Purpose and Audience
+## Contents
 
-This guide is for Rust library and application authors who need ordinary
-typed validation as well as configured rule lookup by stable ID. It covers the
-public API without assuming a model framework, code generator, or scheduler.
+- [The problem it solves](#the-problem-it-solves)
+- [Integrate a profile update](#integrate-a-profile-update)
+- [Check the result before saving](#check-the-result-before-saving)
+- [Compare two profile fields](#compare-two-profile-fields)
+- [Configure a rule once at startup](#configure-a-rule-once-at-startup)
+- [Collect several checks and handle limits](#collect-several-checks-and-handle-limits)
+- [Choose registration and adapter options](#choose-registration-and-adapter-options)
+- [Diagnose failures and respect boundaries](#diagnose-failures-and-respect-boundaries)
 
-## Scenario: Validate a Configured Display Name
+## The problem it solves
 
-The example validates a display name with a `NonBlank` rule. It registers the
-rule as `text.non_blank`, maps its domain error to `text.blank`, binds it once,
-and checks both an accepted and a rejected value. The complete runnable source
-is [`examples/local_registry.rs`](../examples/local_registry.rs); run it with:
+A profile update receives a `display_name`. The application must reject a name containing only whitespace and tell the client which field failed, while leaving the submitted text out of diagnostics. At first, a direct Rust rule may be enough. When multiple entry points choose rules from configuration, the application also needs stable rule IDs, an error if startup configuration cannot be bound, and a report it can map to its own response format.
 
-```bash
-cargo run --example local_registry --locked
+`qubit-validator` separates those steps. `Validator<T, C>` is ordinary typed rule code. A descriptor and registry bind a selected rule once; the bound validator checks input shape on each call. `ValidationReport` attaches the caller's field path to a result. The application still chooses fields, schedules rules, decides whether to save, and creates client messages. The crate neither walks profile objects nor stores data.
+
+The repository's [local registry example](../examples/local_registry.rs) runs with `cargo run --example local_registry --locked`. It checks the same `text.non_blank` binding with accepted and rejected names, plus named dependency binding and parameter consumption. It does not implement the profile store or collect a report; the application integration below shows those boundaries. For annotation-driven whole-object validation, see the [user registration example](../README.md#quick-start) and the [model validation guide](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.md#core-workflow-validate-a-profile-and-keep-partial-results).
+
+## Integrate a profile update
+
+Add the crate to the application's `Cargo.toml`:
+
+```toml
+[dependencies]
+qubit-validator = "0.1"
 ```
 
-The following application flow uses the same `text.non_blank` rule. These
-snippets belong to one application module: later snippets use types and
-functions declared earlier. The application owns its profile store and request
-response.
-
-First, define the typed rule and its domain error:
+The default features are enough for this path. Define the business rule in the profile module. Its domain error stays useful to code that calls the rule directly; the configured path will map it to a stable violation code.
 
 ```rust
-use std::{error::Error, fmt};
-use qubit_validator::Validator;
+// src/profile/rules.rs
+use std::{error::Error, fmt, sync::Arc};
+use qubit_validator::{
+    ArgumentReader, BindError, InputType, NamedValidationArgument,
+    PreparedValidator, Validator, ValidatorDescriptor, ValidatorSignature,
+    ViolationCode, ViolationDraft, prepare_text_validator,
+};
 
 #[derive(Debug)]
-struct BlankText;
-
+pub struct BlankText;
 impl fmt::Display for BlankText {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("text must not be blank")
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("text must not be blank")
     }
 }
-
 impl Error for BlankText {}
 
-struct NonBlank;
-
+pub struct NonBlank;
 impl Validator<str> for NonBlank {
     type Error = BlankText;
-
     fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
         if value.trim().is_empty() { Err(BlankText) } else { Ok(()) }
     }
 }
-```
 
-Next, define a preparation function and describe the accepted input. This
-rule takes no parameters, so `finish()` rejects unexpected configuration:
-
-```rust
-use std::sync::Arc;
-use qubit_validator::{
-    ArgumentReader, BindError, InputType, NamedValidationArgument,
-    PreparedValidator, ValidatorDescriptor, ValidatorSignature,
-    ViolationCode, ViolationDraft, prepare_text_validator,
-};
-
-fn prepare_non_blank(
-    params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+fn prepare(params: &[NamedValidationArgument<'_>])
+    -> Result<Arc<dyn PreparedValidator>, BindError>
+{
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
@@ -75,45 +70,51 @@ fn prepare_non_blank(
 }
 
 static SIGNATURES: &[ValidatorSignature] = &[
-    ValidatorSignature::new(InputType::Text, &[], prepare_non_blank),
+    ValidatorSignature::new(InputType::Text, &[], prepare),
 ];
-static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+pub static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 ```
 
-At startup, register and bind the rule once, then inject the resulting
-`BoundValidator` into the profile service:
+`finish()` rejects unexpected parameters because this rule declares none. The mapper uses a fixed code and does not copy the rejected name or the domain error's text into the violation. At application startup, register and bind the rule. Keep the resulting `BoundValidator` in the profile service rather than rebuilding it for every request:
 
 ```rust
+// src/profile/startup.rs
 use qubit_validator::{
-    BoundValidator, RegistrationSource, ValidatorId,
+    BoundValidator, InputType, RegistrationSource, ValidatorId,
     ValidatorRegistration, ValidatorRegistry,
 };
+use crate::profile::rules::DESCRIPTOR;
 
-fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Error>> {
+pub fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Error>> {
     let registration = ValidatorRegistration::new(
         ValidatorId::new("text.non_blank"),
         &DESCRIPTOR,
         RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
     );
     let registry = ValidatorRegistry::from_registrations([registration])?;
-    Ok(registry.bind("text.non_blank", InputType::Text, &[])?)
+    Ok(registry.bind("text.non_blank", InputType::Text, &[])? )
 }
 ```
 
-For each request, record the result at the field path. The caller checks the
-report before asking its own store to save the value:
+`from_registrations` detects duplicate IDs and invalid descriptors; `bind` selects the text signature and prepares the rule. Handle either error before accepting profile requests. This small function returns one bound rule; an application with many rules can keep the registry and bind each selected ID at startup.
+
+For each request, the profile service validates the borrowed name and records the result at a path chosen by the application:
 
 ```rust
+// src/profile/service.rs
 use qubit_validator::{
-    BoundValidationContext, ValidationPath, ValidationReport, ValidationValue,
+    BoundValidationContext, BoundValidator, ValidationPath,
+    ValidationReport, ValidationValue,
 };
 
 fn check_display_name(
-    validator: &BoundValidator,
+    rule: &BoundValidator,
     display_name: &str,
 ) -> Result<ValidationReport, Box<dyn std::error::Error>> {
-    let context = BoundValidationContext::new(&[]);
-    let outcome = validator.validate(ValidationValue::Text(display_name), &context)?;
+    let outcome = rule.validate(
+        ValidationValue::Text(display_name),
+        &BoundValidationContext::new(&[]),
+    )?;
     let mut report = ValidationReport::new();
     report.record_outcome(
         0,
@@ -122,7 +123,27 @@ fn check_display_name(
     )?;
     Ok(report)
 }
+```
 
+`0` is the occurrence number in this request's validation plan. The crate does not inspect the profile struct to find the field. For `"Ada"`, the report is valid; for `"   "`, it contains one `text.blank` violation at `display_name`. The profile service checks the report before using its own storage interface.
+
+### Types used on this path
+
+| Type | Role in the profile update |
+| --- | --- |
+| `Validator<str>` | Implements the business rule and its domain error. |
+| `ValidatorSignature` / `ValidatorDescriptor` | Declare text input, dependencies, and preparation. |
+| `ValidatorRegistry` | Finds a rule by stable ID and binds its selected signature. |
+| `BoundValidator` | Reuses the prepared rule and checks input shape. |
+| `ValidationOutcome` | Says valid, invalid, or skipped after execution. |
+| `ValidationReport` | Records outcomes at caller-selected paths and occurrence numbers. |
+
+## Check the result before saving
+
+The application supplies `ProfileStore` and the HTTP handler. This service boundary makes the decision explicit:
+
+```rust
+// Continue in src/profile/service.rs; check_display_name is defined above.
 trait ProfileStore {
     fn save_display_name(
         &self,
@@ -138,11 +159,14 @@ enum UpdateProfileResult {
 
 fn update_profile(
     store: &dyn ProfileStore,
-    validator: &BoundValidator,
+    rule: &BoundValidator,
     user_id: &str,
     incoming_display_name: &str,
 ) -> Result<UpdateProfileResult, Box<dyn std::error::Error>> {
-    let report = check_display_name(validator, incoming_display_name)?;
+    let report = check_display_name(rule, incoming_display_name)?;
+    if report.is_truncated() {
+        return Err(std::io::Error::other("validation report is incomplete").into());
+    }
     if !report.is_valid() {
         return Ok(UpdateProfileResult::Rejected(report));
     }
@@ -151,258 +175,205 @@ fn update_profile(
 }
 ```
 
-`"Ada"` reaches the store and returns `Updated`; a blank name returns
-`Rejected(report)` without calling the store. Store failures remain application
-errors. An HTTP handler can map the violation code and controlled field path to
-an API response without including the incoming value in messages or logs.
+The store and response type are application code, not provided by the crate. `"Ada"` reaches `save_display_name` and returns `Updated` if that call succeeds. A blank name returns `Rejected(report)` without a store call. A store error remains an application error. The handler should check `is_truncated()` first, then iterate `report.violations()` and map each code to a controlled message. An invalid report can contain no retained violation, so do not index the first item without checking it. Keep the submitted name out of messages and logs.
 
-## Conceptual Model
+| What happened | What to inspect | Application action |
+| --- | --- | --- |
+| `"Ada"` passes | `report.is_valid()` is true | Save through the application's store. |
+| `"   "` fails the rule | `ValidationOutcome::Invalid`, then `report.violations()` contains `text.blank` | Reject the update and map the code to a field message. |
+| ID, signature, or parameters are wrong | `ValidatorRegistryError` or `BindError` during startup | Fix configuration before serving requests. |
+| Input shape or rule execution fails | `Err(ExecutionError)` from `validate` | Treat as a service failure, not invalid user data; diagnose through a trusted path. |
+| A limited report cannot retain everything | `!recorded.complete()` or `report.is_truncated()` | Treat the report as incomplete; do not accept the update based on missing violations. |
 
-| Concept | Meaning |
-| --- | --- |
-| `Validator<T, C>` | Typed rule called directly with a borrowed value and domain context. It returns the rule's domain error. |
-| `PreparedValidator` | Reusable, type-erased instance created after configuration is decoded. |
-| `BoundValidator` | Prepared instance paired with a stable rule ID and selected signature. It checks target and dependency shapes before execution. |
-| `ValidationOutcome` | Result of a completed validation: valid, invalid, or skipped. Invalid data is not an execution error. |
-| `ExecutionError` | A shape, dependency, adapter, or external execution failure returned as `Err`. It retains an owned cause for explicit trusted diagnostics through `trusted_source()`; `Display`, `Debug`, and `Error::source()` do not expose it. |
-| `ValidationReport` | Caller-owned collection of violations and skipped occurrences, with optional count limits. |
+`record_outcome` returns `RecordedOutcome`; `complete()` means that outcome fitted the report's limits, **not** that validation passed. This example uses `ValidationReport::new()` without count limits. For a limited report, check completeness and truncation as well as validity. `ValidationOutcome::Invalid` means a rule ran and rejected a value; it is not an `ExecutionError`.
 
-An adapter maps a rule's domain error to a safe `ViolationDraft`. The bound
-validator attaches the stable rule ID and returns a final `Violation`.
+The basic path ends here: bind at startup, validate in the request, and save only after a valid report. The following sections extend that same profile flow.
 
-## Installation and Minimal Configuration
+## Compare two profile fields
 
-Add the crate without optional features for direct validation and local
-registries:
-
-```toml
-[dependencies]
-qubit-validator = "0.1"
-```
-
-The default feature set supports local registries. A preparation function
-decodes parameters and returns an `Arc<dyn PreparedValidator>`; a static
-`ValidatorSignature` and `ValidatorDescriptor` describe the rule. See the
-linked example for a complete definition. The call site is:
+Suppose the profile form has `email` and `email_confirmation`. The confirmation rule needs the chosen email as a dependency. Declare the dependency once in the rule's signature and adapter, then bind it at startup. This self-contained module defines the rule, binds it at startup, and exposes a request-time call:
 
 ```rust
-let registry = ValidatorRegistry::from_registrations([registration])?;
-let validator = registry.bind("text.non_blank", InputType::Text, &[])?;
-let context = BoundValidationContext::new(&[]);
+// src/profile/confirmation.rs
+use std::sync::Arc;
+use qubit_validator::{
+    ArgumentReader, BindError, BoundValidator, DependencySpec, ExecutionError,
+    InputType, NamedValidationArgument, NamedValidationDependency,
+    PreparedOutcome, PreparedValidator, RegistrationSource, ValidationOutcome,
+    ValidationValue, ValidatorDescriptor, ValidatorId, ValidatorRegistration,
+    ValidatorRegistry, ValidatorSignature, ViolationCode, ViolationDraft,
+    prepare_text_with_context,
+};
 
-let accepted = validator.validate(ValidationValue::Text("Ada"), &context)?;
-assert_eq!(accepted, ValidationOutcome::valid());
+static EMAIL_DEPENDENCIES: &[DependencySpec] = &[
+    DependencySpec::new("email", InputType::Text, false),
+];
 
-let rejected = validator.validate(ValidationValue::Text("  "), &context)?;
-let mut report = ValidationReport::new();
-assert!(report.record_outcome(0, ValidationPath::root(), rejected)?.complete());
-assert!(!report.is_valid());
-```
-
-## Core Workflow
-
-1. Implement `Validator<T, C>` and call it directly when runtime selection is
-   unnecessary.
-2. Use `prepare_text_validator` or `prepare_typed_validator` for rules that do
-   not consume dependency slots. Their mapper converts a domain error to a
-   stable code and safe parameters.
-3. Declare the accepted input and ordered dependencies in a
-   `ValidatorSignature`. Put signatures in a `ValidatorDescriptor` and
-   associate it with a `ValidatorId` and `RegistrationSource`.
-4. Build a local `ValidatorRegistry`, bind a rule, and reuse its
-   `BoundValidator`. Preparation happens during binding, not on each call.
-5. Pass a borrowed `ValidationValue` and `BoundValidationContext` to each
-   invocation. Handle non-exhaustive public enums with a fallback arm.
-6. Send each returned `ValidationOutcome` to `ValidationReport::record_outcome`
-   when the caller needs an aggregate. The crate does not traverse objects or
-   schedule rule groups.
-
-`ViolationParam` is a restricted vocabulary for diagnostic values, not proof
-that a value is safe or trusted. `Unsigned(minimum)` from rule configuration is
-allowed; `Unsigned(rejected_number)` from rejected input is not. A `Token`'s
-`'static` lifetime does not prove its source. Callers must not include rejected
-input or sensitive values derived from it.
-
-For an already prepared rule with no dependencies, use
-`BoundValidator::try_from_prepared<T>`. It skips registry and parameter preparation and returns `BindError` unless the prepared validator accepts exactly `T` and has no dependencies.
-
-## Advanced Usage: Context-Aware Adapters
-
-Use a context-aware adapter when a rule must compare its target with an
-already-selected dependency. The signature declares the slot, and the
-`BoundValidator` checks its shape and required/optional status before the
-adapter calls the typed validator. The prepared adapter receives the same static dependency slice as the signature. `validate` accepts dependencies in the
-signature's declared order. Direct callers can use `validate_named` to bind
-each value by its declared name; this prevents same-typed slots from being
-silently swapped. The named entry point allocates temporary reorder buffers.
-
-```rust
-struct MatchesExpected;
-
-impl<'a> Validator<str, BoundValidationContext<'a>> for MatchesExpected {
-    type Error = DependencyMismatch;
-
-    fn validate(
-        &self,
-        value: &str,
-        context: &BoundValidationContext<'a>,
-    ) -> Result<(), Self::Error> {
-        let expected = context.text(0).map_err(|_| DependencyMismatch)?;
-        if value == expected { Ok(()) } else { Err(DependencyMismatch) }
-    }
+fn prepare_confirmation(params: &[NamedValidationArgument<'_>])
+    -> Result<Arc<dyn PreparedValidator>, BindError>
+{
+    ArgumentReader::new(params)?.finish()?;
+    Ok(prepare_text_with_context(EMAIL_DEPENDENCIES, |confirmation, context| {
+        let email = context.text(0)?;
+        Ok(if confirmation == email {
+            PreparedOutcome::Valid
+        } else {
+            PreparedOutcome::Invalid(vec![ViolationDraft::new(
+                ViolationCode::new("email.confirmation_mismatch"),
+            )])
+        })
+    }))
 }
 
-let prepared = prepare_contextual_text_validator(DEPENDENCIES, MatchesExpected, |_| {
-    ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))
-});
+static SIGNATURES: &[ValidatorSignature] = &[
+    ValidatorSignature::new(InputType::Text, EMAIL_DEPENDENCIES, prepare_confirmation),
+];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
+pub fn bind_confirmation_rule() -> Result<BoundValidator, Box<dyn std::error::Error>> {
+    let registration = ValidatorRegistration::new(
+        ValidatorId::new("email.confirmation"),
+        &DESCRIPTOR,
+        RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+    Ok(registry.bind("email.confirmation", InputType::Text, &[])?)
+}
+
+pub fn check_confirmation(
+    rule: &BoundValidator,
+    email: &str,
+    confirmation: &str,
+) -> Result<ValidationOutcome, ExecutionError> {
+    let dependencies = [NamedValidationDependency::new(
+        "email", ValidationValue::Text(email),
+    )];
+    rule.validate_named(ValidationValue::Text(confirmation), &dependencies)
+}
 ```
 
-`DependencyMismatch` is the rule's own `std::error::Error` type. Its message
-and the mapper output should not include either text value. For an optional
-typed slot, use `context.optional_typed::<T>(index)`; only the explicit
-`ValidationValue::Missing` marker becomes `None`. A wrong type remains an
-execution error.
+Call `bind_confirmation_rule()` during startup and keep its result in the profile service. During a request, call `check_confirmation(&rule, email, confirmation)` and record that outcome at `email_confirmation`. A larger application can register the descriptors together in one registry. The adapter reads the declared slot through `context.text(0)?`; a missing or malformed slot is an execution error.
 
-Text rules can use `prepare_contextual_text_validator`; typed rules can use
-`prepare_contextual_typed_validator::<T, _, _, _>`. The corresponding simple
-adapters remain available for rules that do not use context.
+Matching values yield `Valid`; different values yield `email.confirmation_mismatch`. Missing or wrongly typed required dependencies produce `ExecutionError`, which the service handles as a failure rather than a field violation. `validate_named` maps names to signature slots and allocates a temporary reorder buffer. If the caller has already established slot order, use `validate` with `BoundValidationContext::new(&values)`. Optional slots still occupy a position; use `ValidationValue::Missing` for absence. A wrong type is not absence.
 
-Use the closure adapters when a rule needs multiple violation drafts or must
-distinguish invalid data from an execution failure. The closure returns a
-`PreparedOutcome` for validation results and `ExecutionError` for execution
-failures:
+## Configure a rule once at startup
+
+If profile policy adds a maximum display-name length, read its `maximum` parameter while binding, then reuse that limit for every request. This module includes preparation and startup binding; it counts Unicode scalar values, so an application requiring grapheme or byte limits must define a different rule.
 
 ```rust
-let prepared = prepare_text_with_context(DEPENDENCIES, |value, context| {
-    let expected = context.text(0)?;
-    if value == expected {
-        Ok(PreparedOutcome::Valid)
-    } else {
-        Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(
-            ViolationCode::new("text.dependency_mismatch"),
-        )]))
-    }
-});
+// src/profile/max_length.rs
+use std::sync::Arc;
+use qubit_validator::{
+    ArgumentReader, BindError, BoundValidator, InputType, NamedValidationArgument,
+    PreparedOutcome, PreparedValidator, RegistrationSource, ValidationArgument,
+    ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry,
+    ValidatorSignature, ViolationCode, ViolationDraft, prepare_text_with_context,
+};
+
+fn prepare_max_length(params: &[NamedValidationArgument<'_>])
+    -> Result<Arc<dyn PreparedValidator>, BindError>
+{
+    let mut reader = ArgumentReader::new(params)?;
+    let maximum = reader.required_u32("maximum")?;
+    reader.finish()?;
+    Ok(prepare_text_with_context(&[], move |name, _| {
+        Ok(if name.chars().count() <= maximum as usize {
+            PreparedOutcome::Valid
+        } else {
+            PreparedOutcome::Invalid(vec![ViolationDraft::new(
+                ViolationCode::new("text.too_long"),
+            )])
+        })
+    }))
+}
+
+static SIGNATURES: &[ValidatorSignature] = &[
+    ValidatorSignature::new(InputType::Text, &[], prepare_max_length),
+];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
+pub fn bind_max_length_rule(maximum: u32)
+    -> Result<BoundValidator, Box<dyn std::error::Error>>
+{
+    let registration = ValidatorRegistration::new(
+        ValidatorId::new("text.max_length"),
+        &DESCRIPTOR,
+        RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+    let args = [NamedValidationArgument::new(
+        "maximum", ValidationArgument::Unsigned(u128::from(maximum)),
+    )];
+    Ok(registry.bind("text.max_length", InputType::Text, &args)?)
+}
 ```
 
-The adapter checks that the target is text. `BoundValidator` checks declared
-dependency count, types, optionality, and paths before invoking the closure.
-Keep raw input out of violations and public error formatting.
+Call `bind_max_length_rule(40)` at startup, then validate `display_name` with the bound length rule and record its outcome at the same path as the nonblank rule, using the next occurrence number. A name of at most 40 scalar values passes; a longer one produces `text.too_long`. Missing, wrongly typed, out-of-range, or unconsumed parameters fail at binding. `ArgumentReader` consumes each present parameter on the first typed read even if conversion fails; fix the configuration and bind again rather than rereading the same reader.
 
-## Collecting Outcomes and Prerequisites
+## Collect several checks and handle limits
 
-`record_outcome` requires successful calls to use non-decreasing occurrence numbers. Reusing the same number is allowed when one position produces multiple results. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order so issued `FailureId` indices remain stable. An invalid outcome must contain at least one violation. A failed-prerequisite skip carries one or more opaque `FailureId` references to violations already retained by the same report. References are validated before mutation and do not consume `max_violations`; each original violation is counted once. `max_skipped` limits skipped occurrences. `record_outcome` returns a `RecordedOutcome`, whose `complete()` reports whether all of the outcome fit and whose `failure_ids()` identifies retained failures from that occurrence. `ValidationReport::failures()` iterates original violations only. `failure(id)` resolves a reference to its violation. `trusted_source()` is the explicit diagnostic entry point for an owned execution cause; ordinary error formatting and `Error::source()` remain redacted.
+The profile service decides the order of rules. Call `record_outcome` with non-decreasing occurrence numbers; multiple results may share a number. An earlier number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. For example, if `email` is blank, the application can skip `email_confirmation` and point that skip to the original failure:
+
 ```rust
-let rule_id = ValidatorId::new("text.required");
-let earlier = Violation::new(rule_id, ViolationCode::new("text.blank"));
+// non_blank_rule is the text.non_blank rule bound at startup.
+use qubit_validator::{
+    BoundValidationContext, ValidationOutcome, ValidationPath,
+    ValidationReport, ValidationValue,
+};
 let mut report = ValidationReport::new();
+let email_outcome = non_blank_rule.validate(
+    ValidationValue::Text("   "),
+    &BoundValidationContext::new(&[]),
+)?;
 let original = report.record_outcome(
     0,
-    ValidationPath::root().with_field("password"),
-    ValidationOutcome::invalid(vec![earlier])?,
+    ValidationPath::root().with_field("email"),
+    email_outcome,
 )?;
-assert!(original.complete());
-let failure_id = original.failure_ids()[0];
 let skipped = report.record_outcome(
     1,
-    ValidationPath::root().with_field("confirmation"),
-    ValidationOutcome::failed_prerequisite(vec![failure_id])?,
+    ValidationPath::root().with_field("email_confirmation"),
+    ValidationOutcome::failed_prerequisite(original.failure_ids().to_vec())?,
 )?;
-assert!(skipped.complete());
-assert_eq!(report.violations().len(), 1);
-assert_eq!(report.failure(failure_id).unwrap().path(), &ValidationPath::root().with_field("password"));
-assert_eq!(report.skipped()[0].path(), &ValidationPath::root().with_field("confirmation"));
-assert_eq!(report.skipped()[0].prerequisites(), &[failure_id]);
+assert!(original.complete() && skipped.complete());
 assert_eq!(report.failure_count(), 1);
-assert_eq!(report.failures().count(), report.failure_count());
+assert_eq!(report.skipped().len(), 1);
 ```
 
-`RecordedOutcome::complete()` reports whether the outcome fit its configured limits; it does not report whether validation passed. A capacity rejection returns an incomplete receipt and marks the report truncated. An invalid outcome shape returns `ValidationOutcomeError` and leaves the report unchanged. `max_violations` bounds retained original violations.
-Failed-prerequisite skips must reference one or more original violations
-already retained by this report. Those references remain valid even when
-`max_violations` is full and consume no additional violation capacity;
-`max_skipped` independently limits retained skip entries. A skip rejected by
-`max_skipped` marks the report truncated and returns an incomplete receipt.
+Only use `failed_prerequisite` when an earlier result actually retained a failure. Its `FailureId` values belong to this report and point to original violations; `report.failures()` visits each original failure once. The crate does not decide to skip a rule for you. If an optional target is missing, `ValidationOutcome::missing_optional()` records a different skip reason.
 
-## Local and Inventory Registries
+For a large request, `ValidationReport::with_limits(ValidationLimits { max_violations: Some(20), max_skipped: Some(20) })` limits retained violations and skipped entries independently. A skip's reference to an already retained failure does not consume another violation slot. Check the returned `RecordedOutcome::complete()` and `report.is_truncated()`; if application code stops checking early, call `report.mark_truncated()`. A truncated report must not be treated as proof that all remaining fields passed. These limits do not bound input length, validation work, dependency paths, prerequisite lists, or outcomes allocated before recording; the application sets those budgets separately.
 
-`ValidatorRegistry::from_registrations` builds an explicit local registry. It
-is deterministic and supports multiple rule sets in one process. Enable
-`inventory` only when linked crates should register rules process-wide:
+## Choose registration and adapter options
+
+Explicit `ValidatorRegistry::from_registrations` keeps rule sets local and lets startup code decide which rules are available. If separately linked crates must contribute rules process-wide, enable the optional feature:
 
 ```toml
 [dependencies]
 qubit-validator = { version = "0.1", features = ["inventory"] }
 ```
 
-Use `ValidatorRegistry::try_global` to handle duplicate IDs and invalid
-descriptors. `global` panics for either registry error. The feature changes how
-registrations are discovered; it does not change binding or execution rules.
+Use `register_validator!` at the rule definition and `ValidatorRegistry::try_global()` at startup. `try_global` reports duplicate IDs or invalid descriptors; `global()` panics on those errors. Discovery changes how rules enter the registry, not how they bind or execute. The [repository example](../examples/local_registry.rs) includes the feature-gated path.
 
-## Errors and Diagnostics
+The simple `prepare_text_validator` and `prepare_typed_validator` adapters map a typed rule's domain error to one violation draft. For rules that read declared dependencies, use their contextual counterparts. If a rule must return several violations or distinguish an external failure from invalid input, `prepare_text_with_context` and `prepare_typed_with_context` return `PreparedOutcome` or `ExecutionError`; `prepare_text_domain_rule` and `prepare_typed_domain_rule` map contextual domain errors into safe drafts. An invalid draft list cannot be empty. `BoundValidator::try_from_prepared::<T>` binds an already prepared, dependency-free rule without a registry when its input type is exactly `T`.
 
-- A domain error from `Validator<T, C>` becomes a `ViolationDraft` through its
-  adapter mapper.
-- `BindError` reports configuration problems such as missing rules, unsupported
-  input shapes, malformed parameters, or dependency declaration mismatches.
-- `ValidatorRegistryError` reports duplicate IDs and invalid descriptors.
-- `ExecutionError` reports target/dependency shape, adapter contract, or
-  external execution failures. Its `Display`, `Debug`, and `Error::source()`
-  keep the owned cause redacted. Trusted diagnostic code may inspect it through
-  the explicit `trusted_source()` accessor.
-- `ValidationOutcome::Invalid` is a completed validation result. It is not an
-  `ExecutionError`.
+## Diagnose failures and respect boundaries
 
-`ArgumentReader` consumes a present parameter on its first typed read, even if
-conversion fails. A second read returns `ParameterAlreadyConsumed`. After
-reading supported parameters, call `finish` to reject unconsumed names.
-For an optional string setting, `optional_str("minimum")` returns `None` when
-absent and borrows the supplied string when present; a type error consumes the
-parameter just like other typed reads.
-
-`ValidationPath` remains structured. `Display` and `Debug` avoid exposing
-field names and map positions; trusted presentation code must explicitly call
-`ValidationPath::render` when disclosure is appropriate. Keep rejected input
-out of errors and `ViolationParam` values; the type restricts representation,
-but callers remain responsible for provenance and redaction.
-
-## Troubleshooting
-
-| Symptom | Check |
+| Symptom | Check and next step |
 | --- | --- |
-| `MissingRule` | Confirm the stable ID is in the selected local registry. For global discovery, enable `inventory` and link the registering crate. |
-| `UnsupportedInput` or `InputTypeMismatch` | Use the exact `InputType` declared by the selected signature. No implicit text-to-typed conversion occurs. |
-| Invalid signature declaration | Check that each signature has unique, non-empty dependency names and a unique input shape. Model metadata checks actual declared paths against the selected signature. |
-| Missing dependency during execution | Check that every required slot has a value and that optional absence uses `ValidationValue::Missing`. |
-| `UnknownParameter` | Read supported values and then call `ArgumentReader::finish`. |
-| `ParameterAlreadyConsumed` | Decode each parameter once and store the result in the prepared validator. |
-| `AdapterContractViolation` | Check custom `PreparedValidator` output. Invalid outcomes need violations; `PreparedOutcome` has only valid and invalid states. |
-| `!recorded.complete()` | A report limit rejected part or all of this outcome; inspect `is_truncated()` and configure limits for the expected workload. If the caller stops validation early, call `mark_truncated()` so the report is identified as incomplete. |
+| `MissingRule` at startup | Confirm the ID is in the selected registry; with `inventory`, enable the feature and link the registering crate. |
+| `UnsupportedInput` or `InputTypeMismatch` | Compare `InputType` in the signature with `ValidationValue` at the call site; text is not converted automatically. |
+| `UnknownParameter` or `ParameterAlreadyConsumed` | Read each configured parameter once, call `finish()`, correct the configuration, and bind again. |
+| Dependency failure | Check slot names, order, type, and required status; use `Missing` only for an optional absent value. |
+| `AdapterContractViolation` | Inspect the custom prepared validator's declared input and dependencies, and ensure an invalid result has drafts. |
+| `!complete()` or `is_truncated()` | Check report limits and early exits; treat the result as incomplete. |
+| Field name missing from logs | `ValidationPath` formatting hides fields and map positions; render only in an authorized presentation layer. |
 
-## Limitations and Best Practices
+`ExecutionError` retains an owned cause only for explicit trusted diagnostics through `trusted_source()`; ordinary `Display`, `Debug`, and `Error::source()` do not reveal it. `ViolationParam` restricts representation, not provenance: a number from rule configuration can be safe while the same type derived from rejected input may leak data. Keep rejected and sensitive values out of codes, parameters, errors, and logs. Use stable rule IDs and violation codes when clients depend on them.
 
-- The crate does not discover fields, traverse object graphs, compile model
-  paths, or schedule multiple rules. Keep those policies in the caller.
-- Keep validator IDs and violation codes stable for downstream consumers.
-- Prefer local registries unless process-wide discovery is required.
-- Treat dependency order as an ABI-like contract; coordinate slot changes with
-  every caller and validator implementation.
-- Use `ValidationReport::with_limits` for untrusted or large workloads.
-  `max_violations` bounds retained original violations; references from skips
-  consume no additional failure capacity. `max_skipped` bounds skipped
-  occurrences. These limits do not bound input size, validation work, path
-  size, prerequisite-reference list length, or memory already allocated for
-  outcomes. Enforce those budgets at the application boundary. Collection
-  stops retaining excess entries and marks the report truncated.
-- Validation is synchronous and borrows values for each call. Prepared
-  validators require `Send + Sync`; the crate does not create threads or assume
-  an async runtime.
+Validation runs synchronously and borrows each value for the call. Prepared validators require `Send + Sync`; the crate does not create threads or require an async runtime. The application owns object traversal, rule scheduling, request handling, storage, and message localization.
 
-## Further Reading
+## Further reading
 
-- [Design and invariants](design.md)
-- [Runnable local-registry example](../examples/local_registry.rs)
-- [API documentation](https://docs.rs/qubit-validator)
-- [Project README](../README.md)
-- [中文 README](../README.zh_CN.md)
-- [简体中文用户指南](user_guide.zh_CN.md)
+- [README](../README.md) · [Design and invariants](design.md) · [API reference](https://docs.rs/qubit-validator)
+- [Runnable local-registry example](../examples/local_registry.rs) · [中文用户手册](user_guide.zh_CN.md)
