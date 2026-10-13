@@ -174,8 +174,8 @@ impl BoundValidator {
     /// This entry point protects direct callers from swapping dependencies
     /// that have the same input type. Values are reordered into signature slot
     /// order for this call. Use [`Self::validate`] when a caller has already
-    /// checked and constructed values in that order. This method allocates
-    /// temporary vectors for reordered values and paths.
+    /// checked and constructed values in that order. With multiple dependencies,
+    /// this method allocates a values vector, plus a paths vector when supplied.
     ///
     /// # Parameters
     /// - `value`: Borrowed target value.
@@ -195,19 +195,21 @@ impl BoundValidator {
         value: ValidationValue<'_>,
         dependencies: &[NamedValidationDependency<'_>],
     ) -> Result<ValidationOutcome, ExecutionError> {
-        for (index, dependency) in dependencies.iter().enumerate() {
-            if dependencies[..index]
-                .iter()
-                .any(|previous| previous.name == dependency.name)
-            {
-                return Err(ExecutionError::new(ExecutionErrorKind::DuplicateDependencyBinding)
-                    .with_rule(self.rule_id)
-                    .with_dependency(dependency.name));
-            }
-            if !self.dependencies.iter().any(|spec| spec.name() == dependency.name) {
-                return Err(ExecutionError::new(ExecutionErrorKind::UnknownDependencyBinding)
-                    .with_rule(self.rule_id)
-                    .with_dependency(dependency.name));
+        if self.dependencies.len() <= 1 {
+            for (index, dependency) in dependencies.iter().enumerate() {
+                if dependencies[..index]
+                    .iter()
+                    .any(|previous| previous.name == dependency.name)
+                {
+                    return Err(ExecutionError::new(ExecutionErrorKind::DuplicateDependencyBinding)
+                        .with_rule(self.rule_id)
+                        .with_dependency(dependency.name));
+                }
+                if !self.dependencies.iter().any(|spec| spec.name() == dependency.name) {
+                    return Err(ExecutionError::new(ExecutionErrorKind::UnknownDependencyBinding)
+                        .with_rule(self.rule_id)
+                        .with_dependency(dependency.name));
+                }
             }
         }
 
@@ -236,17 +238,53 @@ impl BoundValidator {
             };
         }
 
-        let mut values = Vec::with_capacity(self.dependencies.len());
-        let mut paths = Vec::with_capacity(self.dependencies.len());
-        for spec in self.dependencies {
-            let Some(dependency) = dependencies.iter().find(|dependency| dependency.name == spec.name()) else {
+        const INLINE_SLOTS: usize = 8;
+        let mut inline_slots: [Option<NamedValidationDependency<'_>>; INLINE_SLOTS] = [None; INLINE_SLOTS];
+        let mut heap_slots = Vec::new();
+        let slots: &mut [Option<NamedValidationDependency<'_>>] = if self.dependencies.len() <= INLINE_SLOTS {
+            &mut inline_slots[..self.dependencies.len()]
+        } else {
+            heap_slots.resize(self.dependencies.len(), None);
+            heap_slots.as_mut_slice()
+        };
+        let mut has_path = false;
+        for dependency in dependencies.iter().copied() {
+            let Some(index) = self.dependencies.iter().position(|spec| spec.name() == dependency.name) else {
+                return Err(ExecutionError::new(ExecutionErrorKind::UnknownDependencyBinding)
+                    .with_rule(self.rule_id)
+                    .with_dependency(dependency.name));
+            };
+            if slots[index].replace(dependency).is_some() {
+                return Err(ExecutionError::new(ExecutionErrorKind::DuplicateDependencyBinding)
+                    .with_rule(self.rule_id)
+                    .with_dependency(dependency.name));
+            }
+            has_path |= dependency.path.is_some();
+        }
+        for (index, slot) in slots.iter().enumerate() {
+            if slot.is_none() {
                 return Err(ExecutionError::new(ExecutionErrorKind::MissingDependencyBinding)
                     .with_rule(self.rule_id)
-                    .with_dependency(spec.name()));
-            };
-            values.push(dependency.value);
-            paths.push(dependency.path.cloned().unwrap_or_else(ValidationPath::root));
+                    .with_dependency(self.dependencies[index].name()));
+            }
         }
+        let values: Vec<_> = slots
+            .iter()
+            .map(|slot| slot.as_ref().expect("checked slot").value)
+            .collect();
+        if !has_path {
+            return self.validate(value, &BoundValidationContext::new(&values));
+        }
+        let paths: Vec<_> = slots
+            .iter()
+            .map(|slot| {
+                slot.as_ref()
+                    .expect("checked slot")
+                    .path
+                    .cloned()
+                    .unwrap_or_else(ValidationPath::root)
+            })
+            .collect();
         let context =
             BoundValidationContext::new_with_paths(&values, &paths).map_err(|error| error.with_rule(self.rule_id))?;
         self.validate(value, &context)

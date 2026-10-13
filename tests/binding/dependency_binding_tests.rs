@@ -138,6 +138,52 @@ static ROOT_FIRST_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static ROOT_FIRST_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(ROOT_FIRST_SIGNATURES);
 
+struct NineSlotAdapter;
+
+impl PreparedValidator for NineSlotAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        NINE_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        for index in 0..9 {
+            assert_eq!(*context.typed::<u64>(index)?, index as u64);
+            assert_eq!(context.dependency_path(index)?, &ValidationPath::root());
+        }
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+fn prepare_nine_slot(_: &[NamedValidationArgument<'_>]) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(NineSlotAdapter))
+}
+
+static NINE_DEPENDENCIES: &[DependencySpec] = &[
+    DependencySpec::new("d0", InputType::of::<u64>(), false),
+    DependencySpec::new("d1", InputType::of::<u64>(), false),
+    DependencySpec::new("d2", InputType::of::<u64>(), false),
+    DependencySpec::new("d3", InputType::of::<u64>(), false),
+    DependencySpec::new("d4", InputType::of::<u64>(), false),
+    DependencySpec::new("d5", InputType::of::<u64>(), false),
+    DependencySpec::new("d6", InputType::of::<u64>(), false),
+    DependencySpec::new("d7", InputType::of::<u64>(), false),
+    DependencySpec::new("d8", InputType::of::<u64>(), false),
+];
+static NINE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    NINE_DEPENDENCIES,
+    prepare_nine_slot,
+)];
+static NINE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(NINE_SIGNATURES);
+
 struct NoDependencyAdapter;
 
 impl PreparedValidator for NoDependencyAdapter {
@@ -289,6 +335,38 @@ fn test_validate_named_defaults_missing_dependency_path_to_root_after_reordering
             .expect("named dependencies are reordered and missing paths default to root"),
         ValidationOutcome::Valid,
     );
+}
+
+#[test]
+fn test_validate_named_reorders_nine_dependencies_without_paths() {
+    let bound = NINE_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let numbers: [u64; 9] = std::array::from_fn(|index| index as u64);
+    let dependencies: [NamedValidationDependency<'_>; 9] = std::array::from_fn(|index| {
+        let slot = 8 - index;
+        NamedValidationDependency::new(NINE_DEPENDENCIES[slot].name(), ValidationValue::Typed(&numbers[slot]))
+    });
+
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &dependencies)
+            .expect("nine named dependencies are reordered by signature"),
+        ValidationOutcome::Valid,
+    );
+}
+
+#[test]
+fn test_validate_named_duplicate_takes_priority_over_missing_slot() {
+    let bound = TEXT_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let first = NamedValidationDependency::new("first", ValidationValue::Text("first value"));
+
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &[first, first])
+        .expect_err("duplicate input is reported before a missing signature slot");
+    assert_eq!(error.kind(), ExecutionErrorKind::DuplicateDependencyBinding);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("first"));
+    assert_eq!(error.path(), &ValidationPath::root());
+    assert!(!format!("{error:?}").contains("first value"));
 }
 
 #[test]
