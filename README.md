@@ -7,11 +7,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-`qubit-validator` supplies reusable typed rules, rule binding, and structured validation reports for Rust applications. Consider a `POST /users` endpoint: the server must reject a blank username or a malformed email before writing to the user store. This crate is where those checks live as `Validator` implementations with stable IDs. Field annotations on the domain type only *name* those IDs; `qubit-model-metadata` binds the registered rules and walks the object. Keeping the rules in one registry avoids copying the same checks into every handler.
+`qubit-validator` supplies reusable typed rules, rule binding, and structured validation reports for Rust applications. Consider a `POST /users` endpoint: the server must reject a blank username or a malformed email before writing to the user store. This crate is where those checks live as `Validator` implementations with stable IDs. For applications that use field annotations, those annotations only *name* rule IDs; the optional `qubit-model-metadata` integration binds registered rules and walks the object. Keeping the rules in one registry avoids copying the same checks into every handler.
 
 ## A user registration flow
 
-The frontend sends a username and email. The REST handler parses the request into `User` and calls the registration service. At startup, the service registers two custom rules—`app.non_blank` and `app.email`—and builds a reusable validation plan from the `User` field declarations. For each request, the plan runs those rules: a blank username or non-ASCII-email shape returns field paths and stable codes without writing to the user repository. A valid object reaches the repository. The HTTP layer can map rejection to a client error and storage or validation execution failure to a server error; HTTP routing and persistence are application code.
+The frontend sends a username and email. The REST handler parses the request into `User` and calls the registration service. At startup, the service registers and binds `app.non_blank` and `app.email`. For each request, it applies the bound rules to the `username` and `email` fields and records their outcomes in a report: invalid input returns field paths and stable codes without a repository write, while a complete valid report allows the write. The HTTP layer can map rejection to a client error and storage or validation execution failure to a server error; HTTP routing and persistence are application code. Apps that declare rules on model fields can use the optional `qubit-model-metadata` integration described below.
 
 ## Installation
 
@@ -132,6 +132,32 @@ impl CountingRepository {
     }
 }
 
+fn validate_and_insert(
+    user: &User,
+    non_blank: &qubit_validator::BoundValidator,
+    email: &qubit_validator::BoundValidator,
+    repository: &CountingRepository,
+) -> Result<ValidationReport, Box<dyn Error>> {
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", user.username.as_str(), non_blank),
+        ("email", user.email.as_str(), email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    if !report.is_truncated() && report.is_valid() {
+        repository.insert(user);
+    }
+    Ok(report)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // Register and bind once during application startup.
     let registry =
@@ -144,20 +170,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         username: "   ".into(),
         email: "wrong".into(),
     };
-    let mut report = ValidationReport::new();
-    for (index, (field, value, rule)) in [
-        ("username", invalid.username.as_str(), &non_blank),
-        ("email", invalid.email.as_str(), &email),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let outcome = rule.validate(
-            ValidationValue::Text(value),
-            &BoundValidationContext::new(&[]),
-        )?;
-        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
-    }
+    let report = validate_and_insert(&invalid, &non_blank, &email, &repository)?;
     assert!(!report.is_truncated());
     assert!(!report.is_valid());
     assert_eq!(report.violations().len(), 2);
@@ -171,23 +184,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         username: "ada".into(),
         email: "ada@example.com".into(),
     };
-    let mut report = ValidationReport::new();
-    for (index, (field, value, rule)) in [
-        ("username", valid.username.as_str(), &non_blank),
-        ("email", valid.email.as_str(), &email),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let outcome = rule.validate(
-            ValidationValue::Text(value),
-            &BoundValidationContext::new(&[]),
-        )?;
-        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
-    }
-    if !report.is_truncated() && report.is_valid() {
-        repository.insert(&valid);
-    }
+    let report = validate_and_insert(&valid, &non_blank, &email, &repository)?;
+    assert!(!report.is_truncated());
+    assert!(report.is_valid());
     assert_eq!(repository.0.get(), 1);
     Ok(())
 }
@@ -225,7 +224,7 @@ In the current checkout, both `qubit-model-metadata` and `qubit-model-derive` se
 - `ValidationOutcome`, `Violation`, and `ValidationReport` for separating invalid values from binding or execution failures and collecting caller-visible field results.
 - Adapters and `ArgumentReader` for reusable rules with parameters or named dependencies. Optional `inventory` discovers linked custom registrations.
 
-`qubit-validator` alone does not inspect `User` fields or schedule its rules. Direct callers can bind a rule and assemble a report themselves; the Quick Start uses `qubit-model-metadata` as the optional model-level execution path that reads field annotations. See the [validator user guide](doc/user_guide.md) for the lower-level bind-and-report API and the [model validation guide](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.md#core-workflow-validate-a-profile-and-keep-partial-results) for plan construction, supported access shapes, partial reports, and limits.
+`qubit-validator` does not inspect model fields or schedule rules. The Quick Start shows the direct path: bind rules at startup, validate caller-selected fields, and assemble a report before deciding whether to save. Applications that want field annotations and automatic object traversal can use the optional `qubit-model-metadata` integration described in [Model annotations](#model-annotations). See the [validator user guide](doc/user_guide.md) for the bind-and-report API and the [model validation guide](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.md#core-workflow-validate-a-profile-and-keep-partial-results) for plan construction, supported access shapes, partial reports, and limits.
 
 ## Learn more
 

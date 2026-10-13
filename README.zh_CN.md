@@ -7,11 +7,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-`qubit-validator` 为 Rust 应用提供可复用的类型化规则、规则绑定和结构化校验报告。以 `POST /users` 为例：后端在写入用户资料前必须拒绝空白用户名和格式错误的邮箱。这些检查应以 `Validator` 实现的形式落在本 crate，并挂上稳定 ID。领域类型字段上的注解只是引用这些 ID；由 `qubit-model-metadata` 完成绑定并遍历对象。规则集中在注册表里，就不必在每个接口里复制同一套判断。
+`qubit-validator` 为 Rust 应用提供可复用的类型化规则、规则绑定和结构化校验报告。以 `POST /users` 为例：后端在写入用户资料前必须拒绝空白用户名和格式错误的邮箱。这些检查应以 `Validator` 实现的形式落在本 crate，并挂上稳定 ID。采用字段注解时，领域类型上的注解只引用规则 ID；可选的 `qubit-model-metadata` 集成负责绑定规则并遍历对象。规则集中在注册表里，就不必在每个接口里复制同一套判断。
 
 ## 用户注册场景
 
-用户在注册页面填写用户名和邮箱，REST 接口将请求解析为 `User`，再交给注册服务。服务启动时注册两条自定义规则——`app.non_blank` 与 `app.email`——并根据 `User` 的字段声明构建可复用的校验计划。每次请求到来时，计划执行这些规则：用户名为空白或不满足 ASCII 邮箱形态，就返回字段路径和稳定违规代码，不调用用户仓储；两项都通过，才写入仓储。HTTP 层可将字段违规映射为客户端错误，将存储或校验执行故障映射为服务错误。路由和持久化由应用提供。
+用户在注册页面填写用户名和邮箱，REST 接口将请求解析为 `User`，再交给注册服务。服务启动时注册并绑定 `app.non_blank` 与 `app.email`。每次请求到来时，服务分别校验 `username` 和 `email` 字段，并将结果写入报告：输入不合规则时，报告包含字段路径和稳定违规代码，且不会写入仓储；报告完整且全部通过时才允许写入。HTTP 层可将字段违规映射为客户端错误，将存储或校验执行故障映射为服务错误。路由和持久化由应用提供。需要按字段注解遍历对象的应用，可采用下文介绍的可选 `qubit-model-metadata` 集成。
 
 ## 安装
 
@@ -132,6 +132,32 @@ impl CountingRepository {
     }
 }
 
+fn validate_and_insert(
+    user: &User,
+    non_blank: &qubit_validator::BoundValidator,
+    email: &qubit_validator::BoundValidator,
+    repository: &CountingRepository,
+) -> Result<ValidationReport, Box<dyn Error>> {
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", user.username.as_str(), non_blank),
+        ("email", user.email.as_str(), email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    if !report.is_truncated() && report.is_valid() {
+        repository.insert(user);
+    }
+    Ok(report)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // Register and bind once during application startup.
     let registry =
@@ -144,20 +170,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         username: "   ".into(),
         email: "wrong".into(),
     };
-    let mut report = ValidationReport::new();
-    for (index, (field, value, rule)) in [
-        ("username", invalid.username.as_str(), &non_blank),
-        ("email", invalid.email.as_str(), &email),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let outcome = rule.validate(
-            ValidationValue::Text(value),
-            &BoundValidationContext::new(&[]),
-        )?;
-        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
-    }
+    let report = validate_and_insert(&invalid, &non_blank, &email, &repository)?;
     assert!(!report.is_truncated());
     assert!(!report.is_valid());
     assert_eq!(report.violations().len(), 2);
@@ -171,23 +184,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         username: "ada".into(),
         email: "ada@example.com".into(),
     };
-    let mut report = ValidationReport::new();
-    for (index, (field, value, rule)) in [
-        ("username", valid.username.as_str(), &non_blank),
-        ("email", valid.email.as_str(), &email),
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let outcome = rule.validate(
-            ValidationValue::Text(value),
-            &BoundValidationContext::new(&[]),
-        )?;
-        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
-    }
-    if !report.is_truncated() && report.is_valid() {
-        repository.insert(&valid);
-    }
+    let report = validate_and_insert(&valid, &non_blank, &email, &repository)?;
+    assert!(!report.is_truncated());
+    assert!(report.is_valid());
     assert_eq!(repository.0.get(), 1);
     Ok(())
 }
@@ -225,7 +224,7 @@ qubit-reflect = { path = "../rust-common/rs-reflect" }
 - `ValidationOutcome`、`Violation` 和 `ValidationReport` 区分输入不合规则与绑定、执行故障，并汇总字段问题。
 - 适配器和 `ArgumentReader` 支持带参数或命名依赖的可复用规则；可选的 `inventory` 用于发现已链接的自定义注册项。
 
-`qubit-validator` 单独使用时不会检查 `User` 的字段或自动调度规则。应用可以直接绑定规则并自行组装报告；快速开始使用 `qubit-model-metadata` 作为可选的模型级执行路径，以读取字段注解。底层绑定与报告 API 见[验证器用户手册](doc/user_guide.zh_CN.md)；计划构建、可执行字段形状、部分结果和限额见[模型校验手册](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.zh_CN.md#实战场景续校验一个用户实例)。
+`qubit-validator` 不会检查模型字段或自动调度规则。快速开始展示直接调用路径：启动时绑定规则，由应用选择字段执行校验并组装报告，再据此决定是否保存。需要字段注解和自动遍历对象的应用，可使用可选的 [模型注解集成](#模型注解集成)。绑定与报告 API 见[验证器用户手册](doc/user_guide.zh_CN.md)；计划构建、可执行字段形状、部分结果和限额见[模型校验手册](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.zh_CN.md#实战场景续校验一个用户实例)。
 
 ## 延伸阅读
 
