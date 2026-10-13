@@ -25,7 +25,7 @@ qubit-validator = "0.1"
 
 ## Quick start
 
-This complete program follows a user registration flow: register rules, bind them at application startup, and check each field before writing to the repository. `CountingRepository` makes the rejection and write branches observable; a service can replace it with its own repository.
+Add the dependency above to your application's `Cargo.toml`, then save this complete program as `src/main.rs`. It follows a user registration flow: register rules, bind them at application startup, and check each field before writing to the repository. `CountingRepository` makes the rejection and write branches observable; a service can replace it with its own repository.
 
 <!-- validator-quick-start:source -->
 ```rust
