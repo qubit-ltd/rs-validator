@@ -174,8 +174,9 @@ impl BoundValidator {
     /// This entry point protects direct callers from swapping dependencies
     /// that have the same input type. Values are reordered into signature slot
     /// order for this call. Use [`Self::validate`] when a caller has already
-    /// checked and constructed values in that order. With multiple dependencies,
-    /// this method allocates a values vector, plus a paths vector when supplied.
+    /// checked and constructed values in that order. With multiple
+    /// dependencies, this method allocates a values vector, plus a paths
+    /// vector when supplied.
     ///
     /// # Parameters
     /// - `value`: Borrowed target value.
