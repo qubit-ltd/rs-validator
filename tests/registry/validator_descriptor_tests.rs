@@ -66,7 +66,8 @@ static D_A: ValidatorDescriptor = ValidatorDescriptor::new(SIG_A);
 
 #[test]
 fn test_bind_rejects_duplicate_parameter_even_when_factory_ignores_reader() {
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    static SIGNATURES: &[ValidatorSignature] =
+        &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
     let rule = ValidatorId::new("test.duplicate_parameter");
     let params = [
@@ -81,7 +82,8 @@ fn test_bind_rejects_duplicate_parameter_even_when_factory_ignores_reader() {
 
 #[test]
 fn test_bind_rejects_unconsumed_parameter() {
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    static SIGNATURES: &[ValidatorSignature] =
+        &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
     let rule = ValidatorId::new("test.unconsumed_parameter");
     let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
@@ -93,7 +95,8 @@ fn test_bind_rejects_unconsumed_parameter() {
 
 #[test]
 fn test_bind_for_rejects_unconsumed_parameter() {
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
+    static SIGNATURES: &[ValidatorSignature] =
+        &[ValidatorSignature::new(InputType::Text, &[], prepare_ignoring_reader)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
     let rule = ValidatorId::new("test.unconsumed_parameter_for");
     let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
@@ -105,7 +108,8 @@ fn test_bind_for_rejects_unconsumed_parameter() {
 
 #[test]
 fn test_bind_reports_missing_required_parameter() {
-    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_requiring_maximum)];
+    static SIGNATURES: &[ValidatorSignature] =
+        &[ValidatorSignature::new(InputType::Text, &[], prepare_requiring_maximum)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
     let rule = ValidatorId::new("test.missing_maximum");
 

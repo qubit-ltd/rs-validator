@@ -67,7 +67,8 @@ impl<'a> ArgumentReader<'a> {
     /// Reads a required argument once without decoding its value.
     ///
     /// The caller is responsible for checking the returned variant's type and
-    /// any domain-specific constraints. A successful read consumes the argument.
+    /// any domain-specific constraints. A successful read consumes the
+    /// argument.
     ///
     /// # Errors
     ///

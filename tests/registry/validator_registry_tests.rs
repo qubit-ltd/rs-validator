@@ -128,8 +128,8 @@ fn test_missing_rule_has_no_resolved_rule_id() {
 #[test]
 fn test_registry_bind_rejects_unknown_parameter_when_factory_ignores_reader() {
     let rule = ValidatorId::new("example.valid");
-    let registry = ValidatorRegistry::from_registrations([registration(rule.as_str(), "valid.rs")])
-        .expect("valid registry");
+    let registry =
+        ValidatorRegistry::from_registrations([registration(rule.as_str(), "valid.rs")]).expect("valid registry");
     let arguments = [NamedValidationArgument::new("unknown", ValidationArgument::Unsigned(1))];
 
     let error = registry

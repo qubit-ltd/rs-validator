@@ -21,7 +21,9 @@ fn test_required_argument_returns_raw_value_and_consumes_parameter() {
     let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
 
     assert_eq!(
-        reader.required_argument("choices").expect("present parameter should be returned"),
+        reader
+            .required_argument("choices")
+            .expect("present parameter should be returned"),
         ValidationArgument::StringList(&values)
     );
     reader.finish().expect("the parameter was consumed");

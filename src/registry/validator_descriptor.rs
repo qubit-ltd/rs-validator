@@ -160,7 +160,8 @@ impl ValidatorDescriptor {
         Ok(BoundValidator::new(prepared, signature, rule_id))
     }
 
-    /// Checks all parameters and the prepared shape after a signature is selected.
+    /// Checks all parameters and the prepared shape after a signature is
+    /// selected.
     ///
     /// # Errors
     ///
@@ -183,10 +184,7 @@ impl ValidatorDescriptor {
     /// # Errors
     ///
     /// Returns `PreparedSignatureMismatch` when either shape differs.
-    fn check_prepared_shape(
-        prepared: &dyn PreparedValidator,
-        signature: ValidatorSignature,
-    ) -> Result<(), BindError> {
+    fn check_prepared_shape(prepared: &dyn PreparedValidator, signature: ValidatorSignature) -> Result<(), BindError> {
         if prepared.input_type() != signature.input() || prepared.dependency_specs() != signature.dependencies() {
             return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch));
         }
