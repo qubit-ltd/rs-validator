@@ -64,6 +64,19 @@ impl<'a> ArgumentReader<'a> {
         })
     }
 
+    /// Reads a required argument once without decoding its value.
+    ///
+    /// The caller is responsible for checking the returned variant's type and
+    /// any domain-specific constraints. A successful read consumes the argument.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MissingParameter` when the name is absent, or
+    /// `ParameterAlreadyConsumed` when the argument was previously read.
+    pub fn required_argument(&mut self, name: &str) -> Result<ValidationArgument<'a>, BindError> {
+        self.take(name)
+    }
+
     /// Reads a required unsigned 32-bit integer once.
     ///
     /// # Errors
