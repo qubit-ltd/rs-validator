@@ -15,97 +15,80 @@ The frontend sends a username and email. The REST handler parses the request int
 
 ## Installation
 
-For direct rules and local registries alone, `qubit-validator = "0.1"` is enough. The Quick Start also applies those rules through field annotations, so it needs `qubit-model-metadata` with its `validation` feature and `qubit-model-derive`:
+Rust 1.94 or newer is required. Direct rules and a local registry need only this crate:
 
+<!-- validator-quick-start:manifest -->
 ```toml
 [dependencies]
 qubit-validator = "0.1"
-qubit-model-metadata = { version = "0.2", features = ["validation"] }
-qubit-model-derive = "0.2"
-qubit-reflect = "0.2"
 ```
-
-Rust 1.94 or newer is required.
 
 ## Quick start
 
-The program below is a complete, runnable version of that registration decision. Put it in `src/main.rs` of the application described above. It shows the three steps that belong to this crate's public surface: implement `Validator`, register the rules under stable IDs, then reference those IDs from `User` fields. `CountingRepository` only makes the no-write/write branches observable; replace it with an application repository in the REST service.
+This complete program follows a user registration flow: register rules, bind them at application startup, and check each field before writing to the repository. `CountingRepository` makes the rejection and write branches observable; a service can replace it with its own repository.
 
+<!-- validator-quick-start:source -->
 ```rust
 use std::cell::Cell;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
-use qubit_model_derive::Model;
-use qubit_model_metadata::metadata::TypeMetadata;
-use qubit_model_metadata::registry::ModelRegistry;
-use qubit_model_metadata::resolve::{ResolveInputs, StructureResolver};
-use qubit_model_metadata::validation::{ValidationBuildInputs, ValidationOptions, ValidationPlan};
-use qubit_reflect::ReflectedRef;
 use qubit_validator::{
-    ArgumentReader, BindError, InputType, NamedValidationArgument, PreparedValidator,
-    RegistrationSource, ValidationReport, Validator, ValidatorDescriptor, ValidatorId,
-    ValidatorRegistration, ValidatorRegistry, ValidatorSignature, ViolationCode, ViolationDraft,
-    prepare_text_validator,
+    ArgumentReader, BoundValidationContext, InputType, NamedValidationArgument, PreparedValidator,
+    RegistrationSource, ValidationPath, ValidationReport, ValidationValue, Validator,
+    ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry, ValidatorSignature,
+    ViolationCode, ViolationDraft, prepare_text_validator,
 };
 
-// --- Custom rule: non-blank text -------------------------------------------
-
 #[derive(Debug)]
-struct BlankText;
-impl fmt::Display for BlankText {
+struct RuleError(&'static str);
+impl fmt::Display for RuleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("text must not be blank")
+        f.write_str(self.0)
     }
 }
-impl Error for BlankText {}
+impl Error for RuleError {}
 
 struct NonBlank;
 impl Validator<str> for NonBlank {
-    type Error = BlankText;
+    type Error = RuleError;
     fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
-        if value.trim().is_empty() { Err(BlankText) } else { Ok(()) }
+        if value.trim().is_empty() {
+            Err(RuleError("text is blank"))
+        } else {
+            Ok(())
+        }
     }
 }
 
 fn prepare_non_blank(
     params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
 }
-
-static NON_BLANK_SIGNATURES: &[ValidatorSignature] =
-    &[ValidatorSignature::new(InputType::Text, &[], prepare_non_blank)];
-static NON_BLANK_DESCRIPTOR: ValidatorDescriptor =
-    ValidatorDescriptor::new(NON_BLANK_SIGNATURES);
+static NON_BLANK_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    &[],
+    prepare_non_blank,
+)];
+static NON_BLANK_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(NON_BLANK_SIGNATURES);
 static NON_BLANK_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     ValidatorId::new("app.non_blank"),
     &NON_BLANK_DESCRIPTOR,
     RegistrationSource::new("registration", "rules", file!(), line!()),
 );
 
-// --- Custom rule: ASCII email shape ----------------------------------------
-
-#[derive(Debug)]
-struct BadEmail;
-impl fmt::Display for BadEmail {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("text is not a valid ASCII email")
-    }
-}
-impl Error for BadEmail {}
-
 struct AsciiEmail;
 impl Validator<str> for AsciiEmail {
-    type Error = BadEmail;
+    type Error = RuleError;
     fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
         let mut parts = value.split('@');
-        let local = parts.next().ok_or(BadEmail)?;
-        let domain = parts.next().ok_or(BadEmail)?;
+        let local = parts.next().ok_or(RuleError("invalid email shape"))?;
+        let domain = parts.next().ok_or(RuleError("invalid email shape"))?;
         if parts.next().is_some()
             || value.len() > 254
             || local.is_empty()
@@ -113,24 +96,22 @@ impl Validator<str> for AsciiEmail {
             || !value.is_ascii()
             || value.chars().any(char::is_whitespace)
             || !domain.contains('.')
-            || domain.split('.').any(|label| label.is_empty())
+            || domain.split('.').any(str::is_empty)
         {
-            Err(BadEmail)
+            Err(RuleError("invalid ASCII email shape"))
         } else {
             Ok(())
         }
     }
 }
-
 fn prepare_email(
     params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(AsciiEmail, |_| {
         ViolationDraft::new(ViolationCode::new("text.email"))
     }))
 }
-
 static EMAIL_SIGNATURES: &[ValidatorSignature] =
     &[ValidatorSignature::new(InputType::Text, &[], prepare_email)];
 static EMAIL_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(EMAIL_SIGNATURES);
@@ -140,91 +121,102 @@ static EMAIL_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     RegistrationSource::new("registration", "rules", file!(), line!()),
 );
 
-// --- Domain type: annotations name the registered IDs ----------------------
-
-#[Model]
 struct User {
-    #[validator(id = "app.non_blank")]
     username: String,
-    #[validator(id = "app.non_blank")]
-    #[validator(id = "app.email")]
     email: String,
 }
-
-trait UserRepository {
-    fn insert(&self, user: User) -> Result<(), Box<dyn Error>>;
-}
-
-enum RegistrationOutcome {
-    Created,
-    Rejected(ValidationReport),
-}
-
-fn register_user(
-    plan: &ValidationPlan<'_>,
-    repository: &dyn UserRepository,
-    request: User,
-) -> Result<RegistrationOutcome, Box<dyn Error>> {
-    let report = plan.validate(ReflectedRef::new(&request), &ValidationOptions::default())?;
-    if report.is_truncated() {
-        return Err(std::io::Error::other("registration validation was incomplete").into());
+struct CountingRepository(Cell<usize>);
+impl CountingRepository {
+    fn insert(&self, _user: &User) {
+        self.0.set(self.0.get() + 1);
     }
-    if !report.is_valid() {
-        return Ok(RegistrationOutcome::Rejected(report));
-    }
-    repository.insert(request)?;
-    Ok(RegistrationOutcome::Created)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Build once at application startup; reuse the plan for every request.
-    let root = TypeMetadata::of::<User>();
-    let roots = [root];
-    let models = ModelRegistry::try_global()?;
-    let graph = Arc::new(StructureResolver::for_roots(ResolveInputs {
-        models: &models,
-        roots: &roots,
-    }).resolve()?);
-    let validators = ValidatorRegistry::from_registrations([
-        NON_BLANK_REGISTRATION,
-        EMAIL_REGISTRATION,
-    ])?;
-    let plan = ValidationPlan::build(root, ValidationBuildInputs {
-        graph,
-        validators: &validators,
-    })?;
-
-    struct CountingRepository(Cell<usize>);
-    impl UserRepository for CountingRepository {
-        fn insert(&self, _user: User) -> Result<(), Box<dyn Error>> {
-            self.0.set(self.0.get() + 1);
-            Ok(())
-        }
-    }
+    // Register and bind once during application startup.
+    let registry =
+        ValidatorRegistry::from_registrations([&NON_BLANK_REGISTRATION, &EMAIL_REGISTRATION])?;
+    let non_blank = registry.bind("app.non_blank", InputType::Text, &[])?;
+    let email = registry.bind("app.email", InputType::Text, &[])?;
     let repository = CountingRepository(Cell::new(0));
-    let invalid = User { username: "   ".into(), email: "wrong".into() };
-    let RegistrationOutcome::Rejected(report) = register_user(&plan, &repository, invalid)? else {
-        panic!("invalid registration must be rejected");
-    };
-    assert_eq!(repository.0.get(), 0);
-    for violation in report.violations() {
-        println!("{}: {}", violation.path().render(), violation.code().as_str());
-    }
 
-    let valid = User { username: "ada".into(), email: "ada@example.com".into() };
-    assert!(matches!(
-        register_user(&plan, &repository, valid)?, RegistrationOutcome::Created
-    ));
+    let invalid = User {
+        username: "   ".into(),
+        email: "wrong".into(),
+    };
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", invalid.username.as_str(), &non_blank),
+        ("email", invalid.email.as_str(), &email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    assert!(!report.is_truncated());
+    assert!(!report.is_valid());
+    assert_eq!(report.violations().len(), 2);
+    assert_eq!(report.violations()[0].code().as_str(), "text.blank");
+    assert_eq!(report.violations()[0].path().render(), "username");
+    assert_eq!(report.violations()[1].code().as_str(), "text.email");
+    assert_eq!(report.violations()[1].path().render(), "email");
+    assert_eq!(repository.0.get(), 0);
+
+    let valid = User {
+        username: "ada".into(),
+        email: "ada@example.com".into(),
+    };
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", valid.username.as_str(), &non_blank),
+        ("email", valid.email.as_str(), &email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    if !report.is_truncated() && report.is_valid() {
+        repository.insert(&valid);
+    }
     assert_eq!(repository.0.get(), 1);
     Ok(())
 }
 ```
 
-Run `cargo run`. The invalid request prints `username: text.blank` and `email: text.email`; the repository count stays at zero. The valid request increments it to one.
+Run `cargo run`. The invalid request report contains `username: text.blank` and `email: text.email`, and the repository count stays at zero. The valid request is written once. The email rule checks a demonstration ASCII email shape; it does not verify mailbox ownership.
 
-`NonBlank` and `AsciiEmail` are ordinary `Validator<str>` implementations. `prepare_text_validator` maps each domain error to a stable violation code; the descriptor and `ValidatorRegistration` publish that prepared rule under `app.non_blank` or `app.email`. The `#[validator(id = "...")]` attributes on `User` only declare which registered IDs apply to each field—they do not run at construction time. `ValidationPlan::build` in `qubit-model-metadata` reads those declarations and binds the matching registrations; `validate` walks the supported fields and returns this crate's `ValidationReport`. Built-in constraints such as `#[text(non_blank)]` can bind without a custom registration; a custom `#[validator(id = "...")]` always needs a matching entry in the registry you pass to the plan.
+## Model annotations
 
-The service checks `is_truncated()` before accepting or reporting a result. A partial report cannot prove the remaining fields are valid. The email rule checks a simple ASCII shape; it does not verify mailbox ownership. Username availability and other database-dependent policies belong in the application service. Keep rejected input out of diagnostic parameters and logs.
+`qubit-validator` defines, prepares, registers, and executes rules. Object field traversal is provided by `qubit-model-metadata`. The former `#[Model]` and `ValidationPlan` example belongs to this optional advanced path.
+
+For a checkout with the layout below, an application can use these local dependencies. This example is not required to get started with `qubit-validator`:
+
+```text
+<checkout>/rust-common/{rs-validator,rs-model-metadata,rs-reflect,rs-validation-rules}
+<checkout>/app
+```
+
+In `<checkout>/app/Cargo.toml`:
+
+```toml
+[dependencies]
+qubit-validator = { path = "../rust-common/rs-validator" }
+qubit-model-metadata = { path = "../rust-common/rs-model-metadata", features = ["validation"] }
+qubit-model-derive = { path = "../rust-common/rs-model-metadata/derive" }
+qubit-reflect = { path = "../rust-common/rs-reflect" }
+```
+
+In the current checkout, both `qubit-model-metadata` and `qubit-model-derive` set `publish = false`. See the [model validation user guide](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.md).
 
 ## What it provides
 

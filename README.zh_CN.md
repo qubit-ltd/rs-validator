@@ -15,97 +15,80 @@
 
 ## 安装
 
-只直接使用规则与局部注册表时，依赖 `qubit-validator = "0.1"` 即可。下面的快速开始还要通过字段注解应用这些规则，因此需要启用 `qubit-model-metadata` 的 `validation` 功能，并使用 `qubit-model-derive`：
+Rust 1.94 或更高版本即可使用。直接调用规则和本地注册表只需安装本 crate：
 
+<!-- validator-quick-start:manifest -->
 ```toml
 [dependencies]
 qubit-validator = "0.1"
-qubit-model-metadata = { version = "0.2", features = ["validation"] }
-qubit-model-derive = "0.2"
-qubit-reflect = "0.2"
 ```
-
-最低 Rust 版本为 1.94。
 
 ## 快速开始
 
-以下程序完整展示注册时的校验与保存决策。将它放在上述应用项目的 `src/main.rs`。示例覆盖本 crate 公开面上的三步：实现 `Validator`、按稳定 ID 注册规则，再在 `User` 字段上引用这些 ID。`CountingRepository` 只是为了让“拒绝时不写、通过后写一次”可观察；接入 REST 服务时应换成应用自己的仓储实现。
+下面的完整程序用用户注册流程演示如何注册规则、在应用启动时绑定规则，并在写入仓储前检查每个字段。`CountingRepository` 只用于观察拒绝和写入分支；实际服务可换成自己的仓储实现。
 
+<!-- validator-quick-start:source -->
 ```rust
 use std::cell::Cell;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 
-use qubit_model_derive::Model;
-use qubit_model_metadata::metadata::TypeMetadata;
-use qubit_model_metadata::registry::ModelRegistry;
-use qubit_model_metadata::resolve::{ResolveInputs, StructureResolver};
-use qubit_model_metadata::validation::{ValidationBuildInputs, ValidationOptions, ValidationPlan};
-use qubit_reflect::ReflectedRef;
 use qubit_validator::{
-    ArgumentReader, BindError, InputType, NamedValidationArgument, PreparedValidator,
-    RegistrationSource, ValidationReport, Validator, ValidatorDescriptor, ValidatorId,
-    ValidatorRegistration, ValidatorRegistry, ValidatorSignature, ViolationCode, ViolationDraft,
-    prepare_text_validator,
+    ArgumentReader, BoundValidationContext, InputType, NamedValidationArgument, PreparedValidator,
+    RegistrationSource, ValidationPath, ValidationReport, ValidationValue, Validator,
+    ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry, ValidatorSignature,
+    ViolationCode, ViolationDraft, prepare_text_validator,
 };
 
-// --- 自定义规则：非空白文本 ------------------------------------------------
-
 #[derive(Debug)]
-struct BlankText;
-impl fmt::Display for BlankText {
+struct RuleError(&'static str);
+impl fmt::Display for RuleError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("text must not be blank")
+        f.write_str(self.0)
     }
 }
-impl Error for BlankText {}
+impl Error for RuleError {}
 
 struct NonBlank;
 impl Validator<str> for NonBlank {
-    type Error = BlankText;
+    type Error = RuleError;
     fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
-        if value.trim().is_empty() { Err(BlankText) } else { Ok(()) }
+        if value.trim().is_empty() {
+            Err(RuleError("text is blank"))
+        } else {
+            Ok(())
+        }
     }
 }
 
 fn prepare_non_blank(
     params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(NonBlank, |_| {
         ViolationDraft::new(ViolationCode::new("text.blank"))
     }))
 }
-
-static NON_BLANK_SIGNATURES: &[ValidatorSignature] =
-    &[ValidatorSignature::new(InputType::Text, &[], prepare_non_blank)];
-static NON_BLANK_DESCRIPTOR: ValidatorDescriptor =
-    ValidatorDescriptor::new(NON_BLANK_SIGNATURES);
+static NON_BLANK_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    &[],
+    prepare_non_blank,
+)];
+static NON_BLANK_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(NON_BLANK_SIGNATURES);
 static NON_BLANK_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     ValidatorId::new("app.non_blank"),
     &NON_BLANK_DESCRIPTOR,
     RegistrationSource::new("registration", "rules", file!(), line!()),
 );
 
-// --- 自定义规则：ASCII 邮箱形态 --------------------------------------------
-
-#[derive(Debug)]
-struct BadEmail;
-impl fmt::Display for BadEmail {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("text is not a valid ASCII email")
-    }
-}
-impl Error for BadEmail {}
-
 struct AsciiEmail;
 impl Validator<str> for AsciiEmail {
-    type Error = BadEmail;
+    type Error = RuleError;
     fn validate(&self, value: &str, _: &()) -> Result<(), Self::Error> {
         let mut parts = value.split('@');
-        let local = parts.next().ok_or(BadEmail)?;
-        let domain = parts.next().ok_or(BadEmail)?;
+        let local = parts.next().ok_or(RuleError("invalid email shape"))?;
+        let domain = parts.next().ok_or(RuleError("invalid email shape"))?;
         if parts.next().is_some()
             || value.len() > 254
             || local.is_empty()
@@ -113,24 +96,22 @@ impl Validator<str> for AsciiEmail {
             || !value.is_ascii()
             || value.chars().any(char::is_whitespace)
             || !domain.contains('.')
-            || domain.split('.').any(|label| label.is_empty())
+            || domain.split('.').any(str::is_empty)
         {
-            Err(BadEmail)
+            Err(RuleError("invalid ASCII email shape"))
         } else {
             Ok(())
         }
     }
 }
-
 fn prepare_email(
     params: &[NamedValidationArgument<'_>],
-) -> Result<Arc<dyn PreparedValidator>, BindError> {
+) -> Result<Arc<dyn PreparedValidator>, qubit_validator::BindError> {
     ArgumentReader::new(params)?.finish()?;
     Ok(prepare_text_validator(AsciiEmail, |_| {
         ViolationDraft::new(ViolationCode::new("text.email"))
     }))
 }
-
 static EMAIL_SIGNATURES: &[ValidatorSignature] =
     &[ValidatorSignature::new(InputType::Text, &[], prepare_email)];
 static EMAIL_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(EMAIL_SIGNATURES);
@@ -140,91 +121,102 @@ static EMAIL_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
     RegistrationSource::new("registration", "rules", file!(), line!()),
 );
 
-// --- 领域类型：注解只引用已注册的 ID --------------------------------------
-
-#[Model]
 struct User {
-    #[validator(id = "app.non_blank")]
     username: String,
-    #[validator(id = "app.non_blank")]
-    #[validator(id = "app.email")]
     email: String,
 }
-
-trait UserRepository {
-    fn insert(&self, user: User) -> Result<(), Box<dyn Error>>;
-}
-
-enum RegistrationOutcome {
-    Created,
-    Rejected(ValidationReport),
-}
-
-fn register_user(
-    plan: &ValidationPlan<'_>,
-    repository: &dyn UserRepository,
-    request: User,
-) -> Result<RegistrationOutcome, Box<dyn Error>> {
-    let report = plan.validate(ReflectedRef::new(&request), &ValidationOptions::default())?;
-    if report.is_truncated() {
-        return Err(std::io::Error::other("registration validation was incomplete").into());
+struct CountingRepository(Cell<usize>);
+impl CountingRepository {
+    fn insert(&self, _user: &User) {
+        self.0.set(self.0.get() + 1);
     }
-    if !report.is_valid() {
-        return Ok(RegistrationOutcome::Rejected(report));
-    }
-    repository.insert(request)?;
-    Ok(RegistrationOutcome::Created)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // 启动时构建一次计划，之后每次请求复用。
-    let root = TypeMetadata::of::<User>();
-    let roots = [root];
-    let models = ModelRegistry::try_global()?;
-    let graph = Arc::new(StructureResolver::for_roots(ResolveInputs {
-        models: &models,
-        roots: &roots,
-    }).resolve()?);
-    let validators = ValidatorRegistry::from_registrations([
-        NON_BLANK_REGISTRATION,
-        EMAIL_REGISTRATION,
-    ])?;
-    let plan = ValidationPlan::build(root, ValidationBuildInputs {
-        graph,
-        validators: &validators,
-    })?;
-
-    struct CountingRepository(Cell<usize>);
-    impl UserRepository for CountingRepository {
-        fn insert(&self, _user: User) -> Result<(), Box<dyn Error>> {
-            self.0.set(self.0.get() + 1);
-            Ok(())
-        }
-    }
+    // Register and bind once during application startup.
+    let registry =
+        ValidatorRegistry::from_registrations([&NON_BLANK_REGISTRATION, &EMAIL_REGISTRATION])?;
+    let non_blank = registry.bind("app.non_blank", InputType::Text, &[])?;
+    let email = registry.bind("app.email", InputType::Text, &[])?;
     let repository = CountingRepository(Cell::new(0));
-    let invalid = User { username: "   ".into(), email: "wrong".into() };
-    let RegistrationOutcome::Rejected(report) = register_user(&plan, &repository, invalid)? else {
-        panic!("invalid registration must be rejected");
-    };
-    assert_eq!(repository.0.get(), 0);
-    for violation in report.violations() {
-        println!("{}: {}", violation.path().render(), violation.code().as_str());
-    }
 
-    let valid = User { username: "ada".into(), email: "ada@example.com".into() };
-    assert!(matches!(
-        register_user(&plan, &repository, valid)?, RegistrationOutcome::Created
-    ));
+    let invalid = User {
+        username: "   ".into(),
+        email: "wrong".into(),
+    };
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", invalid.username.as_str(), &non_blank),
+        ("email", invalid.email.as_str(), &email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    assert!(!report.is_truncated());
+    assert!(!report.is_valid());
+    assert_eq!(report.violations().len(), 2);
+    assert_eq!(report.violations()[0].code().as_str(), "text.blank");
+    assert_eq!(report.violations()[0].path().render(), "username");
+    assert_eq!(report.violations()[1].code().as_str(), "text.email");
+    assert_eq!(report.violations()[1].path().render(), "email");
+    assert_eq!(repository.0.get(), 0);
+
+    let valid = User {
+        username: "ada".into(),
+        email: "ada@example.com".into(),
+    };
+    let mut report = ValidationReport::new();
+    for (index, (field, value, rule)) in [
+        ("username", valid.username.as_str(), &non_blank),
+        ("email", valid.email.as_str(), &email),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let outcome = rule.validate(
+            ValidationValue::Text(value),
+            &BoundValidationContext::new(&[]),
+        )?;
+        report.record_outcome(index, ValidationPath::root().with_field(field), outcome)?;
+    }
+    if !report.is_truncated() && report.is_valid() {
+        repository.insert(&valid);
+    }
     assert_eq!(repository.0.get(), 1);
     Ok(())
 }
 ```
 
-运行 `cargo run`。无效请求打印 `username: text.blank` 和 `email: text.email`，仓储写入次数保持为零；合法请求使写入次数变为一。
+运行 `cargo run`。无效请求的报告包含 `username: text.blank` 和 `email: text.email` 两条违规，仓储写入次数为零；有效请求写入一次。邮箱规则只检查演示用的 ASCII 邮箱形态，不验证邮箱归属。
 
-`NonBlank` 与 `AsciiEmail` 是普通的 `Validator<str>` 实现。`prepare_text_validator` 把领域错误映射为稳定违规代码；描述符和 `ValidatorRegistration` 把准备好的规则发布为 `app.non_blank` 或 `app.email`。`User` 上的 `#[validator(id = "...")]` 只声明各字段要使用哪些已注册 ID，构造时并不会自动执行。`qubit-model-metadata` 的 `ValidationPlan::build` 读取这些声明并绑定对应注册项；`validate` 遍历受支持的字段，返回本 crate 的 `ValidationReport`。`#[text(non_blank)]` 这类内置约束可以不经自定义注册完成绑定；自定义 `#[validator(id = "...")]` 则必须在传入计划的注册表中提供同 ID 的注册项。
+## 模型注解集成
 
-服务先检查 `is_truncated()`，避免用不完整的报告放行或向用户声称已列出所有问题。示例中的邮箱规则只检查简单的 ASCII 形态，不验证邮箱归属。用户名是否已被占用等依赖数据库的规则，由应用服务负责。诊断参数和日志不应包含被拒绝的原始输入。
+`qubit-validator` 负责定义、准备、注册和执行规则；对象字段的遍历由 `qubit-model-metadata` 提供。原先基于 `#[Model]` 与 `ValidationPlan` 的示例属于这条可选的进阶路径。
+
+在同一 checkout 中采用以下目录布局时，应用的 `Cargo.toml` 可使用这些本地依赖。此示意不是首次使用 `qubit-validator` 的安装条件：
+
+```text
+<checkout>/rust-common/{rs-validator,rs-model-metadata,rs-reflect,rs-validation-rules}
+<checkout>/app
+```
+
+在 `<checkout>/app/Cargo.toml` 中：
+
+```toml
+[dependencies]
+qubit-validator = { path = "../rust-common/rs-validator" }
+qubit-model-metadata = { path = "../rust-common/rs-model-metadata", features = ["validation"] }
+qubit-model-derive = { path = "../rust-common/rs-model-metadata/derive" }
+qubit-reflect = { path = "../rust-common/rs-reflect" }
+```
+
+当前 checkout 中，`qubit-model-metadata` 和 `qubit-model-derive` 均设置为 `publish = false`。详见[模型校验用户指南](https://github.com/qubit-ltd/rs-model-metadata/blob/main/doc/user_guide.zh_CN.md)。
 
 ## 核心能力
 
