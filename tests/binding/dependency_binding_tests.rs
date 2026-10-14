@@ -184,6 +184,54 @@ static NINE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static NINE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(NINE_SIGNATURES);
 
+struct NinePathAdapter;
+
+impl PreparedValidator for NinePathAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        NINE_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        for index in 0..9 {
+            assert_eq!(*context.typed::<u64>(index)?, index as u64);
+            let expected_path = match index {
+                0 => nine_path_zero(),
+                8 => nine_path_eight(),
+                _ => ValidationPath::root(),
+            };
+            assert_eq!(context.dependency_path(index)?, &expected_path);
+        }
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+fn prepare_nine_path(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(NinePathAdapter))
+}
+
+fn nine_path_zero() -> ValidationPath {
+    ValidationPath::root().with_field("nine_path_zero")
+}
+
+fn nine_path_eight() -> ValidationPath {
+    ValidationPath::root().with_field("nine_path_eight")
+}
+
+static NINE_PATH_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    NINE_DEPENDENCIES,
+    prepare_nine_path,
+)];
+static NINE_PATH_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(NINE_PATH_SIGNATURES);
+
 struct NoDependencyAdapter;
 
 impl PreparedValidator for NoDependencyAdapter {
@@ -352,6 +400,54 @@ fn test_validate_named_reorders_nine_dependencies_without_paths() {
             .expect("nine named dependencies are reordered by signature"),
         ValidationOutcome::Valid,
     );
+}
+
+#[test]
+fn test_validate_named_nine_dependencies_reorders_mixed_paths() {
+    let bound = NINE_PATH_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let numbers: [u64; 9] = std::array::from_fn(|index| index as u64);
+    let path_zero = nine_path_zero();
+    let path_eight = nine_path_eight();
+    let dependencies: [NamedValidationDependency<'_>; 9] = std::array::from_fn(|index| {
+        let slot = 8 - index;
+        let dependency =
+            NamedValidationDependency::new(NINE_DEPENDENCIES[slot].name(), ValidationValue::Typed(&numbers[slot]));
+        match slot {
+            0 => dependency.with_path(&path_zero),
+            8 => dependency.with_path(&path_eight),
+            _ => dependency,
+        }
+    });
+
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &dependencies)
+            .expect("nine named dependencies are reordered with mixed paths"),
+        ValidationOutcome::Valid,
+    );
+}
+
+#[test]
+fn test_validate_named_nine_dependencies_preserves_type_error_path() {
+    let bound = NINE_PATH_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let numbers: [u64; 9] = std::array::from_fn(|index| index as u64);
+    let error_path = nine_path_eight();
+    let dependencies: [NamedValidationDependency<'_>; 9] = std::array::from_fn(|index| {
+        let slot = 8 - index;
+        if slot == 8 {
+            NamedValidationDependency::new("d8", ValidationValue::Text("wrong")).with_path(&error_path)
+        } else {
+            NamedValidationDependency::new(NINE_DEPENDENCIES[slot].name(), ValidationValue::Typed(&numbers[slot]))
+        }
+    });
+
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &dependencies)
+        .expect_err("the type mismatch keeps the supplied slot path");
+    assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("d8"));
+    assert_eq!(error.path(), &error_path);
 }
 
 #[test]
