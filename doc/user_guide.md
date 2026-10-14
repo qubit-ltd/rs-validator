@@ -256,7 +256,7 @@ pub fn check_confirmation(
 
 Call `bind_confirmation_rule()` during startup and keep its result in the profile service. During a request, call `check_confirmation(&rule, email, confirmation)` and record that outcome at `email_confirmation`. A larger application can register the descriptors together in one registry. The adapter reads the declared slot through `context.text(0)?`; a missing or malformed slot is an execution error.
 
-Matching values yield `Valid`; different values yield `email.confirmation_mismatch`. Missing or wrongly typed required dependencies produce `ExecutionError`, which the service handles as a failure rather than a field violation. `validate_named` maps names to signature slots and allocates a temporary reorder buffer. If the caller has already established slot order, use `validate` with `BoundValidationContext::new(&values)`. Optional slots still occupy a position; use `ValidationValue::Missing` for absence. A wrong type is not absence.
+Matching values yield `Valid`; different values yield `email.confirmation_mismatch`. Missing or wrongly typed required dependencies produce `ExecutionError`, which the service handles as a failure rather than a field violation. `validate_named` maps names to signature slots. It does not allocate a reorder container for zero or one dependency; two to eight dependencies use a fixed-capacity temporary buffer, and nine or more allocate that buffer on demand. Cloning a non-root `ValidationPath` may still allocate. If the caller has already established slot order, use `validate` with `BoundValidationContext::new(&values)`. Optional slots still occupy a position; use `ValidationValue::Missing` for absence. A wrong type is not absence.
 
 ## Configure a rule once at startup
 

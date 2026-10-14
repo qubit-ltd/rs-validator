@@ -256,7 +256,7 @@ pub fn check_confirmation(
 
 启动时调用 `bind_confirmation_rule()` 并把结果交给资料服务。收到请求后，调用 `check_confirmation(&rule, email, confirmation)`，再把结果记在 `email_confirmation` 路径。规则较多时，也可以把多个描述符放进同一个注册表。适配器通过 `context.text(0)?` 读取已声明的槽位；无法读取时返回执行错误。
 
-两个邮箱相同返回 `Valid`，不同则产生 `email.confirmation_mismatch`；缺少必填依赖或类型错误返回 `ExecutionError`，应走服务错误分支。`validate_named` 按签名名称匹配槽位，会分配临时缓冲。若上游已经核验顺序，也可使用 `validate` 和 `BoundValidationContext::new(&values)`。可选依赖仍占一个槽位，缺失时显式传 `ValidationValue::Missing`；错误类型不能当作缺失。
+两个邮箱相同返回 `Valid`，不同则产生 `email.confirmation_mismatch`；缺少必填依赖或类型错误返回 `ExecutionError`，应走服务错误分支。`validate_named` 按签名名称匹配槽位：零个或一个依赖时不会分配重排容器；两个到八个依赖使用固定容量的临时缓冲；九个及以上依赖才会按需分配缓冲。克隆非根路径 `ValidationPath` 时仍可能分配。若上游已经核验顺序，也可使用 `validate` 和 `BoundValidationContext::new(&values)`。可选依赖仍占一个槽位，缺失时显式传 `ValidationValue::Missing`；错误类型不能当作缺失。
 
 ## 在启动时配置规则
 
