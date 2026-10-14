@@ -56,6 +56,27 @@ static D4: &[DependencySpec] = &[
     DependencySpec::new("c", InputType::of::<u64>(), false),
     DependencySpec::new("d", InputType::of::<u64>(), false),
 ];
+static D8: &[DependencySpec] = &[
+    DependencySpec::new("a", InputType::of::<u64>(), false),
+    DependencySpec::new("b", InputType::of::<u64>(), false),
+    DependencySpec::new("c", InputType::of::<u64>(), false),
+    DependencySpec::new("d", InputType::of::<u64>(), false),
+    DependencySpec::new("e", InputType::of::<u64>(), false),
+    DependencySpec::new("f", InputType::of::<u64>(), false),
+    DependencySpec::new("g", InputType::of::<u64>(), false),
+    DependencySpec::new("h", InputType::of::<u64>(), false),
+];
+static D9: &[DependencySpec] = &[
+    DependencySpec::new("a", InputType::of::<u64>(), false),
+    DependencySpec::new("b", InputType::of::<u64>(), false),
+    DependencySpec::new("c", InputType::of::<u64>(), false),
+    DependencySpec::new("d", InputType::of::<u64>(), false),
+    DependencySpec::new("e", InputType::of::<u64>(), false),
+    DependencySpec::new("f", InputType::of::<u64>(), false),
+    DependencySpec::new("g", InputType::of::<u64>(), false),
+    DependencySpec::new("h", InputType::of::<u64>(), false),
+    DependencySpec::new("i", InputType::of::<u64>(), false),
+];
 
 fn prepare0(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     Ok(Arc::new(Accept { dependencies: D0 }))
@@ -69,12 +90,24 @@ fn prepare4(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidato
     Ok(Arc::new(Accept { dependencies: D4 }))
 }
 
+fn prepare8(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(Accept { dependencies: D8 }))
+}
+
+fn prepare9(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(Accept { dependencies: D9 }))
+}
+
 static S0: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, D0, prepare0)];
 static S1: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, D1, prepare1)];
 static S4: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, D4, prepare4)];
+static S8: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, D8, prepare8)];
+static S9: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, D9, prepare9)];
 static V0: ValidatorDescriptor = ValidatorDescriptor::new(S0);
 static V1: ValidatorDescriptor = ValidatorDescriptor::new(S1);
 static V4: ValidatorDescriptor = ValidatorDescriptor::new(S4);
+static V8: ValidatorDescriptor = ValidatorDescriptor::new(S8);
+static V9: ValidatorDescriptor = ValidatorDescriptor::new(S9);
 
 fn ns_per_call(iterations: u64, mut call: impl FnMut()) -> f64 {
     let start = Instant::now();
@@ -127,9 +160,12 @@ fn main() {
     let b0 = V0.bind(ValidatorId::new("bench.zero"), 0, &[]).unwrap();
     let b1 = V1.bind(ValidatorId::new("bench.one"), 0, &[]).unwrap();
     let b4 = V4.bind(ValidatorId::new("bench.four"), 0, &[]).unwrap();
+    let b8 = V8.bind(ValidatorId::new("bench.eight"), 0, &[]).unwrap();
+    let b9 = V9.bind(ValidatorId::new("bench.nine"), 0, &[]).unwrap();
     let number = 7_u64;
     let value = ValidationValue::Typed(&number);
     let path = ValidationPath::root().with_field("sample");
+    let tail_path = ValidationPath::root().with_field("tail");
 
     let empty_named: [NamedValidationDependency<'_>; 0] = [];
     let empty_values: [ValidationValue<'_>; 0] = [];
@@ -165,4 +201,79 @@ fn main() {
     let four_paths = [path.clone(), path.clone(), path.clone(), path.clone()];
     let four_context = BoundValidationContext::new_with_paths(&four_values, &four_paths).unwrap();
     run_case("four_path", &b4, &four_named_path, &four_context);
+
+    let eight_named = [
+        NamedValidationDependency::new("h", value),
+        NamedValidationDependency::new("g", value),
+        NamedValidationDependency::new("f", value),
+        NamedValidationDependency::new("e", value),
+        NamedValidationDependency::new("d", value),
+        NamedValidationDependency::new("c", value),
+        NamedValidationDependency::new("b", value),
+        NamedValidationDependency::new("a", value),
+    ];
+    let eight_values = [value; 8];
+    let eight_context = BoundValidationContext::new(&eight_values);
+    run_case("eight_plain", &b8, &eight_named, &eight_context);
+    let eight_named_mixed = [
+        NamedValidationDependency::new("h", value).with_path(&path),
+        NamedValidationDependency::new("g", value),
+        NamedValidationDependency::new("f", value),
+        NamedValidationDependency::new("e", value),
+        NamedValidationDependency::new("d", value),
+        NamedValidationDependency::new("c", value),
+        NamedValidationDependency::new("b", value),
+        NamedValidationDependency::new("a", value).with_path(&tail_path),
+    ];
+    let eight_paths = [
+        tail_path.clone(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        path.clone(),
+    ];
+    let eight_context = BoundValidationContext::new_with_paths(&eight_values, &eight_paths).unwrap();
+    run_case("eight_mixed_path", &b8, &eight_named_mixed, &eight_context);
+
+    let nine_named = [
+        NamedValidationDependency::new("i", value),
+        NamedValidationDependency::new("h", value),
+        NamedValidationDependency::new("g", value),
+        NamedValidationDependency::new("f", value),
+        NamedValidationDependency::new("e", value),
+        NamedValidationDependency::new("d", value),
+        NamedValidationDependency::new("c", value),
+        NamedValidationDependency::new("b", value),
+        NamedValidationDependency::new("a", value),
+    ];
+    let nine_values = [value; 9];
+    let nine_context = BoundValidationContext::new(&nine_values);
+    run_case("nine_plain", &b9, &nine_named, &nine_context);
+    let nine_named_mixed = [
+        NamedValidationDependency::new("i", value).with_path(&path),
+        NamedValidationDependency::new("h", value),
+        NamedValidationDependency::new("g", value),
+        NamedValidationDependency::new("f", value),
+        NamedValidationDependency::new("e", value),
+        NamedValidationDependency::new("d", value),
+        NamedValidationDependency::new("c", value),
+        NamedValidationDependency::new("b", value),
+        NamedValidationDependency::new("a", value).with_path(&tail_path),
+    ];
+    let nine_paths = [
+        tail_path.clone(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        ValidationPath::root(),
+        path.clone(),
+    ];
+    let nine_context = BoundValidationContext::new_with_paths(&nine_values, &nine_paths).unwrap();
+    run_case("nine_mixed_path", &b9, &nine_named_mixed, &nine_context);
 }

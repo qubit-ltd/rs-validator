@@ -173,9 +173,10 @@ impl BoundValidator {
     /// This entry point protects direct callers from swapping dependencies
     /// that have the same input type. Values are reordered into signature slot
     /// order for this call. Use [`Self::validate`] when a caller has already
-    /// checked and constructed values in that order. With multiple
-    /// dependencies, this method allocates a values vector, plus a paths
-    /// vector when supplied.
+    /// checked and constructed values in that order. Zero or one dependency
+    /// needs no reordering container; two to eight use fixed-size stack
+    /// buffers, while more than eight allocate vectors as needed. Cloning a
+    /// supplied non-root path may still allocate.
     ///
     /// # Parameters
     /// - `value`: Borrowed target value.
@@ -238,6 +239,14 @@ impl BoundValidator {
             };
         }
 
+        self.validate_named_many(value, dependencies)
+    }
+
+    fn validate_named_many(
+        &self,
+        value: ValidationValue<'_>,
+        dependencies: &[NamedValidationDependency<'_>],
+    ) -> Result<ValidationOutcome, ExecutionError> {
         const INLINE_SLOTS: usize = 8;
         let mut inline_slots: [Option<NamedValidationDependency<'_>>; INLINE_SLOTS] = [None; INLINE_SLOTS];
         let mut heap_slots = Vec::new();
@@ -267,6 +276,25 @@ impl BoundValidator {
                     .with_rule(self.rule_id)
                     .with_dependency(self.dependencies[index].name()));
             }
+        }
+        if self.dependencies.len() <= INLINE_SLOTS {
+            let mut values = [ValidationValue::Missing; INLINE_SLOTS];
+            for (index, slot) in slots.iter().enumerate() {
+                values[index] = slot.as_ref().expect("checked slot").value;
+            }
+            let values = &values[..self.dependencies.len()];
+            if !has_path {
+                return self.validate(value, &BoundValidationContext::new(values));
+            }
+            let mut paths: [ValidationPath; INLINE_SLOTS] = std::array::from_fn(|_| ValidationPath::root());
+            for (index, slot) in slots.iter().enumerate() {
+                if let Some(path) = slot.as_ref().expect("checked slot").path {
+                    paths[index] = path.clone();
+                }
+            }
+            let context = BoundValidationContext::new_with_paths(values, &paths[..self.dependencies.len()])
+                .map_err(|error| error.with_rule(self.rule_id))?;
+            return self.validate(value, &context);
         }
         let values: Vec<_> = slots
             .iter()
