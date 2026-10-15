@@ -178,7 +178,7 @@ pub fn continuation() {}
 "#;
 
     #[test]
-    fn test_user_guide_basic_path_compiles() {
+    fn test_user_guide_basic_path_runs() {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut failures = Vec::new();
 
@@ -195,8 +195,63 @@ pub fn continuation() {}
             fs::create_dir_all(&profile).expect("create temporary profile directory");
             fs::write(profile.join("rules.rs"), rules).expect("write rules module");
             fs::write(profile.join("startup.rs"), startup).expect("write startup module");
-            fs::write(profile.join("service.rs"), format!("{service}\n{continuation}\n"))
-                .expect("write service module");
+            fs::write(
+                profile.join("service.rs"),
+                format!(
+                    "{service}\n{continuation}\n{}",
+                    r#"
+#[cfg(test)]
+mod documented_flow_tests {
+    use std::cell::Cell;
+
+    use super::ProfileStore;
+    use super::UpdateProfileResult;
+    use super::update_profile;
+
+    #[derive(Default)]
+    struct CountingStore(Cell<usize>);
+
+    impl ProfileStore for CountingStore {
+        fn save_display_name(
+            &self,
+            _: &str,
+            _: &str,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            self.0.set(self.0.get() + 1);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn accepted_name_is_saved_and_blank_name_is_rejected()
+        -> Result<(), Box<dyn std::error::Error>>
+    {
+        let rule = crate::profile::startup::bind_display_name_rule()?;
+        let store = CountingStore::default();
+        assert!(matches!(
+            update_profile(&store, &rule, "user-1", "Ada")?,
+            UpdateProfileResult::Updated
+        ));
+        assert_eq!(store.0.get(), 1);
+
+        let UpdateProfileResult::Rejected(report) =
+            update_profile(&store, &rule, "user-1", "   ")?
+        else {
+            panic!("blank name must be rejected");
+        };
+        assert!(!report.is_truncated());
+        assert!(!report.is_valid());
+        assert_eq!(report.violations().len(), 1);
+        assert_eq!(report.violations()[0].code().as_str(), "text.blank");
+        assert_eq!(report.violations()[0].path().render(), "display_name");
+        assert_eq!(store.0.get(), 1);
+        Ok(())
+    }
+}
+"#
+                ),
+            )
+            .expect("write service module");
             fs::write(profile.join("mod.rs"), "mod rules;\nmod startup;\nmod service;\n")
                 .expect("write profile module");
             fs::write(app.path.join("src/main.rs"), "mod profile;\nfn main() {}\n")
@@ -208,17 +263,27 @@ pub fn continuation() {}
             fs::write(app.path.join("Cargo.toml"), manifest).expect("write temporary Cargo manifest");
 
             let output = Command::new("cargo")
-                .args(["check", "--offline", "--quiet"])
+                .args(["test", "--offline"])
                 .current_dir(&app.path)
                 .env("CARGO_TARGET_DIR", app.path.join("target"))
                 .output()
-                .expect("check temporary Cargo application");
+                .unwrap_or_else(|error| panic!("{document}: failed to start cargo test --offline: {error}"));
             if !output.status.success() {
                 failures.push(format!(
-                    "{document}: cargo check --offline --quiet exited with {}\nstderr:\n{}",
+                    "{document}: cargo test --offline exited with {}\nstdout:\n{}\nstderr:\n{}",
                     output.status,
+                    String::from_utf8_lossy(&output.stdout),
                     String::from_utf8_lossy(&output.stderr)
                 ));
+            } else {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if !stdout.contains("accepted_name_is_saved_and_blank_name_is_rejected") || !stdout.contains("1 passed")
+                {
+                    failures.push(format!(
+                        "{document}: cargo test --offline did not report the expected test and result\nstdout:\n{stdout}\nstderr:\n{}",
+                        String::from_utf8_lossy(&output.stderr)
+                    ));
+                }
             }
         }
 
