@@ -27,6 +27,8 @@ pub(in crate::binding) struct TextContextFnAdapter<F> {
 
 impl<F> TextContextFnAdapter<F> {
     /// Creates an adapter around one validation operation.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(call: F, dependencies: &'static [DependencySpec]) -> Self {
         Self { call, dependencies }
     }
@@ -37,11 +39,13 @@ where
     F: for<'a> Fn(&str, &BoundValidationContext<'a>) -> Result<PreparedOutcome, ExecutionError> + Send + Sync,
 {
     /// Returns the text shape accepted by this closure.
+    #[inline]
     fn input_type(&self) -> InputType {
         InputType::Text
     }
 
     /// Returns the dependency slots declared for this closure.
+    #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
     }

@@ -34,6 +34,16 @@ pub struct DependencySpec {
 impl DependencySpec {
     /// Creates a dependency declaration.
     ///
+    /// # Parameters
+    ///
+    /// - `name`: non-empty logical slot name used in diagnostics.
+    /// - `input`: erased value shape required by the slot.
+    /// - `optional`: whether an explicit missing value is accepted.
+    ///
+    /// # Returns
+    ///
+    /// Returns a declaration containing the supplied dependency metadata.
+    ///
     /// # Panics
     ///
     /// Panics when `name` is empty.

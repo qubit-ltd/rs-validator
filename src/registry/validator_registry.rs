@@ -11,13 +11,13 @@
 #[cfg(feature = "inventory")]
 use std::sync::OnceLock;
 
-use super::BindError;
-use super::BindErrorKind;
-use super::BoundValidator;
-use super::InputType;
 use super::ValidatorRegistration;
 use crate::NamedValidationArgument;
 use crate::ValidatorRegistryError;
+use crate::binding::BindError;
+use crate::binding::BindErrorKind;
+use crate::binding::BoundValidator;
+use crate::binding::InputType;
 
 /// A deterministic local registry containing one definition per stable ID.
 ///
@@ -43,6 +43,10 @@ impl ValidatorRegistry {
     ///
     /// Returns every source which declared a duplicated stable ID, or the
     /// identifier and cause of the first invalid descriptor.
+    ///
+    /// # Returns
+    ///
+    /// Returns a registry containing the validated registrations sorted by ID.
     pub fn from_registrations<I>(registrations: I) -> Result<Self, ValidatorRegistryError>
     where
         I: IntoIterator,
@@ -52,7 +56,12 @@ impl ValidatorRegistry {
     }
 
     /// Returns an empty registry.
+    ///
+    /// # Returns
+    ///
+    /// Returns a registry with no registrations.
     #[must_use]
+    #[inline]
     pub fn empty() -> Self {
         Self {
             registrations: Box::new([]),
@@ -66,6 +75,10 @@ impl ValidatorRegistry {
     /// Returns the cached error when linked registrations contain a duplicate
     /// ID or an invalid descriptor. This method is available only with the
     /// `inventory` feature.
+    ///
+    /// # Returns
+    ///
+    /// Returns the process-wide registry when initialization succeeds.
     #[cfg(feature = "inventory")]
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
         static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
@@ -87,6 +100,10 @@ impl ValidatorRegistry {
     ///
     /// Panics when linked registrations contain duplicate IDs or an invalid
     /// descriptor. This method is available only with the `inventory` feature.
+    ///
+    /// # Returns
+    ///
+    /// Returns the initialized process-wide registry.
     #[cfg(feature = "inventory")]
     #[must_use]
     pub fn global() -> &'static Self {
@@ -108,6 +125,10 @@ impl ValidatorRegistry {
     }
 
     /// Returns registrations sorted by stable ID.
+    ///
+    /// # Returns
+    ///
+    /// Returns a borrowed slice of all registrations in stable-ID order.
     #[must_use]
     #[inline]
     pub fn registrations(&self) -> &[ValidatorRegistration] {
@@ -121,6 +142,11 @@ impl ValidatorRegistry {
     /// Returns `MissingRule` when `id` has no registration. This error has
     /// no resolved rule ID; callers that need the requested text retain `id`.
     /// Signature and preparation errors for a found rule carry its ID.
+    ///
+    /// # Returns
+    ///
+    /// Returns the bound validator when the registration exists and accepts
+    /// the supplied input and parameters.
     pub fn bind(
         &self,
         id: &str,
@@ -139,6 +165,10 @@ impl ValidatorRegistry {
     /// # Errors
     ///
     /// Returns duplicate-ID metadata or the first invalid descriptor.
+    ///
+    /// # Returns
+    ///
+    /// Returns a registry containing the validated registrations sorted by ID.
     fn build(mut registrations: Vec<ValidatorRegistration>) -> Result<Self, ValidatorRegistryError> {
         registrations.sort_by_key(|registration| (registration.id(), registration.source()));
         let mut index = 0;

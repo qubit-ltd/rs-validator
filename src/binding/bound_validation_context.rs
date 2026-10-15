@@ -47,6 +47,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error when the two slices differ in length.
+    ///
+    /// # Returns
+    ///
+    /// Returns a context whose values and paths occupy matching slots.
     pub fn new_with_paths(
         values: &'a [ValidationValue<'a>],
         paths: &'a [ValidationPath],
@@ -65,6 +69,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    ///
+    /// # Returns
+    ///
+    /// Returns a copy of the value stored at `index`.
     #[inline]
     pub fn value(&self, index: usize) -> Result<ValidationValue<'a>, ExecutionError> {
         self.values
@@ -78,6 +86,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns an adapter contract error for an invalid slot index.
+    ///
+    /// # Returns
+    ///
+    /// Returns the stored path, or the root path when no paths were supplied.
     #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
@@ -94,6 +106,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    ///
+    /// # Returns
+    ///
+    /// Returns a borrow of the value when it has concrete type `T`.
     #[inline]
     pub fn typed<T: 'static>(&self, index: usize) -> Result<&'a T, ExecutionError> {
         match self.value(index)? {
@@ -133,6 +149,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
+    ///
+    /// # Returns
+    ///
+    /// Returns the borrowed text dependency.
     #[inline]
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {
@@ -148,6 +168,10 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// Returns the first shape, missing-value, or adapter contract error in
     /// signature order. Error metadata does not include raw dependency values.
+    ///
+    /// # Returns
+    ///
+    /// Returns `()` when every slot satisfies its declared dependency.
     pub(crate) fn check_specs(&self, specs: &[DependencySpec]) -> Result<(), ExecutionError> {
         if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
             return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));

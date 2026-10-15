@@ -55,7 +55,8 @@ impl PreparedOutcome {
     ///
     /// # Errors
     ///
-    /// Returns `EmptyViolations` when `violations` is empty.
+    /// Returns [`ValidationOutcomeError::EmptyViolations`] when `violations` is
+    /// empty.
     pub fn invalid(violations: Vec<ViolationDraft>) -> Result<Self, ValidationOutcomeError> {
         if violations.is_empty() {
             return Err(ValidationOutcomeError::EmptyViolations);
@@ -67,7 +68,8 @@ impl PreparedOutcome {
     ///
     /// # Errors
     ///
-    /// Returns an outcome contract error when an invalid result has no drafts.
+    /// Returns [`ValidationOutcomeError::EmptyViolations`] when an invalid
+    /// result has no drafts.
     pub fn into_bound(self, rule_id: ValidatorId) -> Result<ValidationOutcome, ValidationOutcomeError> {
         match self {
             Self::Valid => Ok(ValidationOutcome::Valid),

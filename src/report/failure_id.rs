@@ -47,6 +47,8 @@ impl FailureId {
     ///
     /// The caller must ensure that the report identity and index refer to an
     /// entry already retained by the originating report.
+    #[must_use]
+    #[inline]
     pub(crate) const fn new(report: u64, index: usize) -> Self {
         Self { report, index }
     }
@@ -56,7 +58,8 @@ impl FailureId {
 ///
 /// # Panics
 ///
-/// Panics only after the process has created `u64::MAX` validation reports.
+/// Panics when assigning the next identity would overflow `u64`, after
+/// `u64::MAX - 1` report identities have been issued.
 pub(crate) fn next_report_id() -> u64 {
     static NEXT_REPORT_ID: AtomicU64 = AtomicU64::new(1);
     NEXT_REPORT_ID

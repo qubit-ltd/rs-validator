@@ -50,6 +50,10 @@ impl InputType {
 
     /// Returns whether this descriptor accepts the supplied input shape.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: Borrowed input whose shape is compared with this descriptor.
+    ///
     /// # Returns
     ///
     /// Returns `true` when `value` has the exact shape described by `self`.

@@ -11,14 +11,15 @@
 use std::fmt;
 use std::sync::Arc;
 
-use super::BindError;
-use super::BindErrorKind;
-use super::BoundValidator;
 use super::ValidatorSignature;
 use crate::ArgumentReader;
 use crate::NamedValidationArgument;
 use crate::PreparedValidator;
 use crate::ValidatorId;
+use crate::binding::BindError;
+use crate::binding::BindErrorKind;
+use crate::binding::BoundValidator;
+use crate::binding::InputType;
 
 /// A definition containing one or more input/dependency signatures.
 ///
@@ -128,7 +129,7 @@ impl ValidatorDescriptor {
     pub fn bind_for<'a>(
         &self,
         rule_id: ValidatorId,
-        input: super::InputType,
+        input: InputType,
         params: &'a [NamedValidationArgument<'a>],
     ) -> Result<BoundValidator, BindError> {
         self.validate_definition().map_err(|error| error.with_rule(rule_id))?;
@@ -147,7 +148,7 @@ impl ValidatorDescriptor {
     pub(crate) fn bind_for_validated<'a>(
         &self,
         rule_id: ValidatorId,
-        input: super::InputType,
+        input: InputType,
         params: &'a [NamedValidationArgument<'a>],
     ) -> Result<BoundValidator, BindError> {
         let signature = self
@@ -158,37 +159,6 @@ impl ValidatorDescriptor {
             .ok_or_else(|| BindError::new(BindErrorKind::UnsupportedInput).with_rule(rule_id))?;
         let prepared = Self::prepare_checked(rule_id, signature, params)?;
         Ok(BoundValidator::new(prepared, signature, rule_id))
-    }
-
-    /// Checks all parameters and the prepared shape after a signature is
-    /// selected.
-    ///
-    /// # Errors
-    ///
-    /// Returns a rule-tagged error for duplicate parameters, factory failures,
-    /// unconsumed parameters, or a prepared signature mismatch.
-    fn prepare_checked<'a>(
-        rule_id: ValidatorId,
-        signature: ValidatorSignature,
-        params: &'a [NamedValidationArgument<'a>],
-    ) -> Result<Arc<dyn PreparedValidator>, BindError> {
-        let mut reader = ArgumentReader::new(params).map_err(|error| error.with_rule(rule_id))?;
-        let prepared = (signature.prepare())(&mut reader).map_err(|error| error.with_rule(rule_id))?;
-        reader.finish().map_err(|error| error.with_rule(rule_id))?;
-        Self::check_prepared_shape(prepared.as_ref(), signature).map_err(|error| error.with_rule(rule_id))?;
-        Ok(prepared)
-    }
-
-    /// Ensures a factory produced the input and dependency shape it declared.
-    ///
-    /// # Errors
-    ///
-    /// Returns `PreparedSignatureMismatch` when either shape differs.
-    fn check_prepared_shape(prepared: &dyn PreparedValidator, signature: ValidatorSignature) -> Result<(), BindError> {
-        if prepared.input_type() != signature.input() || prepared.dependency_specs() != signature.dependencies() {
-            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch));
-        }
-        Ok(())
     }
 
     /// Checks that the descriptor is non-empty and unambiguous.
@@ -224,6 +194,37 @@ impl ValidatorDescriptor {
                     return Err(BindError::new(BindErrorKind::InvalidDeclaration).with_dependency(dependency.name()));
                 }
             }
+        }
+        Ok(())
+    }
+
+    /// Checks all parameters and the prepared shape after a signature is
+    /// selected.
+    ///
+    /// # Errors
+    ///
+    /// Returns a rule-tagged error for duplicate parameters, factory failures,
+    /// unconsumed parameters, or a prepared signature mismatch.
+    fn prepare_checked<'a>(
+        rule_id: ValidatorId,
+        signature: ValidatorSignature,
+        params: &'a [NamedValidationArgument<'a>],
+    ) -> Result<Arc<dyn PreparedValidator>, BindError> {
+        let mut reader = ArgumentReader::new(params).map_err(|error| error.with_rule(rule_id))?;
+        let prepared = (signature.prepare())(&mut reader).map_err(|error| error.with_rule(rule_id))?;
+        reader.finish().map_err(|error| error.with_rule(rule_id))?;
+        Self::check_prepared_shape(prepared.as_ref(), signature).map_err(|error| error.with_rule(rule_id))?;
+        Ok(prepared)
+    }
+
+    /// Ensures a factory produced the input and dependency shape it declared.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PreparedSignatureMismatch` when either shape differs.
+    fn check_prepared_shape(prepared: &dyn PreparedValidator, signature: ValidatorSignature) -> Result<(), BindError> {
+        if prepared.input_type() != signature.input() || prepared.dependency_specs() != signature.dependencies() {
+            return Err(BindError::new(BindErrorKind::PreparedSignatureMismatch));
         }
         Ok(())
     }

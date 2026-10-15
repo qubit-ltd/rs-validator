@@ -17,8 +17,10 @@ use super::SkipReason;
 use super::SkippedValidation;
 use super::ValidationLimits;
 use super::ValidationOutcomeError;
+use super::ValidationPath;
 use super::Violation;
 use super::next_report_id;
+use crate::ValidationOutcome;
 
 /// A bounded collection of validation violations and skipped occurrences.
 ///
@@ -110,6 +112,12 @@ impl ValidationReport {
     /// violation capacity. For an invalid outcome, `path` prefixes each
     /// relative violation path once.
     ///
+    /// # Parameters
+    ///
+    /// - `occurrence`: Non-decreasing position of this validation occurrence.
+    /// - `path`: Path to the value for which the outcome was produced.
+    /// - `outcome`: Validation result and any associated failure metadata.
+    ///
     /// # Errors
     ///
     /// Returns an outcome shape error for malformed outcomes, duplicate
@@ -126,15 +134,15 @@ impl ValidationReport {
     pub fn record_outcome(
         &mut self,
         occurrence: usize,
-        path: super::ValidationPath,
-        outcome: crate::ValidationOutcome,
+        path: ValidationPath,
+        outcome: ValidationOutcome,
     ) -> Result<RecordedOutcome, ValidationOutcomeError> {
         if self.last_recorded_occurrence.is_some_and(|last| occurrence < last) {
             return Err(ValidationOutcomeError::OutOfOrderOccurrence);
         }
         let result = match outcome {
-            crate::ValidationOutcome::Valid => Ok(RecordedOutcome::new(true, Vec::new())),
-            crate::ValidationOutcome::Invalid(violations) => {
+            ValidationOutcome::Valid => Ok(RecordedOutcome::new(true, Vec::new())),
+            ValidationOutcome::Invalid(violations) => {
                 if violations.is_empty() {
                     return Err(ValidationOutcomeError::EmptyViolations);
                 }
@@ -151,7 +159,7 @@ impl ValidationReport {
                 }
                 Ok(RecordedOutcome::new(complete, failure_ids))
             }
-            crate::ValidationOutcome::Skipped {
+            ValidationOutcome::Skipped {
                 reason: SkipReason::MissingOptional,
                 prerequisites,
             } => {
@@ -166,7 +174,7 @@ impl ValidationReport {
                     Ok(RecordedOutcome::new(true, Vec::new()))
                 }
             }
-            crate::ValidationOutcome::Skipped {
+            ValidationOutcome::Skipped {
                 reason: SkipReason::FailedPrerequisite,
                 prerequisites,
             } => {

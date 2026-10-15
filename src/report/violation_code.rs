@@ -8,6 +8,11 @@
 
 //! Stable validation violation codes.
 
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
+
 use super::ViolationCodeError;
 use crate::internal::DottedIdentifierError;
 use crate::internal::validate_dotted_identifier;
@@ -70,16 +75,16 @@ impl ViolationCode {
     }
 }
 
-impl std::fmt::Debug for ViolationCode {
+impl Debug for ViolationCode {
     /// Formats the validated, program-declared code.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter.debug_tuple("ViolationCode").field(&self.0).finish()
     }
 }
 
-impl std::fmt::Display for ViolationCode {
+impl Display for ViolationCode {
     /// Formats the validated, program-declared code.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter.write_str(self.0)
     }
 }

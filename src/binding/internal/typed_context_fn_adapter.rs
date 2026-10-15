@@ -32,6 +32,8 @@ pub(in crate::binding) struct TypedContextFnAdapter<T, F> {
 
 impl<T, F> TypedContextFnAdapter<T, F> {
     /// Creates an adapter around one validation operation.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(call: F, dependencies: &'static [DependencySpec]) -> Self {
         Self {
             call,
@@ -47,11 +49,13 @@ where
     F: for<'a> Fn(&T, &BoundValidationContext<'a>) -> Result<PreparedOutcome, ExecutionError> + Send + Sync,
 {
     /// Returns the concrete input type accepted by this closure.
+    #[inline]
     fn input_type(&self) -> InputType {
         InputType::of::<T>()
     }
 
     /// Returns the dependency slots declared for this closure.
+    #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
     }

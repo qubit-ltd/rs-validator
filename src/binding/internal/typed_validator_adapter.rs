@@ -30,6 +30,8 @@ pub(in crate::binding) struct TypedValidatorAdapter<T, V, M> {
 
 impl<T, V, M> TypedValidatorAdapter<T, V, M> {
     /// Creates an adapter for a specific type, validator, and error mapper.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M) -> Self {
         Self {
             validator,
@@ -46,16 +48,28 @@ where
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the concrete input type accepted by this adapter.
+    #[inline]
     fn input_type(&self) -> InputType {
         InputType::of::<T>()
     }
 
     /// Returns that this unit-context adapter has no dependency slots.
+    #[inline]
     fn dependency_specs(&self) -> &'static [super::super::DependencySpec] {
         &[]
     }
 
-    /// Validates a checked typed value and maps a domain error into a draft.
+    /// Validates a value after checking that its concrete type is `T`.
+    ///
+    /// A validator domain error becomes an invalid outcome containing one
+    /// mapped violation. An execution error is returned when `value` does not
+    /// contain the accepted type, indicating that the binding supplied a value
+    /// with the wrong shape.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when `value` does not contain a value of
+    /// type `T`.
     fn validate(
         &self,
         value: ValidationValue<'_>,

@@ -8,8 +8,17 @@
 
 //! Safe validation paths.
 
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
 use super::PathSegment;
 
+/// Reports whether a field label can be rendered as a dotted ASCII identifier.
+///
+/// Empty labels, non-ASCII bytes, and punctuation require quoted rendering.
+#[inline]
 fn is_simple_field(field: &str) -> bool {
     let mut bytes = field.bytes();
     let Some(first) = bytes.next() else {
@@ -18,6 +27,10 @@ fn is_simple_field(field: &str) -> bool {
     (first.is_ascii_alphabetic() || first == b'_') && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
+/// Appends a JSON-escaped field label inside the path's bracket notation.
+///
+/// Control characters and JSON metacharacters are escaped; other Unicode
+/// characters are copied unchanged.
 fn append_quoted_field(output: &mut String, field: &str) {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     output.push_str("[\"");
@@ -232,9 +245,9 @@ impl ValidationPath {
     }
 }
 
-impl std::fmt::Debug for ValidationPath {
+impl Debug for ValidationPath {
     /// Formats only the segment count so field labels remain private.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter
             .debug_struct("ValidationPath")
             .field("segment_count", &self.segments.len())
@@ -242,9 +255,9 @@ impl std::fmt::Debug for ValidationPath {
     }
 }
 
-impl std::fmt::Display for ValidationPath {
+impl Display for ValidationPath {
     /// Formats a redacted placeholder instead of rendering path labels.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter.write_str("<validation-path>")
     }
 }

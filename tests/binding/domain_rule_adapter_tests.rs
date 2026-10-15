@@ -101,7 +101,7 @@ static TYPED_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 static TYPED_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TYPED_SIGNATURES);
 
 #[test]
-fn text_domain_adapter_maps_domain_error_into_safe_violation() {
+fn test_text_domain_adapter_maps_domain_error_into_safe_violation() {
     let prepared = prepare_text_domain_rule::<DomainRule, Rejected, &'static str, _, _>(
         &[],
         DomainRule,
@@ -120,7 +120,7 @@ fn text_domain_adapter_maps_domain_error_into_safe_violation() {
 }
 
 #[test]
-fn domain_adapter_forwards_infrastructure_errors() {
+fn test_domain_adapter_forwards_infrastructure_errors() {
     let prepared = prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         &[],
         DomainRule,
@@ -133,7 +133,7 @@ fn domain_adapter_forwards_infrastructure_errors() {
 }
 
 #[test]
-fn domain_adapter_rejects_empty_invalid_drafts() {
+fn test_domain_adapter_rejects_empty_invalid_drafts() {
     let prepared = prepare_text_domain_rule::<DomainRule, Rejected, (), _, _>(
         &[],
         DomainRule,
@@ -145,7 +145,7 @@ fn domain_adapter_rejects_empty_invalid_drafts() {
 }
 
 #[test]
-fn domain_adapter_preserves_multiple_drafts_for_domain_failure() {
+fn test_domain_adapter_preserves_multiple_drafts_for_domain_failure() {
     let id = ValidatorId::new("test.domain");
     static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare_fixture)];
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
@@ -213,7 +213,7 @@ fn test_prepared_domain_call_relies_on_bound_validator_for_dependency_contracts(
 }
 
 #[test]
-fn typed_domain_adapter_passes_metadata_to_error_mapper() {
+fn test_typed_domain_adapter_passes_metadata_to_error_mapper() {
     let bound = TYPED_DESCRIPTOR
         .bind(ValidatorId::new("test.domain.typed"), 0, &[])
         .expect("typed domain rule binds");

@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::any::TypeId;
 use std::sync::Arc;
 
 use qubit_validator::ArgumentReader;
@@ -144,7 +145,7 @@ fn test_duplicate_id_reports_every_source_independent_of_input_order() {
 fn test_one_id_can_expose_multiple_input_signatures() {
     let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
         ValidatorSignature::new(InputType::Text, &[], prepare),
-        ValidatorSignature::new(InputType::Typed(std::any::TypeId::of::<u32>()), &[], prepare),
+        ValidatorSignature::new(InputType::Typed(TypeId::of::<u32>()), &[], prepare),
     ]));
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
     let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)]).unwrap();

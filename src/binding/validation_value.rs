@@ -9,6 +9,11 @@
 //! Borrowed values passed across the erased validation boundary.
 
 use std::any::Any;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
+use super::InputType;
 
 /// A value view that deliberately avoids implicit stringification and cloning.
 ///
@@ -48,12 +53,11 @@ impl<'a> ValidationValue<'a> {
     /// # Returns
     ///
     /// Returns `None` only for [`Self::Missing`].
-    #[must_use]
     #[inline]
-    pub fn input_type(self) -> Option<super::InputType> {
+    pub fn input_type(self) -> Option<InputType> {
         match self {
-            Self::Text(_) => Some(super::InputType::Text),
-            Self::Typed(value) => Some(super::InputType::Typed(value.type_id())),
+            Self::Text(_) => Some(InputType::Text),
+            Self::Typed(value) => Some(InputType::Typed(value.type_id())),
             Self::Missing => None,
         }
     }
@@ -63,7 +67,6 @@ impl<'a> ValidationValue<'a> {
     /// # Returns
     ///
     /// Returns `None` for typed and missing values.
-    #[must_use]
     #[inline]
     pub const fn as_text(self) -> Option<&'a str> {
         match self {
@@ -92,7 +95,6 @@ impl<'a> ValidationValue<'a> {
     /// # Returns
     ///
     /// Returns `None` for text, missing, and differently typed values.
-    #[must_use]
     #[inline]
     pub fn typed<T: 'static>(self) -> Option<&'a T> {
         match self {
@@ -102,9 +104,9 @@ impl<'a> ValidationValue<'a> {
     }
 }
 
-impl std::fmt::Debug for ValidationValue<'_> {
+impl Debug for ValidationValue<'_> {
     /// Formats only the value shape and always redacts raw input.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         match self {
             Self::Text(_) => formatter.write_str("Text(<redacted>)"),
             Self::Typed(_) => formatter.write_str("Typed(<redacted>)"),

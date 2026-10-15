@@ -35,6 +35,11 @@ pub(in crate::binding) struct ContextualTypedValidatorAdapter<T, V, M> {
 
 impl<T, V, M> ContextualTypedValidatorAdapter<T, V, M> {
     /// Creates an adapter for a type, validator, and error mapper.
+    ///
+    /// The dependency slots are borrowed for the adapter's entire lifetime so
+    /// the binding layer can verify and provide their values before validation.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
         Self {
             validator,
@@ -62,6 +67,16 @@ where
     }
 
     /// Validates a checked typed value with its dependency context.
+    ///
+    /// A validator domain error becomes an invalid outcome containing one
+    /// mapped violation. An execution error is returned when `value` does not
+    /// contain the accepted type, indicating that the binding supplied a value
+    /// with the wrong shape.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when `value` does not contain a value of
+    /// type `T`.
     fn validate(
         &self,
         value: ValidationValue<'_>,

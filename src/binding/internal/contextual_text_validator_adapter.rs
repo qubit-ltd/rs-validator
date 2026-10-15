@@ -32,7 +32,13 @@ pub(in crate::binding) struct ContextualTextValidatorAdapter<V, M> {
 }
 
 impl<V, M> ContextualTextValidatorAdapter<V, M> {
-    /// Creates an adapter from a validator and its domain error mapper.
+    /// Creates an adapter from a validator, its domain error mapper, and its
+    /// declared dependency slots.
+    ///
+    /// The dependency list is borrowed for the adapter's entire lifetime so
+    /// the binding layer can verify and provide the values before validation.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
         Self {
             validator,
@@ -59,6 +65,10 @@ where
     }
 
     /// Validates checked text with its dependency context.
+    ///
+    /// A validator domain error becomes an invalid outcome containing one
+    /// mapped violation. An execution error is returned when `value` is not
+    /// text; this indicates the binding supplied a value with the wrong shape.
     fn validate(
         &self,
         value: ValidationValue<'_>,

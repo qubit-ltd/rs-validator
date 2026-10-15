@@ -8,6 +8,8 @@
 
 //! Binding error kinds.
 
+use std::fmt;
+
 /// A configuration or declaration error found while binding a rule.
 ///
 /// # Examples
@@ -68,9 +70,9 @@ pub enum BindErrorKind {
     InvalidSelection,
 }
 
-impl std::fmt::Display for BindErrorKind {
+impl fmt::Display for BindErrorKind {
     /// Formats the stable human-readable error category.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             Self::UnknownParameter => "unknown parameter",
             Self::DuplicateParameter => "duplicate parameter",

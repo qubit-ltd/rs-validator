@@ -62,9 +62,11 @@ use super::ValidationValue;
 /// ```
 pub trait PreparedValidator: Send + Sync {
     /// Returns the exact erased target shape accepted by this implementation.
+    #[must_use]
     fn input_type(&self) -> InputType;
 
     /// Returns dependency slots accepted in execution order.
+    #[must_use]
     fn dependency_specs(&self) -> &'static [DependencySpec];
 
     /// Validates one erased input with its ordered dependency context.

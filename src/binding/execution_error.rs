@@ -91,6 +91,7 @@ impl ExecutionError {
     }
 
     /// Associates a structured path with this error.
+    #[inline]
     pub fn with_path(mut self, path: super::ValidationPath) -> Self {
         self.path = path;
         self

@@ -8,9 +8,9 @@
 
 //! Input and dependency signatures for validator definitions.
 
-use super::DependencySpec;
-use super::InputType;
-use super::PrepareFn;
+use crate::binding::DependencySpec;
+use crate::binding::InputType;
+use crate::binding::PrepareFn;
 
 /// One statically declared way to bind a validator.
 ///
@@ -56,6 +56,19 @@ pub struct ValidatorSignature {
 
 impl ValidatorSignature {
     /// Creates a signature with ordered dependency slots.
+    ///
+    /// # Parameters
+    ///
+    /// - `input`: Erased input shape accepted by the validator.
+    /// - `dependencies`: Dependency slots passed to the prepared validator, in
+    ///   order.
+    /// - `prepare`: Function that binds arguments and creates the prepared
+    ///   validator.
+    ///
+    /// # Returns
+    ///
+    /// A signature containing the supplied input shape, dependencies, and
+    /// factory.
     #[must_use]
     #[inline]
     pub const fn new(input: InputType, dependencies: &'static [DependencySpec], prepare: PrepareFn) -> Self {
@@ -67,6 +80,10 @@ impl ValidatorSignature {
     }
 
     /// Returns the accepted value shape.
+    ///
+    /// # Returns
+    ///
+    /// The erased input shape this signature accepts.
     #[must_use]
     #[inline]
     pub const fn input(self) -> InputType {
@@ -74,6 +91,11 @@ impl ValidatorSignature {
     }
 
     /// Returns dependency declarations in slot order.
+    ///
+    /// # Returns
+    ///
+    /// The static dependency slice in the order passed to the prepared
+    /// validator.
     #[must_use]
     #[inline]
     pub const fn dependencies(self) -> &'static [DependencySpec] {
@@ -81,6 +103,11 @@ impl ValidatorSignature {
     }
 
     /// Returns the parameter binding function.
+    ///
+    /// # Returns
+    ///
+    /// The factory function that binds parameters and creates the prepared
+    /// validator.
     #[must_use]
     #[inline]
     pub const fn prepare(self) -> PrepareFn {

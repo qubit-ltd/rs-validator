@@ -147,7 +147,11 @@ impl Violation {
         &self.params
     }
 
-    /// Assigns the bound rule identity to a safe adapter-produced draft.
+    /// Converts an adapter-produced draft into a violation for its bound rule.
+    ///
+    /// The draft is consumed so its code, path, and parameters can be moved
+    /// into the violation without cloning. The supplied identifier comes from
+    /// the validator binding that owns the draft.
     pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
         let (code, path, params) = draft.parts();
         Self {

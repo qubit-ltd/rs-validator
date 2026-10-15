@@ -21,10 +21,3 @@ pub use validator_registration::ValidatorRegistration;
 pub use validator_registration_factory::ValidatorRegistrationFactory;
 pub use validator_registry::ValidatorRegistry;
 pub use validator_signature::ValidatorSignature;
-
-pub(crate) use crate::binding::BindError;
-pub(crate) use crate::binding::BindErrorKind;
-pub(crate) use crate::binding::BoundValidator;
-pub(crate) use crate::binding::DependencySpec;
-pub(crate) use crate::binding::InputType;
-pub(crate) use crate::binding::PrepareFn;

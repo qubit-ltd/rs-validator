@@ -8,6 +8,10 @@
 
 //! Segments of a safe validation path.
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
 /// One location segment in a validation path.
 ///
 /// Segments sort by variant in the order listed below, then by their field
@@ -45,9 +49,9 @@ pub enum PathSegment {
     MapValue,
 }
 
-impl std::fmt::Debug for PathSegment {
+impl Debug for PathSegment {
     /// Formats structural path data while redacting field labels.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         match self {
             Self::Field(_) => formatter.write_str("Field(<redacted>)"),
             Self::Index(index) => formatter.debug_tuple("Index").field(index).finish(),

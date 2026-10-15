@@ -19,6 +19,9 @@ use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorSignature;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_text_validator;
 
 struct AcceptAll;
 
@@ -31,8 +34,8 @@ impl Validator<str> for AcceptAll {
 }
 
 fn prepare_valid(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(qubit_validator::prepare_text_validator(AcceptAll, |_| {
-        qubit_validator::ViolationDraft::new(qubit_validator::ViolationCode::new("test.invalid"))
+    Ok(prepare_text_validator(AcceptAll, |_| {
+        ViolationDraft::new(ViolationCode::new("test.invalid"))
     }))
 }
 

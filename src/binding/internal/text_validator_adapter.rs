@@ -40,16 +40,23 @@ where
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this adapter.
+    #[inline]
     fn input_type(&self) -> InputType {
         InputType::Text
     }
 
     /// Returns that this unit-context adapter has no dependency slots.
+    #[inline]
     fn dependency_specs(&self) -> &'static [super::super::DependencySpec] {
         &[]
     }
 
     /// Validates a checked text value and maps a domain error into a draft.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when `value` is not text, indicating that
+    /// the binding supplied a value with the wrong shape.
     fn validate(
         &self,
         value: ValidationValue<'_>,

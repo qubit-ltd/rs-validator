@@ -69,7 +69,6 @@ impl BindError {
     }
 
     /// Returns the error kind.
-    #[must_use = "the error category should be inspected"]
     #[inline]
     pub const fn kind(&self) -> BindErrorKind {
         self.kind

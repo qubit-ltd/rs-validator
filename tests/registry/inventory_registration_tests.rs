@@ -86,7 +86,11 @@ fn test_local_registry_accepts_static_registration_references() {
     let registry = ValidatorRegistry::from_registrations([&registration])
         .expect("reference registration is copied into the local registry");
     assert_eq!(
-        registry.get("test.inventory.local").unwrap().id().as_str(),
+        registry
+            .get("test.inventory.local")
+            .expect("local registration is present")
+            .id()
+            .as_str(),
         "test.inventory.local"
     );
 }

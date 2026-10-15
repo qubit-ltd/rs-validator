@@ -9,7 +9,7 @@
 use qubit_validator::NamedValidationArgument;
 use qubit_validator::ValidationArgument;
 #[test]
-fn argument_debug_redacts_names_and_values() {
+fn test_argument_debug_redacts_names_and_values() {
     let strings = ["first-secret", "second-secret"];
     let values = [
         ValidationArgument::String("sensitive-value"),

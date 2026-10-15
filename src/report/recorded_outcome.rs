@@ -30,7 +30,9 @@ use super::FailureId;
 /// ```
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecordedOutcome {
+    /// Whether all outcome data could be retained within the report limits.
     complete: bool,
+    /// Failure identifiers retained while recording this outcome.
     failure_ids: Vec<FailureId>,
 }
 

@@ -348,9 +348,9 @@ fn test_prerequisite_references_do_not_consume_failure_capacity() {
             .record_outcome(
                 occurrence,
                 ValidationPath::root(),
-                ValidationOutcome::failed_prerequisite(vec![id]).unwrap(),
+                ValidationOutcome::failed_prerequisite(vec![id]).expect("one prerequisite reference is valid"),
             )
-            .unwrap();
+            .expect("known prerequisite reference is recorded");
         assert!(receipt.complete());
     }
     assert_eq!(report.failure_count(), 1);
@@ -366,18 +366,18 @@ fn test_recording_returns_ids_for_original_failures_and_skips_reference_them() {
         .record_outcome(
             0,
             ValidationPath::root().with_field("source"),
-            ValidationOutcome::invalid(vec![violation("test.invalid", "source")]).unwrap(),
+            ValidationOutcome::invalid(vec![violation("test.invalid", "source")]).expect("one source failure is valid"),
         )
-        .unwrap();
+        .expect("source failure is retained");
     let id = result.failure_ids()[0];
     assert_eq!(report.failure(id), Some(&report.violations()[0]));
     let skipped = report
         .record_outcome(
             1,
             ValidationPath::root().with_field("target"),
-            ValidationOutcome::failed_prerequisite(vec![id]).unwrap(),
+            ValidationOutcome::failed_prerequisite(vec![id]).expect("one retained failure can be referenced"),
         )
-        .unwrap();
+        .expect("known prerequisite reference is recorded");
     assert!(skipped.complete());
     assert_eq!(report.failure_count(), 1);
     assert_eq!(report.failures().count(), 1);
@@ -394,7 +394,7 @@ fn test_malformed_invalid_outcome_is_rejected_without_mutation() {
     );
     let receipt = report
         .record_outcome(0, ValidationPath::root(), ValidationOutcome::missing_optional())
-        .unwrap();
+        .expect("missing optional outcome is valid");
     assert!(receipt.complete());
     assert_eq!(report.skipped()[0].reason(), SkipReason::MissingOptional);
 }
@@ -410,7 +410,8 @@ fn test_report_rejects_out_of_order_occurrences_without_mutation() {
         report.record_outcome(
             2,
             ValidationPath::root(),
-            ValidationOutcome::invalid(vec![violation("test.invalid", "source")]).unwrap(),
+            ValidationOutcome::invalid(vec![violation("test.invalid", "source")])
+                .expect("invalid outcome has one failure"),
         ),
         Err(ValidationOutcomeError::OutOfOrderOccurrence),
     );
@@ -422,7 +423,8 @@ fn test_report_rejects_out_of_order_occurrences_without_mutation() {
         .record_outcome(
             3,
             ValidationPath::root(),
-            ValidationOutcome::invalid(vec![violation("test.invalid", "source")]).unwrap(),
+            ValidationOutcome::invalid(vec![violation("test.invalid", "source")])
+                .expect("invalid outcome has one failure"),
         )
         .expect("the same occurrence may be recorded more than once");
     assert_eq!(report.failure_count(), 1);
