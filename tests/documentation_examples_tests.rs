@@ -22,6 +22,10 @@ const GUIDE_MARKERS: [(&str, &str); 4] = [
     ("<!-- validator-guide:service -->", "service"),
     ("<!-- validator-guide:service-continuation -->", "service-continuation"),
 ];
+const ADVANCED_GUIDE_MARKERS: [(&str, &str); 2] = [
+    ("<!-- validator-guide:confirmation -->", "confirmation"),
+    ("<!-- validator-guide:max-length -->", "max-length"),
+];
 
 fn extract_block(readme: &str, marker: &str, name: &str, language: &str) -> Result<String, String> {
     let mut markers = readme.match_indices(marker);
@@ -103,6 +107,52 @@ fn extract_guide_basic_path(guide: &str) -> Result<[String; 4], String> {
     blocks.try_into().map_err(|_| "expected four guide blocks".to_owned())
 }
 
+fn extract_guide_advanced_modules(guide: &str, document: &str) -> Result<[String; 2], String> {
+    ADVANCED_GUIDE_MARKERS
+        .map(|(marker, name)| extract_advanced_guide_block(guide, document, marker, name))
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?
+        .try_into()
+        .map_err(|_| format!("{document}: expected two advanced guide modules"))
+}
+
+fn extract_advanced_guide_block(guide: &str, document: &str, marker: &str, name: &str) -> Result<String, String> {
+    let context = format!("{document}: {name} ({marker})");
+    let mut markers = guide.match_indices(marker);
+    let marker_at = markers.next();
+    let count = usize::from(marker_at.is_some()) + markers.count();
+    if count != 1 {
+        return Err(format!("{context}: expected exactly one marker, found {count}"));
+    }
+
+    let marker_end = marker_at.expect("count checked").0 + marker.len();
+    let after_marker = guide[marker_end..]
+        .strip_prefix("\r\n")
+        .or_else(|| guide[marker_end..].strip_prefix('\n'))
+        .unwrap_or(&guide[marker_end..]);
+    let mut lines = after_marker.lines();
+    let fence = lines
+        .next()
+        .ok_or_else(|| format!("{context}: marker must be followed immediately by a rust fence"))?;
+    if fence.trim() != "```rust" {
+        return Err(format!(
+            "{context}: marker must be followed immediately by a rust fence"
+        ));
+    }
+
+    let mut body = Vec::new();
+    for line in lines {
+        if line.trim() == "```" {
+            return Ok(body.join("\n"));
+        }
+        if line.trim_start().starts_with("```") {
+            return Err(format!("{context}: rust fence must close with ```"));
+        }
+        body.push(line);
+    }
+    Err(format!("{context}: rust fence has no closing fence"))
+}
+
 struct TemporaryApp {
     path: PathBuf,
 }
@@ -137,11 +187,13 @@ mod tests {
     use std::path::PathBuf;
     use std::process::Command;
 
+    use super::ADVANCED_GUIDE_MARKERS;
     use super::GUIDE_MARKERS;
     use super::INSTALLATION;
     use super::MANIFEST_MARKER;
     use super::SOURCE_MARKER;
     use super::TemporaryApp;
+    use super::extract_guide_advanced_modules;
     use super::extract_guide_basic_path;
     use super::extract_quick_start;
 
@@ -176,6 +228,59 @@ pub fn service() {}
 pub fn continuation() {}
 ```
 "#;
+
+    const VALID_ADVANCED_GUIDE: &str = r#"
+<!-- validator-guide:confirmation -->
+```rust
+pub fn confirmation() {}
+```
+<!-- validator-guide:max-length -->
+```rust
+pub fn max_length() {}
+```
+"#;
+
+    #[test]
+    fn test_extract_guide_advanced_modules_rejects_missing_marker() {
+        for (marker, _) in ADVANCED_GUIDE_MARKERS {
+            let guide = VALID_ADVANCED_GUIDE.replace(marker, "");
+            let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
+            assert!(error.contains("doc/user_guide.md"));
+            assert!(error.contains(marker));
+            assert!(error.contains("found 0"));
+        }
+    }
+
+    #[test]
+    fn test_extract_guide_advanced_modules_rejects_duplicate_marker() {
+        for (marker, _) in ADVANCED_GUIDE_MARKERS {
+            let guide = format!("{VALID_ADVANCED_GUIDE}\n{marker}");
+            let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
+            assert!(error.contains("doc/user_guide.md"));
+            assert!(error.contains(marker));
+            assert!(error.contains("found 2"));
+        }
+    }
+
+    #[test]
+    fn test_extract_guide_advanced_modules_rejects_wrong_fence() {
+        for (marker, _) in ADVANCED_GUIDE_MARKERS {
+            let guide = VALID_ADVANCED_GUIDE.replace(&format!("{marker}\n```rust"), &format!("{marker}\n```toml"));
+            let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
+            assert!(error.contains("doc/user_guide.md"));
+            assert!(error.contains(marker));
+            assert!(error.contains("rust fence"));
+        }
+    }
+
+    #[test]
+    fn test_extract_guide_advanced_modules_accepts_crlf() {
+        let guide = VALID_ADVANCED_GUIDE.replace('\n', "\r\n");
+        let [confirmation, max_length] =
+            extract_guide_advanced_modules(&guide, "doc/user_guide.md").expect("extract CRLF guide");
+        assert_eq!(confirmation, "pub fn confirmation() {}");
+        assert_eq!(max_length, "pub fn max_length() {}");
+    }
 
     #[test]
     fn test_user_guide_basic_path_runs() {
@@ -337,6 +442,117 @@ mod documented_flow_tests {
                 format!("{name} block has no closing fence")
             );
         }
+    }
+
+    #[test]
+    fn test_user_guide_advanced_modules_run() {
+        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut failures = Vec::new();
+
+        for (document, directory) in [
+            ("doc/user_guide.md", "guide_advanced_en"),
+            ("doc/user_guide.zh_CN.md", "guide_advanced_zh"),
+        ] {
+            let guide = fs::read_to_string(project_root.join(document))
+                .unwrap_or_else(|error| panic!("{document}: could not read guide: {error}"));
+            let [confirmation, max_length] =
+                extract_guide_advanced_modules(&guide, document).unwrap_or_else(|error| panic!("{error}"));
+            let app = TemporaryApp::new(directory);
+            let profile = app.path.join("src/profile");
+            fs::create_dir_all(&profile).expect("create temporary profile directory");
+            fs::write(profile.join("confirmation.rs"), confirmation).expect("write confirmation module");
+            fs::write(profile.join("max_length.rs"), max_length).expect("write max-length module");
+            fs::write(profile.join("mod.rs"), "pub mod confirmation;\npub mod max_length;\n")
+                .expect("write profile module");
+            fs::write(
+                app.path.join("src/main.rs"),
+                r#"
+mod profile;
+
+#[cfg(test)]
+mod documented_advanced_examples_tests {
+    use qubit_validator::BoundValidationContext;
+    use qubit_validator::ValidationOutcome;
+    use qubit_validator::ValidationValue;
+
+    use crate::profile::confirmation::bind_confirmation_rule;
+    use crate::profile::confirmation::check_confirmation;
+    use crate::profile::max_length::bind_max_length_rule;
+
+    fn assert_invalid_code(outcome: ValidationOutcome, expected: &str) {
+        let ValidationOutcome::Invalid(violations) = outcome else {
+            panic!("expected Invalid outcome");
+        };
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].code().as_str(), expected);
+    }
+
+    #[test]
+    fn confirmation_module_accepts_matching_email_and_rejects_mismatch() {
+        let rule = bind_confirmation_rule().expect("bind confirmation rule");
+        assert!(matches!(
+            check_confirmation(&rule, "ada@example.com", "ada@example.com")
+                .expect("validate matching email"),
+            ValidationOutcome::Valid
+        ));
+        assert_invalid_code(
+            check_confirmation(&rule, "ada@example.com", "grace@example.com")
+                .expect("validate mismatching email"),
+            "email.confirmation_mismatch",
+        );
+    }
+
+    #[test]
+    fn max_length_module_counts_unicode_scalar_values() {
+        let rule = bind_max_length_rule(3).expect("bind maximum length rule");
+        assert!(matches!(
+            rule.validate(ValidationValue::Text("猫é🙂"), &BoundValidationContext::new(&[]))
+                .expect("validate three scalar values"),
+            ValidationOutcome::Valid
+        ));
+        assert_invalid_code(
+            rule.validate(ValidationValue::Text("猫é🙂a"), &BoundValidationContext::new(&[]))
+                .expect("validate four scalar values"),
+            "text.too_long",
+        );
+    }
+}
+
+fn main() {}
+"#,
+            )
+            .expect("write application entry point");
+            let manifest = format!(
+                "[package]\nname = \"{directory}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nqubit-validator = {{ path = {:?} }}\n",
+                project_root.to_string_lossy()
+            );
+            fs::write(app.path.join("Cargo.toml"), manifest).expect("write temporary Cargo manifest");
+
+            let output = Command::new("cargo")
+                .args(["test", "--offline"])
+                .current_dir(&app.path)
+                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .output()
+                .unwrap_or_else(|error| panic!("{document}: failed to start cargo test --offline: {error}"));
+            if !output.status.success() {
+                failures.push(format!(
+                    "{document}: cargo test --offline exited with {}\nstdout:\n{}\nstderr:\n{}",
+                    output.status,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+            } else {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if !stdout.contains("2 passed") {
+                    failures.push(format!(
+                        "{document}: cargo test --offline did not report both advanced tests passing\nstdout:\n{stdout}\nstderr:\n{}",
+                        String::from_utf8_lossy(&output.stderr)
+                    ));
+                }
+            }
+        }
+
+        assert!(failures.is_empty(), "{}", failures.join("\n\n"));
     }
 
     #[test]

@@ -142,7 +142,7 @@ fn check_display_name(
 
 ## Check the result before saving
 
-The application supplies `ProfileStore` and the HTTP handler. This service boundary makes the decision explicit:
+The application supplies `ProfileStore` and the HTTP handler. First confirm that the entire intended validation run returned successfully; only then use the report to make the pass-before-save decision. A partial report attached to an execution error is diagnostic evidence only:
 
 <!-- validator-guide:service-continuation -->
 ```rust
@@ -178,17 +178,17 @@ fn update_profile(
 }
 ```
 
-The store and response type are application code, not provided by the crate. `"Ada"` reaches `save_display_name` and returns `Updated` if that call succeeds. A blank name returns `Rejected(report)` without a store call. A store error remains an application error. The handler should check `is_truncated()` first, then iterate `report.violations()` and map each code to a controlled message. An invalid report can contain no retained violation, so do not index the first item without checking it. Keep the submitted name out of messages and logs.
+The store and response type are application code, not provided by the crate. `"Ada"` reaches `save_display_name` and returns `Updated` if that call succeeds. A blank name returns `Rejected(report)` without a store call. A store error remains an application error. The handler should check `is_truncated()` first, then iterate `report.violations()` and map each code to a controlled message. An invalid report can contain no retained violation, so do not index the first item without checking it. If a model-validation integration returns an execution error with a partial report, keep that report for diagnosis and do not use it to authorize a write. Keep the submitted name out of messages and logs.
 
 | What happened | What to inspect | Application action |
 | --- | --- | --- |
-| `"Ada"` passes | `report.is_valid()` is true | Save through the application's store. |
+| `"Ada"` passes | `report.is_valid()` is true after all intended checks complete successfully | Save through the application's store. |
 | `"   "` fails the rule | `ValidationOutcome::Invalid`, then `report.violations()` contains `text.blank` | Reject the update and map the code to a field message. |
 | ID, signature, or parameters are wrong | `ValidatorRegistryError` or `BindError` during startup | Fix configuration before serving requests. |
 | Input shape or rule execution fails | `Err(ExecutionError)` from `validate` | Treat as a service failure, not invalid user data; diagnose through a trusted path. |
 | A limited report cannot retain everything | `!recorded.complete()` or `report.is_truncated()` | Treat the report as incomplete; do not accept the update based on missing violations. |
 
-`record_outcome` returns `RecordedOutcome`; `complete()` means that outcome fitted the report's limits, **not** that validation passed. This example uses `ValidationReport::new()` without count limits. For a limited report, check completeness and truncation as well as validity. `ValidationOutcome::Invalid` means a rule ran and rejected a value; it is not an `ExecutionError`.
+`record_outcome` returns `RecordedOutcome`; `complete()` means that outcome fitted the report's limits, **not** that validation passed. This example uses `ValidationReport::new()` without count limits. For a limited report, check completeness and truncation as well as validity. `ValidationOutcome::Invalid` means a rule ran and rejected a value; it is not an `ExecutionError`. In every case, first confirm the full intended run returned successfully; an execution error's partial report is for diagnosis, not acceptance.
 
 The basic path ends here: bind at startup, validate in the request, and save only after a valid report. The following sections extend that same profile flow.
 
@@ -196,6 +196,7 @@ The basic path ends here: bind at startup, validate in the request, and save onl
 
 Suppose the profile form has `email` and `email_confirmation`. The confirmation rule needs the chosen email as a dependency. Declare the dependency once in the rule's signature and adapter, then bind it at startup. This self-contained module defines the rule, binds it at startup, and exposes a request-time call:
 
+<!-- validator-guide:confirmation -->
 ```rust
 // src/profile/confirmation.rs
 use std::sync::Arc;
@@ -262,6 +263,7 @@ Matching values yield `Valid`; different values yield `email.confirmation_mismat
 
 If profile policy adds a maximum display-name length, read its `maximum` parameter while binding, then reuse that limit for every request. This module includes preparation and startup binding; it counts Unicode scalar values, so an application requiring grapheme or byte limits must define a different rule.
 
+<!-- validator-guide:max-length -->
 ```rust
 // src/profile/max_length.rs
 use std::sync::Arc;
@@ -343,6 +345,8 @@ assert_eq!(report.skipped().len(), 1);
 Only use `failed_prerequisite` when an earlier result actually retained a failure. Its `FailureId` values belong to this report and point to original violations; `report.failures()` visits each original failure once. The crate does not decide to skip a rule for you. If an optional target is missing, `ValidationOutcome::missing_optional()` records a different skip reason.
 
 For a large request, `ValidationReport::with_limits(ValidationLimits { max_violations: Some(20), max_skipped: Some(20) })` limits retained violations and skipped entries independently. A skip's reference to an already retained failure does not consume another violation slot. Check the returned `RecordedOutcome::complete()` and `report.is_truncated()`; if application code stops checking early, call `report.mark_truncated()`. A truncated report must not be treated as proof that all remaining fields passed. These limits do not bound input length, validation work, dependency paths, prerequisite lists, or outcomes allocated before recording; the application sets those budgets separately.
+
+If execution stops with an error and an integration returns the collected partial report, use it to diagnose recorded evidence only. Confirm the entire intended run succeeded before using `is_valid()` to permit an action.
 
 ## Choose registration and adapter options
 

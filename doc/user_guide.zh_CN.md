@@ -142,7 +142,7 @@ fn check_display_name(
 
 ## 保存前检查结果
 
-`ProfileStore` 和 HTTP handler 由应用提供。资料服务可以按下面的方式明确“通过才保存”的决策：
+`ProfileStore` 和 HTTP handler 由应用提供。先确认预定的整次验证均成功返回，再依据报告决定是否保存；执行错误携带的部分报告只用于诊断：
 
 <!-- validator-guide:service-continuation -->
 ```rust
@@ -178,17 +178,17 @@ fn update_profile(
 }
 ```
 
-存储接口与 `UpdateProfileResult` 都是应用代码。`"Ada"` 会进入 `save_display_name`，该调用成功后返回 `Updated`；全空白名称返回 `Rejected(report)`，不会访问存储。存储失败仍是应用错误。handler 应先检查 `is_truncated()`，再遍历 `report.violations()`，将违规代码映射为受控文案。无效报告也可能没有已保留的违规项，不要直接索引第一项。请求中的名称不能进入文案或日志。
+存储接口与 `UpdateProfileResult` 都是应用代码。`"Ada"` 会进入 `save_display_name`，该调用成功后返回 `Updated`；全空白名称返回 `Rejected(report)`，不会访问存储。存储失败仍是应用错误。handler 应先检查 `is_truncated()`，再遍历 `report.violations()`，将违规代码映射为受控文案。无效报告也可能没有已保留的违规项，不要直接索引第一项。模型校验集成若在执行错误中附带部分报告，应保留用于诊断，不能据此放行写入。请求中的名称不能进入文案或日志。
 
 | 发生了什么 | 检查什么 | 应用下一步 |
 | --- | --- | --- |
-| `"Ada"` 通过 | `report.is_valid()` 为 true | 调用应用自己的存储层。 |
+| `"Ada"` 通过 | 预定检查全部成功完成后，`report.is_valid()` 为 true | 调用应用自己的存储层。 |
 | `"   "` 违反规则 | `ValidationOutcome::Invalid`，报告含 `text.blank` | 拒绝修改，把代码映射为字段提示。 |
 | ID、签名或参数配置有误 | 启动阶段的 `ValidatorRegistryError` 或 `BindError` | 修正配置，再开放请求入口。 |
 | 输入形状或规则执行出错 | `validate` 返回 `Err(ExecutionError)` | 作为服务故障处理，走可信诊断流程；不要当作字段错误。 |
 | 有限额的报告装不下全部结果 | `!recorded.complete()` 或 `report.is_truncated()` | 视为结果不完整，不根据缺失的违规项放行。 |
 
-`record_outcome` 返回 `RecordedOutcome`；`complete()` 表示本次结果完整写入报告，**不表示验证通过**。上例用 `ValidationReport::new()`，没有条数上限。若设置限额，要同时检查完整性、截断状态和有效性。`ValidationOutcome::Invalid` 表示规则已执行且值不符合要求，不属于 `ExecutionError`。
+`record_outcome` 返回 `RecordedOutcome`；`complete()` 表示本次结果完整写入报告，**不表示验证通过**。上例用 `ValidationReport::new()`，没有条数上限。若设置限额，要同时检查完整性、截断状态和有效性。`ValidationOutcome::Invalid` 表示规则已执行且值不符合要求，不属于 `ExecutionError`。所有情况下都应先确认预定的整次验证成功返回；执行错误的部分报告只供诊断，不能用于放行。
 
 至此，基础路径完成：启动时绑定，请求中验证，通过后才保存。后续仍围绕资料修改，按需要扩展这条路径。
 
@@ -196,6 +196,7 @@ fn update_profile(
 
 如果资料表单同时包含 `email` 和 `email_confirmation`，确认邮箱规则需要读取同一请求里的邮箱。把依赖声明在签名和适配器中，启动时绑定；下面这个独立模块包含规则定义、启动时绑定和请求时调用：
 
+<!-- validator-guide:confirmation -->
 ```rust
 // src/profile/confirmation.rs
 use std::sync::Arc;
@@ -262,6 +263,7 @@ pub fn check_confirmation(
 
 如果资料策略限制显示名称长度，可以在绑定时读取 `maximum`，之后每次请求复用该上限。下面的独立模块同时包含规则准备和启动时绑定；它按 Unicode 标量值计数，若应用需要按字节或用户感知字符计数，应另外定义规则。
 
+<!-- validator-guide:max-length -->
 ```rust
 // src/profile/max_length.rs
 use std::sync::Arc;
@@ -343,6 +345,8 @@ assert_eq!(report.skipped().len(), 1);
 只有前一步确实保留了违规项时，才能调用 `failed_prerequisite`。`FailureId` 只属于当前报告，指向已记录的原始违规；`report.failures()` 只遍历原始失败，不会因跳过而重复计数。是否跳过由应用决定，库不会替应用调度规则。可选目标缺失时，用 `ValidationOutcome::missing_optional()` 记录另一种跳过原因。
 
 对检查项较多的请求，可用 `ValidationReport::with_limits(ValidationLimits { max_violations: Some(20), max_skipped: Some(20) })` 分别限制保留的违规和跳过记录。跳过项引用已有失败，不再占用违规项额度。检查每次返回的 `RecordedOutcome::complete()` 和 `report.is_truncated()`；应用若提前停止检查，还应调用 `report.mark_truncated()`。截断报告不能证明后续字段都通过。这些上限不限制输入长度、验证计算量、依赖路径、先决条件列表或记录前已分配的结果；应用需要另设这些预算。
+
+若执行发生错误且集成返回已收集的部分报告，只能用它诊断已有证据。只有确认预定的整次验证成功完成后，才能依据 `is_valid()` 放行操作。
 
 ## 选择注册方式和适配器
 
