@@ -92,6 +92,16 @@ declared contract.
 
 `ValidationReport` is downstream of execution: callers choose occurrence order, report limits, and whether to continue. Successful `record_outcome` calls must use non-decreasing occurrence numbers; repeated numbers are allowed for multiple results at one position. A lower number returns `ValidationOutcomeError::OutOfOrderOccurrence` without changing the report. Results are appended in call order rather than sorted so previously issued `FailureId` indices remain stable. `record_outcome` returns a `RecordedOutcome` with completeness and the IDs of original failures retained from that occurrence. Failed-prerequisite skips refer to earlier failures with opaque `FailureId` values owned by the same report. The report validates ownership, existence, and uniqueness before mutation. References do not consume the violation limit; a failed-prerequisite skip still needs at least one already-retained reference, even when that limit is full. `failure_count()` and `failures()` count only original violations, and `failure(id)` resolves a reference. The skip limit applies only to skipped occurrences.
 
+For each retained original failure, the report stores the occurrence passed to
+`record_outcome`. All violations retained from one outcome share that
+occurrence. A failure rejected by the violation limit has neither a `FailureId`
+nor an occurrence entry. `failure_occurrence(id)` resolves the occurrence for a
+retained failure owned by this report, and `failures_with_occurrences()`
+iterates retained failures and their occurrences in report order. `Violation`
+does not carry an occurrence. Skipped entries retain their own position through
+`SkippedValidation::occurrence()`; a skip's prerequisite failure ID can also be
+used to query that failure's occurrence.
+
 `ValidationLimits` bounds only retained violation and skipped-entry counts. It
 does not bound input sizes, validation work, dependency path sizes, the number
 of prerequisite references submitted at once, or memory already used to
@@ -157,6 +167,11 @@ execution:
   reject records or when the caller stops validation early and calls
   `mark_truncated()`; it does not identify the reason. `failure_count()` equals
   the number of retained original violations; skips store IDs only.
+
+  `Violation` itself has no occurrence, and a violation not recorded in a
+  report has no report position. For retained failures, use
+  `failure_occurrence(id)` to query one occurrence or
+  `failures_with_occurrences()` to iterate occurrences with violations.
 
 The downstream `rs-model-metadata` integration marks a report carried by
 `ModelValidationError` as truncated because execution did not complete. The

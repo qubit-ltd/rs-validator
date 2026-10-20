@@ -58,6 +58,8 @@ flowchart LR
 
 `ValidationReport` 位于执行的下游：调用方决定 occurrence 顺序、报告限制和是否继续。成功的 `record_outcome` 调用必须使用非递减 occurrence；同一位置可以记录多次。传入较小位置会返回 `ValidationOutcomeError::OutOfOrderOccurrence`，且不修改报告。结果按调用顺序追加，不做排序，以保持已签发 `FailureId` 的索引稳定。`record_outcome` 返回 `RecordedOutcome`，包含完整性状态和本次保留的原始失败 ID。先决条件失败的跳过项使用同一报告签发的不透明 `FailureId` 引用先前失败。报告在修改前校验归属、存在性和唯一性。引用不占用违规项限额；即使该限额已满，先决条件跳过项也必须引用至少一条此前保留的失败。`failure_count()` 与 `failures()` 只统计原始违规项，`failure(id)` 可解析引用。跳过限额只作用于跳过 occurrence。
 
+报告会为每条已保留的原始失败保存传给 `record_outcome` 的 occurrence；同一 outcome 中保留的多条违规项共享该 occurrence。被违规限额拒绝的失败没有 `FailureId`，也不会保存 occurrence 条目。`failure_occurrence(id)` 可查询属于本报告且仍被保留的失败 occurrence，`failures_with_occurrences()` 按报告顺序迭代已保留失败及其 occurrence。`Violation` 本身不携带 occurrence。跳过项自身的位置仍通过 `SkippedValidation::occurrence()` 表示；跳过项引用的先决失败 ID 也可用于查询该失败的 occurrence。
+
 `ValidationLimits` 只限制最终保留的违规项和跳过记录数量，不限制输入大小、验证工作量、依赖路径大小、一次提交的先决条件引用数量或构造 outcome 时已使用的内存。应用应在输入与执行边界管理这些资源限额。
 
 ## 描述符、签名和槽位不变量
@@ -92,6 +94,8 @@ API 将预期的无效数据与配置或执行失败分开：
 - `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败；可信调用方可显式访问其拥有型原因。
 - `ValidationReport` 汇总违规项与跳过记录，并记录收集结果是否完整。配置限制拒绝记录，或调用方提前停止验证并调用 `mark_truncated()`，都会使 `is_truncated()` 返回 true；它本身不说明截断原因。`failure_count()` 等于已保留的原始违规项数量；跳过项只保存 ID。
 
+  `Violation` 本身没有 occurrence；未写入报告的 `Violation` 也没有报告位置。对于已保留的失败，可用 `failure_occurrence(id)` 查询单条 occurrence，或用 `failures_with_occurrences()` 遍历 occurrence 与违规项。
+
 下游 `rs-model-metadata` 集成会把 `ModelValidationError` 携带的报告标记为截断，因为执行没有完成。实际失败原因由外层错误提供；截断本身不能说明原因。部分报告只用于诊断，不能证明验证已通过。
 
 不包含任何违规项草稿的无效预备结果属于适配器契约失败。跳过 variant 也有形状不变量：`MissingOptional` 不携带先决条件违规项，而 `FailedPrerequisite` 至少携带一个违规项。
@@ -102,6 +106,8 @@ API 将预期的无效数据与配置或执行失败分开：
 简单 ASCII 标识符仍以点号连接路径；其他字段名显示为经过 JSON 转义的 `["..."]` 片段。例如，`a.b` 与 `["a.b"]` 表示不同的结构。
 `Field` 和 `with_field` 只接受 `&'static str`，避免意外保留普通运行时键。这个类型不能证明静态字符串的来源；调用方仍应只传入声明字段名，并用不保存键文本的 `MapEntry` 表示运行时 map 位置。
 `ValidationPath::concat` 直接拼接路径片段，不渲染或解析字符串。传给 `record_outcome` 的出现路径是无效结果中各违规项路径的基路径；违规项的根路径表示出现位置本身。先决条件证据保留原始绝对路径。
+
+`ValidationValue` 和验证参数都是借用视图，其 `Debug` 实现会隐藏名称和值。`BindError` 可以保存参数名或依赖名称，但不保存参数值。
 
 报告与普通错误格式化不会自动暴露原始输入。`ExecutionError::with_trusted_source` 可以保留任意拥有型原因，`trusted_source()` 则显式将其提供给可信调用方。使用方负责不把敏感原因传播到日志或客户端。公共 `Display`、`Debug` 和标准 `Error::source()` 不暴露所保留的原因。`ViolationParam` 是受限的诊断参数词汇，只限制表示形式，不能证明来源：来自规则配置的 `Unsigned(minimum)` 可以使用，来自被拒绝输入的 `Unsigned(rejected_number)` 不可以使用。`Token` 的 `'static` 生命周期也不能证明其来自可信声明。调用方不得放入被拒绝输入或由其派生的敏感值。
 
