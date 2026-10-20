@@ -58,6 +58,8 @@ use crate::ValidationOutcome;
 pub struct ValidationReport {
     /// Accepted violations in occurrence order.
     violations: Vec<Violation>,
+    /// Occurrence for each accepted violation, indexed like `violations`.
+    failure_occurrences: Vec<usize>,
     /// Accepted skipped occurrences in occurrence order.
     skipped: Vec<SkippedValidation>,
     /// Unique identity used to reject failure references from other reports.
@@ -76,6 +78,7 @@ impl ValidationReport {
     pub fn with_limits(limits: ValidationLimits) -> Self {
         Self {
             violations: Vec::new(),
+            failure_occurrences: Vec::new(),
             skipped: Vec::new(),
             report_id: next_report_id(),
             truncated: false,
@@ -153,6 +156,7 @@ impl ValidationReport {
                     let full_path = path.concat(violation.path());
                     failure_ids.push(FailureId::new(self.report_id, self.violations.len()));
                     self.violations.push(violation.with_path(full_path));
+                    self.failure_occurrences.push(occurrence);
                 }
                 if !complete {
                     self.mark_truncated();
@@ -272,6 +276,48 @@ impl ValidationReport {
         } else {
             None
         }
+    }
+
+    /// Returns the occurrence associated with a retained failure ID.
+    ///
+    /// Only failures retained in this report have an occurrence. IDs from a
+    /// different report and failures rejected by the violation capacity return
+    /// `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_validator::{ValidationOutcome, ValidationPath, ValidationReport};
+    /// use qubit_validator::{ValidatorId, Violation, ViolationCode};
+    ///
+    /// let mut report = ValidationReport::new();
+    /// let violation = Violation::new(
+    ///     ValidatorId::new("example.required"),
+    ///     ViolationCode::new("value.missing"),
+    /// );
+    /// let receipt = report.record_outcome(
+    ///     2,
+    ///     ValidationPath::root(),
+    ///     ValidationOutcome::invalid(vec![violation])?,
+    /// )?;
+    /// let failure_id = receipt.failure_ids()[0];
+    /// assert_eq!(report.failure_occurrence(failure_id), Some(2));
+    /// # Ok::<(), qubit_validator::ValidationOutcomeError>(())
+    /// ```
+    #[must_use]
+    pub fn failure_occurrence(&self, id: FailureId) -> Option<usize> {
+        self.failure(id)?;
+        self.failure_occurrences.get(id.index).copied()
+    }
+
+    /// Iterates over retained failures and their occurrences in report order.
+    ///
+    /// The iterator contains only failures retained within the configured
+    /// violation capacity. Multiple failures from one outcome share an
+    /// occurrence, and separate outcomes may use the same occurrence.
+    #[must_use = "inspect all retained failures and their occurrences"]
+    pub fn failures_with_occurrences(&self) -> impl Iterator<Item = (usize, &Violation)> + '_ {
+        self.failure_occurrences.iter().copied().zip(self.violations.iter())
     }
 
     /// Returns all skipped occurrences in occurrence order.

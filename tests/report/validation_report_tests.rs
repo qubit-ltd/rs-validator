@@ -460,3 +460,74 @@ fn test_incomplete_record_advances_report_occurrence() {
     );
     assert!(report.is_truncated());
 }
+
+#[test]
+fn test_failure_occurrence_distinguishes_equal_violations() {
+    let mut report = ValidationReport::new();
+    let first = record_failure(&mut report, 0);
+    let second = record_failure(&mut report, 1);
+
+    assert_eq!(report.violations()[0], report.violations()[1]);
+    assert_ne!(first, second);
+    assert_eq!(report.failure_occurrence(first), Some(0));
+    assert_eq!(report.failure_occurrence(second), Some(1));
+    assert_eq!(
+        report.failures_with_occurrences().collect::<Vec<_>>(),
+        vec![(0, &report.violations()[0]), (1, &report.violations()[1])],
+    );
+}
+
+#[test]
+fn test_failure_occurrence_handles_multiple_failures_limits_and_foreign_id() {
+    let mut report = ValidationReport::with_limits(ValidationLimits {
+        max_violations: Some(3),
+        max_skipped: None,
+    });
+    let receipt = report
+        .record_outcome(
+            3,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![violation("test.first", "one"), violation("test.second", "two")])
+                .expect("two failures are valid"),
+        )
+        .expect("first outcome is retained");
+    let repeated = report
+        .record_outcome(
+            3,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![violation("test.third", "three")]).expect("one failure is valid"),
+        )
+        .expect("same occurrence may be submitted again");
+    let retained_ids = [
+        receipt.failure_ids()[0],
+        receipt.failure_ids()[1],
+        repeated.failure_ids()[0],
+    ];
+
+    assert_eq!(
+        report.failures_with_occurrences().collect::<Vec<_>>(),
+        vec![
+            (3, &report.violations()[0]),
+            (3, &report.violations()[1]),
+            (3, &report.violations()[2]),
+        ],
+    );
+    for id in retained_ids {
+        assert_eq!(report.failure_occurrence(id), Some(3));
+    }
+
+    let rejected = report
+        .record_outcome(
+            4,
+            ValidationPath::root(),
+            ValidationOutcome::invalid(vec![violation("test.rejected", "four")]).expect("one failure is valid"),
+        )
+        .expect("capacity exhaustion is an incomplete successful record");
+    assert!(!rejected.complete());
+    assert!(rejected.failure_ids().is_empty());
+    assert_eq!(report.failures_with_occurrences().count(), 3);
+
+    let mut other_report = ValidationReport::new();
+    let foreign_id = record_failure(&mut other_report, 3);
+    assert_eq!(report.failure_occurrence(foreign_id), None);
+}
