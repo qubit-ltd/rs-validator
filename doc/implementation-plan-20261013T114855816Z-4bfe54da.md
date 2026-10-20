@@ -1,5 +1,7 @@
 # rs-validator 参数绑定契约与文档验证实施计划
 
+> 历史实施计划：复选框保留写作时状态，不代表当前待办；当前事实以源码、测试和双语当前设计文档为准。
+
 > 本计划对应[设计文档](design-20261013T114855816Z-4bfe54da.md)。用户已接受评审意见，允许必要的破坏性 API 变更。本计划只安排直接相关的修改；不授权 `git add`、`git commit` 或 `git push`，也不创建新的 Paseo workspace。
 
 **目标仓库：** `/data/working/qubit/rust-common/rs-validator`。使用当前 workspace 中的既有下游目录。每个任务开始前检查相关文件的当前状态，保留其他人的未提交改动。
