@@ -11,7 +11,7 @@
 
 ## A user registration flow
 
-The frontend sends a username and email. The REST handler parses the request into `User` and calls the registration service. At startup, the service registers and binds `app.non_blank` and `app.email`. For each request, it applies the bound rules to the `username` and `email` fields and records their outcomes in a report: invalid input returns field paths and stable codes without a repository write, while a complete valid report allows the write. The HTTP layer can map rejection to a client error and storage or validation execution failure to a server error; HTTP routing and persistence are application code. Apps that declare rules on model fields can use the optional `qubit-model-metadata` integration described below.
+The frontend sends a username and email. The REST handler parses the request into `User` and calls the registration service. At startup, the service registers and binds `app.non_blank` and `app.email`. For each request, it applies the bound rules to the `username` and `email` fields and records their outcomes in a report: invalid input returns field paths and stable codes without a repository write. Only after every intended check completes successfully should a complete report with no failures permit a write; a partial report attached to an execution error is diagnostic evidence only. The HTTP layer can map rejection to a client error and storage or validation execution failure to a server error; HTTP routing and persistence are application code. Apps that declare rules on model fields can use the optional `qubit-model-metadata` integration described below.
 
 ## Installation
 

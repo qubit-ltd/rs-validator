@@ -207,7 +207,8 @@ impl ValidationReport {
     }
 
     /// Returns whether the recorded report contains no failures and is not
-    /// marked incomplete.
+    /// marked incomplete. This evaluates recorded content only; it cannot
+    /// establish that the caller ran every intended check.
     ///
     /// # Returns
     ///
@@ -215,11 +216,14 @@ impl ValidationReport {
     /// skipped because of a failed prerequisite, and the report was not
     /// truncated. A newly created empty report therefore returns `true`.
     ///
+    /// Use this result as a basis for acceptance only after the caller has
+    /// confirmed that the entire intended validation run completed
+    /// successfully. A completed zero-rule plan may have an empty, valid
+    /// report, but a newly created report alone does not prove completion.
     /// This method cannot know whether rules remain unsubmitted. If the caller
     /// stops validation early while checks may remain, it must call
     /// [`Self::mark_truncated`] so the report is marked incomplete. Reaching
-    /// the report's capacity limit also marks it as truncated
-    /// automatically.
+    /// the report's capacity limit also marks it as truncated automatically.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         self.violations.is_empty()

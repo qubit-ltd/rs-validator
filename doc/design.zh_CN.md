@@ -92,6 +92,8 @@ API 将预期的无效数据与配置或执行失败分开：
 - `ExecutionError` 表示类型擦除后的形状、依赖值、外部因素或适配器契约失败；可信调用方可显式访问其拥有型原因。
 - `ValidationReport` 汇总违规项与跳过记录，并记录收集结果是否完整。配置限制拒绝记录，或调用方提前停止验证并调用 `mark_truncated()`，都会使 `is_truncated()` 返回 true；它本身不说明截断原因。`failure_count()` 等于已保留的原始违规项数量；跳过项只保存 ID。
 
+下游 `rs-model-metadata` 集成会把 `ModelValidationError` 携带的报告标记为截断，因为执行没有完成。实际失败原因由外层错误提供；截断本身不能说明原因。部分报告只用于诊断，不能证明验证已通过。
+
 不包含任何违规项草稿的无效预备结果属于适配器契约失败。跳过 variant 也有形状不变量：`MissingOptional` 不携带先决条件违规项，而 `FailedPrerequisite` 至少携带一个违规项。
 
 ## 路径与脱敏

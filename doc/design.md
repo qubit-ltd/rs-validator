@@ -158,6 +158,12 @@ execution:
   `mark_truncated()`; it does not identify the reason. `failure_count()` equals
   the number of retained original violations; skips store IDs only.
 
+The downstream `rs-model-metadata` integration marks a report carried by
+`ModelValidationError` as truncated because execution did not complete. The
+outer error provides the actual failure reason; truncation alone does not
+identify it. Treat the partial report as diagnostic evidence, not as proof
+that validation passed.
+
 An invalid prepared outcome with no violation drafts is an adapter contract
 failure. The skipped variants also have shape invariants: `MissingOptional`
 does not carry prerequisite violations, while `FailedPrerequisite` carries at
