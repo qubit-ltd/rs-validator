@@ -85,7 +85,7 @@ impl PreparedValidator for CheckDependencySlots {
     fn input_type(&self) -> InputType {
         InputType::Text
     }
-    fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         DEPENDENCIES
     }
 

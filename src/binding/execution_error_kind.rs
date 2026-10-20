@@ -8,6 +8,10 @@
 
 //! Execution error kinds.
 
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
 /// A failure in the validation execution infrastructure.
 ///
 /// # Examples
@@ -46,9 +50,9 @@ pub enum ExecutionErrorKind {
     ExternalFailure,
 }
 
-impl std::fmt::Display for ExecutionErrorKind {
+impl Display for ExecutionErrorKind {
     /// Formats the stable human-readable error category.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         let name = match self {
             Self::InputTypeMismatch => "input type mismatch",
             Self::InvalidSelection => "invalid validation selection",

@@ -8,6 +8,10 @@
 
 //! Named borrowed dependency values for direct bound-validator calls.
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result;
+
 use crate::ValidationPath;
 use crate::ValidationValue;
 
@@ -72,9 +76,9 @@ impl<'a> NamedValidationDependency<'a> {
     }
 }
 
-impl std::fmt::Debug for NamedValidationDependency<'_> {
+impl Debug for NamedValidationDependency<'_> {
     /// Formats only dependency shape without exposing values or paths.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter
             .debug_struct("NamedValidationDependency")
             .field("has_path", &self.path.is_some())

@@ -11,6 +11,9 @@
 #[cfg(feature = "inventory")]
 use std::sync::OnceLock;
 
+#[cfg(feature = "inventory")]
+use inventory::iter;
+
 use super::ValidatorRegistration;
 use crate::NamedValidationArgument;
 use crate::ValidatorRegistryError;
@@ -91,7 +94,7 @@ impl ValidatorRegistry {
     pub fn try_global() -> Result<&'static Self, ValidatorRegistryError> {
         static REGISTRY: OnceLock<Result<ValidatorRegistry, ValidatorRegistryError>> = OnceLock::new();
         match REGISTRY.get_or_init(|| {
-            let registrations = inventory::iter::<crate::ValidatorRegistrationFactory>
+            let registrations = iter::<crate::ValidatorRegistrationFactory>
                 .into_iter()
                 .map(|factory| (factory.0)())
                 .collect();

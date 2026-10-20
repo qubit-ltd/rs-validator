@@ -64,8 +64,8 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an execution error when `value` does not contain a value of
-    /// type `T`.
+    /// Returns the closure's execution error, or an input type mismatch when
+    /// `value` does not contain a value of type `T`.
     fn validate(
         &self,
         value: ValidationValue<'_>,

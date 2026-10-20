@@ -12,6 +12,7 @@ use crate::FailureId;
 use crate::SkipReason;
 use crate::ValidationOutcomeError;
 use crate::Violation;
+
 /// The observable result of executing one bound validator occurrence.
 ///
 /// # Examples
@@ -50,6 +51,10 @@ pub enum ValidationOutcome {
 
 impl ValidationOutcome {
     /// Creates a successful validation outcome.
+    ///
+    /// # Returns
+    ///
+    /// A valid outcome with no violations or prerequisites.
     #[inline]
     pub const fn valid() -> Self {
         Self::Valid
@@ -57,9 +62,18 @@ impl ValidationOutcome {
 
     /// Creates an invalid outcome with one or more violations.
     ///
+    /// # Parameters
+    ///
+    /// - `violations`: Non-empty safe violations produced by the validator.
+    ///
+    /// # Returns
+    ///
+    /// An invalid outcome containing `violations`.
+    ///
     /// # Errors
     ///
-    /// Returns `EmptyViolations` when `violations` is empty.
+    /// Returns [`ValidationOutcomeError::EmptyViolations`] when `violations`
+    /// is empty.
     pub fn invalid(violations: Vec<Violation>) -> Result<Self, ValidationOutcomeError> {
         if violations.is_empty() {
             return Err(ValidationOutcomeError::EmptyViolations);
@@ -68,6 +82,10 @@ impl ValidationOutcome {
     }
 
     /// Creates an outcome skipped because the optional target is absent.
+    ///
+    /// # Returns
+    ///
+    /// A skipped outcome with reason `MissingOptional` and no prerequisites.
     #[inline]
     pub fn missing_optional() -> Self {
         Self::Skipped {
@@ -81,9 +99,18 @@ impl ValidationOutcome {
     /// Every ID must refer to a failure already retained in the report that
     /// records this outcome.
     ///
+    /// # Parameters
+    ///
+    /// - `prerequisites`: Non-empty IDs of failures retained in the report.
+    ///
+    /// # Returns
+    ///
+    /// A skipped outcome with reason `FailedPrerequisite` and the supplied IDs.
+    ///
     /// # Errors
     ///
-    /// Returns `EmptyPrerequisites` when `prerequisites` is empty.
+    /// Returns [`ValidationOutcomeError::EmptyPrerequisites`] when
+    /// `prerequisites` is empty.
     pub fn failed_prerequisite(prerequisites: Vec<FailureId>) -> Result<Self, ValidationOutcomeError> {
         if prerequisites.is_empty() {
             return Err(ValidationOutcomeError::EmptyPrerequisites);

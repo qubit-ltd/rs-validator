@@ -46,12 +46,24 @@ pub enum PreparedOutcome {
 
 impl PreparedOutcome {
     /// Creates a successful prepared outcome.
+    ///
+    /// # Returns
+    ///
+    /// A prepared outcome representing valid input.
     #[inline]
     pub const fn valid() -> Self {
         Self::Valid
     }
 
     /// Creates an invalid prepared outcome with one or more violation drafts.
+    ///
+    /// # Parameters
+    ///
+    /// - `violations`: Draft violations to include in the outcome.
+    ///
+    /// # Returns
+    ///
+    /// The invalid prepared outcome containing `violations`.
     ///
     /// # Errors
     ///
@@ -65,6 +77,14 @@ impl PreparedOutcome {
     }
 
     /// Attaches a bound rule identity to draft violations.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Identity of the rule that produced these violations.
+    ///
+    /// # Returns
+    ///
+    /// The corresponding bound validation outcome.
     ///
     /// # Errors
     ///

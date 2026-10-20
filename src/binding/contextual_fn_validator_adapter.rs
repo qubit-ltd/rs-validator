@@ -43,12 +43,8 @@ use super::internal::TypedContextFnAdapter;
 /// # Returns
 ///
 /// A shared prepared validator that checks the target is text before invoking
-/// `call`.
-///
-/// # Runtime Errors
-///
-/// The returned validator forwards errors from `call` unchanged. This function
-/// only constructs the adapter and does not return an error itself.
+/// `call` and forwards any execution errors from it unchanged. This function
+/// only constructs the adapter and does not itself return an error.
 #[must_use]
 pub fn prepare_text_with_context<F>(dependencies: &'static [DependencySpec], call: F) -> Arc<dyn PreparedValidator>
 where
@@ -82,12 +78,8 @@ where
 /// # Returns
 ///
 /// A shared prepared validator that checks the target has type `T` before
-/// invoking `call`.
-///
-/// # Runtime Errors
-///
-/// The returned validator forwards errors from `call` unchanged. This function
-/// only constructs the adapter and does not return an error itself.
+/// invoking `call` and forwards any execution errors from it unchanged. This
+/// function only constructs the adapter and does not itself return an error.
 #[must_use]
 pub fn prepare_typed_with_context<T: 'static, F>(
     dependencies: &'static [DependencySpec],

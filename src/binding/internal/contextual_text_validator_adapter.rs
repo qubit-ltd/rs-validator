@@ -55,11 +55,13 @@ where
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this validator.
+    #[inline]
     fn input_type(&self) -> InputType {
         InputType::Text
     }
 
     /// Returns the dependency slots declared for this validator.
+    #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
     }

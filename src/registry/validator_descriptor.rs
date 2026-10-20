@@ -102,8 +102,11 @@ impl ValidatorDescriptor {
     ///
     /// # Errors
     ///
-    /// Returns parameter or preparation errors, and rejects malformed
-    /// descriptors.
+    /// Returns `InvalidDeclaration` or `AmbiguousSignature` when the
+    /// descriptor is malformed, and `InvalidSelection` when
+    /// `signature_index` is out of range. Parameter binding errors identify
+    /// duplicate or unconsumed arguments; factory errors and prepared-shape
+    /// mismatches are also returned with `rule_id` attached.
     pub fn bind<'a>(
         &self,
         rule_id: ValidatorId,
@@ -124,8 +127,10 @@ impl ValidatorDescriptor {
     ///
     /// # Errors
     ///
-    /// Returns an ambiguity, unsupported-input, preparation, or declaration
-    /// error.
+    /// Returns `InvalidDeclaration` or `AmbiguousSignature` when the
+    /// descriptor is malformed, and `UnsupportedInput` when no signature
+    /// accepts `input`. Parameter binding errors, factory errors, and prepared
+    /// shape mismatches are returned with `rule_id` attached.
     pub fn bind_for<'a>(
         &self,
         rule_id: ValidatorId,

@@ -10,6 +10,8 @@
 
 use std::any::TypeId;
 
+use super::ValidationValue;
+
 /// The two intentionally small input views used by the validation boundary.
 ///
 /// # Examples
@@ -59,10 +61,10 @@ impl InputType {
     /// Returns `true` when `value` has the exact shape described by `self`.
     #[must_use]
     #[inline]
-    pub fn accepts(self, value: super::ValidationValue<'_>) -> bool {
+    pub fn accepts(self, value: ValidationValue<'_>) -> bool {
         match (self, value) {
-            (Self::Text, super::ValidationValue::Text(_)) => true,
-            (Self::Typed(expected), super::ValidationValue::Typed(value)) => value.type_id() == expected,
+            (Self::Text, ValidationValue::Text(_)) => true,
+            (Self::Typed(expected), ValidationValue::Typed(value)) => value.type_id() == expected,
             _ => false,
         }
     }

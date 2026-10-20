@@ -62,41 +62,6 @@ impl Violation {
         }
     }
 
-    /// Replaces the structured location of the rejected value.
-    ///
-    /// # Parameters
-    ///
-    /// - `path`: Path containing only declared fields and opaque positions.
-    ///
-    /// # Returns
-    ///
-    /// The violation with `path` stored in place of its previous path.
-    #[inline]
-    pub fn with_path(mut self, path: ValidationPath) -> Self {
-        self.path = path;
-        self
-    }
-
-    /// Adds or replaces a structured parameter by its declared name.
-    ///
-    /// The type restricts representation but cannot prove provenance. Supply
-    /// only program-declared tokens or rule configuration values, never
-    /// rejected input or sensitive values derived from it.
-    ///
-    /// # Parameters
-    ///
-    /// - `name`: Static program-declared parameter name.
-    /// - `value`: Scalar or static token associated with the name, subject to
-    ///   the caller's provenance and redaction responsibility.
-    ///
-    /// # Returns
-    ///
-    /// The violation with the named parameter inserted or replaced.
-    pub fn with_param(mut self, name: &'static str, value: ViolationParam) -> Self {
-        self.params.insert(name, value);
-        self
-    }
-
     /// Returns the stable rule identifier.
     ///
     /// # Returns
@@ -147,11 +112,55 @@ impl Violation {
         &self.params
     }
 
+    /// Replaces the structured location of the rejected value.
+    ///
+    /// # Parameters
+    ///
+    /// - `path`: Path containing only declared fields and opaque positions.
+    ///
+    /// # Returns
+    ///
+    /// The violation with `path` stored in place of its previous path.
+    #[inline]
+    pub fn with_path(mut self, path: ValidationPath) -> Self {
+        self.path = path;
+        self
+    }
+
+    /// Adds or replaces a structured parameter by its declared name.
+    ///
+    /// The type restricts representation but cannot prove provenance. Supply
+    /// only program-declared tokens or rule configuration values, never
+    /// rejected input or sensitive values derived from it.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Static program-declared parameter name.
+    /// - `value`: Scalar or static token associated with the name, subject to
+    ///   the caller's provenance and redaction responsibility.
+    ///
+    /// # Returns
+    ///
+    /// The violation with the named parameter inserted or replaced.
+    pub fn with_param(mut self, name: &'static str, value: ViolationParam) -> Self {
+        self.params.insert(name, value);
+        self
+    }
+
     /// Converts an adapter-produced draft into a violation for its bound rule.
     ///
     /// The draft is consumed so its code, path, and parameters can be moved
     /// into the violation without cloning. The supplied identifier comes from
     /// the validator binding that owns the draft.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Identifier of the validator that owns the draft.
+    /// - `draft`: Adapter-produced violation data consumed by this conversion.
+    ///
+    /// # Returns
+    ///
+    /// A violation associated with `rule_id` and containing the draft data.
     pub(crate) fn from_draft(rule_id: ValidatorId, draft: crate::ViolationDraft) -> Self {
         let (code, path, params) = draft.parts();
         Self {

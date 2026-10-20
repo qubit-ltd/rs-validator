@@ -135,6 +135,20 @@ impl BoundValidator {
         })
     }
 
+    /// Creates a bound occurrence from a prepared implementation and signature.
+    pub(crate) fn new(
+        prepared: Arc<dyn PreparedValidator>,
+        signature: ValidatorSignature,
+        rule_id: ValidatorId,
+    ) -> Self {
+        Self {
+            prepared,
+            input: signature.input(),
+            dependencies: signature.dependencies(),
+            rule_id,
+        }
+    }
+
     /// Validates one value after checking its erased input and dependencies.
     ///
     /// Dependency values and paths must already follow
@@ -242,6 +256,12 @@ impl BoundValidator {
         self.validate_named_many(value, dependencies)
     }
 
+    /// Resolves multiple named dependencies into signature order before
+    /// validation.
+    ///
+    /// Small dependency sets use fixed-size stack buffers; larger sets allocate
+    /// vectors. Missing, duplicate, and unknown bindings are reported before
+    /// the prepared validator runs.
     fn validate_named_many(
         &self,
         value: ValidationValue<'_>,
@@ -337,20 +357,6 @@ impl BoundValidator {
     #[inline]
     pub const fn rule_id(&self) -> ValidatorId {
         self.rule_id
-    }
-
-    /// Creates a bound occurrence from a prepared implementation and signature.
-    pub(crate) fn new(
-        prepared: Arc<dyn PreparedValidator>,
-        signature: ValidatorSignature,
-        rule_id: ValidatorId,
-    ) -> Self {
-        Self {
-            prepared,
-            input: signature.input(),
-            dependencies: signature.dependencies(),
-            rule_id,
-        }
     }
 
     /// Checks the erased input against the selected signature.

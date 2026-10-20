@@ -100,6 +100,17 @@ impl ValidationPath {
         Self { segments: Vec::new() }
     }
 
+    /// Returns the path segments in order.
+    ///
+    /// # Returns
+    ///
+    /// A borrowed slice ordered from the root toward the target.
+    #[must_use]
+    #[inline]
+    pub fn as_segments(&self) -> &[PathSegment] {
+        &self.segments
+    }
+
     /// Appends a statically declared field segment.
     ///
     /// Use only program-declared field labels. Runtime map keys belong in an
@@ -168,17 +179,6 @@ impl ValidationPath {
     pub fn with_map_value(mut self) -> Self {
         self.segments.push(PathSegment::MapValue);
         self
-    }
-
-    /// Returns the path segments in order.
-    ///
-    /// # Returns
-    ///
-    /// A borrowed slice ordered from the root toward the target.
-    #[must_use]
-    #[inline]
-    pub fn as_segments(&self) -> &[PathSegment] {
-        &self.segments
     }
 
     /// Appends a relative path to this path without rendering either one.
