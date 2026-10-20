@@ -45,6 +45,14 @@ pub struct ExecutionError {
 
 impl ExecutionError {
     /// Creates an execution error at the root path.
+    ///
+    /// # Parameters
+    ///
+    /// - `kind`: Stable category describing why execution failed.
+    ///
+    /// # Returns
+    ///
+    /// A new error without an associated rule, dependency, or source.
     #[inline]
     pub fn new(kind: ExecutionErrorKind) -> Self {
         Self {
@@ -57,6 +65,14 @@ impl ExecutionError {
     }
 
     /// Associates a rule identifier with this error.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Identifier of the rule whose execution failed.
+    ///
+    /// # Returns
+    ///
+    /// This error with the rule identifier attached.
     #[inline]
     pub const fn with_rule(mut self, rule_id: ValidatorId) -> Self {
         self.rule_id = Some(rule_id);
@@ -64,6 +80,15 @@ impl ExecutionError {
     }
 
     /// Associates a dependency slot name with this error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dependency`: Static slot name of the dependency involved in the
+    ///   failure.
+    ///
+    /// # Returns
+    ///
+    /// This error with the dependency name attached.
     #[inline]
     pub const fn with_dependency(mut self, dependency: &'static str) -> Self {
         self.dependency = Some(dependency);
@@ -91,6 +116,14 @@ impl ExecutionError {
     }
 
     /// Associates a structured path with this error.
+    ///
+    /// # Parameters
+    ///
+    /// - `path`: Structured location that does not render raw input keys.
+    ///
+    /// # Returns
+    ///
+    /// This error with the supplied path attached.
     #[inline]
     pub fn with_path(mut self, path: super::ValidationPath) -> Self {
         self.path = path;

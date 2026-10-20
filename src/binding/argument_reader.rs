@@ -49,6 +49,14 @@ pub struct ArgumentReader<'a> {
 impl<'a> ArgumentReader<'a> {
     /// Creates a reader and checks for duplicate parameter names.
     ///
+    /// # Parameters
+    ///
+    /// - `args`: Declared parameters to read, in caller-provided order.
+    ///
+    /// # Returns
+    ///
+    /// A reader that tracks consumption of each declared parameter.
+    ///
     /// # Errors
     ///
     /// Returns `DuplicateParameter` when a name occurs more than once.
@@ -70,6 +78,14 @@ impl<'a> ArgumentReader<'a> {
     /// any domain-specific constraints. A successful read consumes the
     /// argument.
     ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the required parameter.
+    ///
+    /// # Returns
+    ///
+    /// The parameter's value without decoding its variant.
+    ///
     /// # Errors
     ///
     /// Returns `MissingParameter` when the name is absent, or
@@ -79,6 +95,14 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Reads a required unsigned 32-bit integer once.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the required integer parameter.
+    ///
+    /// # Returns
+    ///
+    /// The decoded `u32` value.
     ///
     /// # Errors
     ///
@@ -91,6 +115,10 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Reads an optional unsigned 32-bit integer once.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the optional integer parameter.
     ///
     /// # Returns
     ///
@@ -110,6 +138,10 @@ impl<'a> ArgumentReader<'a> {
     ///
     /// The representable range depends on the target architecture, commonly
     /// 32 or 64 bits.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the optional integer parameter.
     ///
     /// # Returns
     ///
@@ -136,6 +168,14 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Reads a required string argument once.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the required string parameter.
+    ///
+    /// # Returns
+    ///
+    /// The borrowed string value.
     ///
     /// # Errors
     ///
@@ -184,6 +224,10 @@ impl<'a> ArgumentReader<'a> {
 
     /// Reads an optional boolean argument once.
     ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the optional boolean parameter.
+    ///
     /// # Returns
     ///
     /// Returns `Some` with the boolean when the parameter is present, or
@@ -204,6 +248,10 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Rejects every argument which was not consumed by a typed reader.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when every declared argument was consumed.
     ///
     /// # Errors
     ///

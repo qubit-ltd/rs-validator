@@ -9,6 +9,7 @@
 //! Errors produced by the shared dotted identifier parser.
 
 /// A structural reason a dotted identifier does not match the protocol.
+#[must_use]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum DottedIdentifierError {
     /// The complete identifier is empty.

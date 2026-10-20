@@ -69,6 +69,11 @@ where
     /// A validator domain error becomes an invalid outcome containing one
     /// mapped violation. An execution error is returned when `value` is not
     /// text; this indicates the binding supplied a value with the wrong shape.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when `value` is not text. Domain errors from
+    /// the validator are represented as invalid outcomes instead.
     fn validate(
         &self,
         value: ValidationValue<'_>,

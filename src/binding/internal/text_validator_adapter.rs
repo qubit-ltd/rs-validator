@@ -28,6 +28,8 @@ pub(in crate::binding) struct TextValidatorAdapter<V, M> {
 
 impl<V, M> TextValidatorAdapter<V, M> {
     /// Creates an adapter from a validator and its domain error mapper.
+    #[must_use]
+    #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M) -> Self {
         Self { validator, map_error }
     }

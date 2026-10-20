@@ -61,6 +61,11 @@ where
     }
 
     /// Executes the closure with a checked typed target.
+    ///
+    /// # Errors
+    ///
+    /// Returns an execution error when `value` does not contain a value of
+    /// type `T`.
     fn validate(
         &self,
         value: ValidationValue<'_>,

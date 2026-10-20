@@ -16,7 +16,6 @@ use super::DottedIdentifierError;
 /// letters, digits, or underscores. Dots separate non-empty segments; leading,
 /// trailing, or repeated dots are rejected. The function examines bytes so
 /// non-ASCII characters cannot be accepted as letters or digits.
-#[inline]
 pub(crate) const fn validate_dotted_identifier(value: &str) -> Result<(), DottedIdentifierError> {
     let bytes = value.as_bytes();
     if bytes.is_empty() {
@@ -47,7 +46,6 @@ pub(crate) const fn validate_dotted_identifier(value: &str) -> Result<(), Dotted
 /// `start` and `end` delimit a non-empty half-open byte range within `bytes`.
 /// The first byte must be an ASCII letter. Remaining bytes may be ASCII
 /// letters, digits, or underscores.
-#[inline]
 const fn validate_segment(bytes: &[u8], start: usize, end: usize) -> Result<(), DottedIdentifierError> {
     if start == end || !bytes[start].is_ascii_alphabetic() {
         return Err(DottedIdentifierError::InvalidSegment);

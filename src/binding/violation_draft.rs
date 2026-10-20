@@ -86,6 +86,7 @@ impl ViolationDraft {
     ///
     /// The returned values are consumed by the binding layer, which supplies
     /// the stable rule identity before exposing a [`crate::Violation`].
+    #[inline]
     pub(crate) fn parts(self) -> (ViolationCode, ValidationPath, BTreeMap<&'static str, ViolationParam>) {
         (self.code, self.path, self.params)
     }

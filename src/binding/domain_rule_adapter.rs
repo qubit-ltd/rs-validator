@@ -152,9 +152,10 @@ fn map_domain_result<E, D>(
     result: (Result<(), E>, D),
     map_error: &impl Fn(E, &D) -> Vec<ViolationDraft>,
 ) -> Result<PreparedOutcome, ExecutionError> {
-    match result.0 {
+    let (domain_result, metadata) = result;
+    match domain_result {
         Ok(()) => Ok(PreparedOutcome::Valid),
-        Err(error) => PreparedOutcome::invalid(map_error(error, &result.1))
+        Err(error) => PreparedOutcome::invalid(map_error(error, &metadata))
             .map_err(|_| ExecutionError::new(ExecutionErrorKind::AdapterContractViolation)),
     }
 }

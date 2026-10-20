@@ -8,6 +8,10 @@
 
 //! Ordered, shape-checked dependency values for one validation call.
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
+
 use super::DependencySpec;
 use super::ExecutionError;
 use super::ExecutionErrorKind;
@@ -201,9 +205,9 @@ impl<'a> BoundValidationContext<'a> {
 /// Shared root path used when an adapter does not supply dependency paths.
 static ROOT_PATH: ValidationPath = ValidationPath::root();
 
-impl std::fmt::Debug for BoundValidationContext<'_> {
+impl Debug for BoundValidationContext<'_> {
     /// Formats only the slot count so dependency values remain private.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("BoundValidationContext")
             .field("slot_count", &self.values.len())

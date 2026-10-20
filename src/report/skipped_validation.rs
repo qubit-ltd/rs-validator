@@ -42,6 +42,10 @@ pub struct SkippedValidation {
 
 impl SkippedValidation {
     /// Creates a record for an absent optional target.
+    ///
+    /// # Returns
+    ///
+    /// A skipped occurrence with no prerequisite failures.
     #[inline]
     pub fn missing_optional(occurrence: usize, path: ValidationPath) -> Self {
         Self {
@@ -58,6 +62,10 @@ impl SkippedValidation {
     /// # Errors
     ///
     /// Returns `EmptyPrerequisites` when no failure ID is supplied.
+    ///
+    /// # Returns
+    ///
+    /// A skipped occurrence containing the supplied prerequisite failure IDs.
     pub fn failed_prerequisite(
         occurrence: usize,
         path: ValidationPath,
@@ -74,21 +82,33 @@ impl SkippedValidation {
         })
     }
 
-    /// Returns the declaration occurrence.
+    /// Returns the zero-based declaration occurrence assigned by the executor.
+    ///
+    /// # Returns
+    ///
+    /// The occurrence number used to order this validation result.
     #[must_use]
     #[inline]
     pub const fn occurrence(&self) -> usize {
         self.occurrence
     }
 
-    /// Returns the skipped rule path.
+    /// Returns the structured path of the skipped target.
+    ///
+    /// # Returns
+    ///
+    /// A borrow of the target path stored in this record.
     #[must_use]
     #[inline]
     pub const fn path(&self) -> &ValidationPath {
         &self.path
     }
 
-    /// Returns the skip reason.
+    /// Returns why the executor did not run this occurrence.
+    ///
+    /// # Returns
+    ///
+    /// The policy reason that caused the skip.
     #[must_use]
     #[inline]
     pub const fn reason(&self) -> SkipReason {
@@ -96,6 +116,11 @@ impl SkippedValidation {
     }
 
     /// Returns IDs of failures that prevented this occurrence.
+    ///
+    /// # Returns
+    ///
+    /// The prerequisite IDs, or an empty slice when an optional target was
+    /// absent.
     #[must_use = "inspect the prerequisite failure IDs"]
     #[inline]
     pub fn prerequisites(&self) -> &[FailureId] {

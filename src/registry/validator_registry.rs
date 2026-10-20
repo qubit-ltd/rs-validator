@@ -39,6 +39,14 @@ pub struct ValidatorRegistry {
 impl ValidatorRegistry {
     /// Builds a registry by taking ownership of registration values.
     ///
+    /// # Type Parameters
+    ///
+    /// * `I` - An iterable whose items can be converted into registrations.
+    ///
+    /// # Parameters
+    ///
+    /// * `registrations` - Values to validate and store in the registry.
+    ///
     /// # Errors
     ///
     /// Returns every source which declared a duplicated stable ID, or the
@@ -137,6 +145,12 @@ impl ValidatorRegistry {
 
     /// Binds a rule by ID and input shape.
     ///
+    /// # Parameters
+    ///
+    /// * `id` - Stable identifier of the registered rule to bind.
+    /// * `input` - Input shape that the bound rule must accept.
+    /// * `params` - Named arguments supplied to the rule.
+    ///
     /// # Errors
     ///
     /// Returns `MissingRule` when `id` has no registration. This error has
@@ -161,6 +175,10 @@ impl ValidatorRegistry {
     }
 
     /// Sorts and validates owned registrations before freezing the registry.
+    ///
+    /// # Parameters
+    ///
+    /// * `registrations` - Owned registrations to sort and validate.
     ///
     /// # Errors
     ///
