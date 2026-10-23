@@ -8,6 +8,8 @@
 
 //! The typed validator contract.
 
+use std::error::Error;
+
 /// Validates a borrowed value using an immutable, typed context.
 ///
 /// # Examples
@@ -48,7 +50,7 @@
 /// - `C`: Immutable context supplied for each validation call.
 pub trait Validator<T: ?Sized, C: ?Sized = ()> {
     /// The domain error returned when the value is invalid.
-    type Error: std::error::Error + 'static;
+    type Error: Error + 'static;
 
     /// Validates `value` with `context`.
     ///

@@ -38,7 +38,15 @@ pub struct BindError {
 }
 
 impl BindError {
-    /// Creates a binding error.
+    /// Creates a binding error for the supplied failure category.
+    ///
+    /// # Parameters
+    ///
+    /// - `kind`: Stable category describing why binding failed.
+    ///
+    /// # Returns
+    ///
+    /// A new error without an associated rule, parameter, or dependency.
     #[inline]
     pub fn new(kind: BindErrorKind) -> Self {
         Self {
@@ -49,26 +57,11 @@ impl BindError {
         }
     }
 
-    /// Associates a rule identifier with this error.
-    #[inline]
-    pub const fn with_rule(mut self, rule_id: ValidatorId) -> Self {
-        self.rule_id = Some(rule_id);
-        self
-    }
-
-    /// Associates a parameter name with this error.
-    pub fn with_parameter(mut self, parameter: impl Into<String>) -> Self {
-        self.parameter = Some(parameter.into());
-        self
-    }
-
-    /// Associates a dependency name with this error.
-    pub fn with_dependency(mut self, dependency: impl Into<String>) -> Self {
-        self.dependency = Some(dependency.into());
-        self
-    }
-
     /// Returns the error kind.
+    ///
+    /// # Returns
+    ///
+    /// The stable category describing the binding failure.
     #[inline]
     pub const fn kind(&self) -> BindErrorKind {
         self.kind
@@ -114,6 +107,50 @@ impl BindError {
     #[inline]
     pub fn dependency(&self) -> Option<&str> {
         self.dependency.as_deref()
+    }
+
+    /// Associates the resolved rule identifier with this error.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Identifier of the rule whose binding failed.
+    ///
+    /// # Returns
+    ///
+    /// This error with the identifier attached.
+    #[inline]
+    pub const fn with_rule(mut self, rule_id: ValidatorId) -> Self {
+        self.rule_id = Some(rule_id);
+        self
+    }
+
+    /// Associates a parameter name with this error without retaining its value.
+    ///
+    /// # Parameters
+    ///
+    /// - `parameter`: Name of the parameter involved in the failure.
+    ///
+    /// # Returns
+    ///
+    /// This error with the parameter name attached.
+    pub fn with_parameter(mut self, parameter: impl Into<String>) -> Self {
+        self.parameter = Some(parameter.into());
+        self
+    }
+
+    /// Associates a dependency name with this error without retaining its
+    /// value.
+    ///
+    /// # Parameters
+    ///
+    /// - `dependency`: Name of the dependency involved in the failure.
+    ///
+    /// # Returns
+    ///
+    /// This error with the dependency name attached.
+    pub fn with_dependency(mut self, dependency: impl Into<String>) -> Self {
+        self.dependency = Some(dependency.into());
+        self
     }
 }
 

@@ -53,12 +53,22 @@ where
         &[]
     }
 
-    /// Validates a checked text value and maps a domain error into a draft.
+    /// Validates a text value and converts a domain error into one draft
+    /// violation.
+    ///
+    /// A successful domain validation produces a valid outcome. A domain
+    /// validation failure produces an invalid outcome containing the mapped
+    /// violation.
     ///
     /// # Errors
     ///
-    /// Returns an execution error when `value` is not text, indicating that
-    /// the binding supplied a value with the wrong shape.
+    /// Returns [`ExecutionErrorKind::InputTypeMismatch`] when `value` is a
+    /// typed or missing value instead of text.
+    ///
+    /// # Returns
+    ///
+    /// Returns the outcome of the domain validator, or an execution error if
+    /// the erased input has the wrong shape.
     fn validate(
         &self,
         value: ValidationValue<'_>,

@@ -19,7 +19,13 @@ use std::sync::atomic::Ordering;
 /// # Examples
 ///
 /// ```
-/// use qubit_validator::{FailureId, ValidationOutcome, ValidationPath, ValidationReport, Violation, ViolationCode, ValidatorId};
+/// use qubit_validator::FailureId;
+/// use qubit_validator::ValidationOutcome;
+/// use qubit_validator::ValidationPath;
+/// use qubit_validator::ValidationReport;
+/// use qubit_validator::ValidatorId;
+/// use qubit_validator::Violation;
+/// use qubit_validator::ViolationCode;
 ///
 /// let mut report = ValidationReport::new();
 /// let outcome = report.record_outcome(
@@ -60,6 +66,7 @@ impl FailureId {
 ///
 /// Panics when assigning the next identity would overflow `u64`, after
 /// `u64::MAX - 1` report identities have been issued.
+#[must_use]
 pub(crate) fn next_report_id() -> u64 {
     static NEXT_REPORT_ID: AtomicU64 = AtomicU64::new(1);
     NEXT_REPORT_ID

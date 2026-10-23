@@ -22,7 +22,13 @@ fn test_validation_value_reports_shape_without_exposing_contents() {
     assert_eq!(text.as_text(), Some("private value"));
     assert_eq!(typed.typed::<u32>(), Some(&number));
     assert_eq!(typed.typed::<u64>(), None);
-    assert!(missing.is_missing());
-    assert!(format!("{text:?}").contains("redacted"));
-    assert!(!format!("{text:?}").contains("private value"));
+    assert!(missing.is_missing(), "missing values should report their shape");
+    assert!(
+        format!("{text:?}").contains("redacted"),
+        "debug output should mark text values as redacted"
+    );
+    assert!(
+        !format!("{text:?}").contains("private value"),
+        "debug output should not expose text contents"
+    );
 }

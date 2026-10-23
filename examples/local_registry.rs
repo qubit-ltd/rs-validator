@@ -6,6 +6,10 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Demonstrates registering a validator locally and validating text through
+//! the resulting registry. With the `inventory` feature, it also checks global
+//! registration.
+
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;

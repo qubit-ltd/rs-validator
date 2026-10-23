@@ -8,7 +8,10 @@
 
 //! Private adapter for typed validators with unit context.
 
+use std::marker::PhantomData;
+
 use super::super::BoundValidationContext;
+use super::super::DependencySpec;
 use super::super::ExecutionError;
 use super::super::ExecutionErrorKind;
 use super::super::InputType;
@@ -25,7 +28,7 @@ pub(in crate::binding) struct TypedValidatorAdapter<T, V, M> {
     /// Mapper that creates a safe violation draft from the domain error.
     map_error: M,
     /// Type marker describing the borrowed value accepted by `validator`.
-    marker: std::marker::PhantomData<fn() -> T>,
+    marker: PhantomData<fn() -> T>,
 }
 
 impl<T, V, M> TypedValidatorAdapter<T, V, M> {
@@ -36,7 +39,7 @@ impl<T, V, M> TypedValidatorAdapter<T, V, M> {
         Self {
             validator,
             map_error,
-            marker: std::marker::PhantomData,
+            marker: PhantomData,
         }
     }
 }
@@ -55,7 +58,7 @@ where
 
     /// Returns that this unit-context adapter has no dependency slots.
     #[inline]
-    fn dependency_specs(&self) -> &'static [super::super::DependencySpec] {
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]
     }
 

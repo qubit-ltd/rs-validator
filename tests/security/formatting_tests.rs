@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
+use qubit_validator::BoundValidationContext;
 use qubit_validator::InputType;
 use qubit_validator::NamedValidationArgument;
 use qubit_validator::PathSegment;
@@ -21,6 +22,7 @@ use qubit_validator::ValidationArgument;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationReport;
+use qubit_validator::ValidationValue;
 use qubit_validator::Validator;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
@@ -28,6 +30,7 @@ use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::Violation;
 use qubit_validator::ViolationCode;
+use qubit_validator::prepare_text_validator;
 
 struct Accept;
 
@@ -40,7 +43,7 @@ impl Validator<str> for Accept {
 }
 
 fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
-    Ok(qubit_validator::prepare_text_validator(Accept, |never| match never {}))
+    Ok(prepare_text_validator(Accept, |never| match never {}))
 }
 
 static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
@@ -56,9 +59,12 @@ fn test_public_formatters_expose_safe_metadata_and_reader_decodes_booleans() {
     let arguments = [NamedValidationArgument::new("enabled", ValidationArgument::Bool(true))];
     let mut reader = ArgumentReader::new(&arguments).expect("unique argument names");
     assert!(!format!("{reader:?}").contains("true"));
-    assert_eq!(reader.optional_bool("enabled").unwrap(), Some(true));
-    assert_eq!(reader.optional_bool("absent").unwrap(), None);
-    reader.finish().unwrap();
+    assert_eq!(
+        reader.optional_bool("enabled").expect("enabled is a boolean"),
+        Some(true)
+    );
+    assert_eq!(reader.optional_bool("absent").expect("absent is optional"), None);
+    reader.finish().expect("all arguments were consumed");
 
     let signature_debug = format!("{:?}", SIGNATURES[0]);
     assert!(signature_debug.contains("Text"));
@@ -79,24 +85,21 @@ fn test_public_formatters_expose_safe_metadata_and_reader_decodes_booleans() {
                 ValidatorId::new("test.accept"),
                 ViolationCode::new("text.invalid"),
             )])
-            .unwrap(),
+            .expect("the violation is valid"),
         )
-        .unwrap();
+        .expect("the outcome is recorded");
     assert!(outcome.complete());
     report
         .record_outcome(1, ValidationPath::root(), ValidationOutcome::missing_optional())
-        .unwrap();
+        .expect("the optional outcome is recorded");
     assert!(format!("{report}").contains("1 violation"));
     assert!(!format!("{report:?}").contains("text.invalid"));
     assert_eq!(report.skipped()[0].reason(), SkipReason::MissingOptional);
 
     assert_eq!(
         bound
-            .validate(
-                qubit_validator::ValidationValue::Text("value"),
-                &qubit_validator::BoundValidationContext::new(&[]),
-            )
-            .unwrap(),
+            .validate(ValidationValue::Text("value"), &BoundValidationContext::new(&[]),)
+            .expect("the text validator accepts the value"),
         ValidationOutcome::Valid
     );
 }

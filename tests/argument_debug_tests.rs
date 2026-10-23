@@ -8,6 +8,7 @@
 
 use qubit_validator::NamedValidationArgument;
 use qubit_validator::ValidationArgument;
+
 #[test]
 fn test_argument_debug_redacts_names_and_values() {
     let strings = ["first-secret", "second-secret"];

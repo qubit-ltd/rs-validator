@@ -76,7 +76,9 @@ fn test_bind_rejects_duplicate_parameter_even_when_factory_ignores_reader() {
         NamedValidationArgument::new("extra", ValidationArgument::Unsigned(2)),
     ];
 
-    let error = descriptor.bind(rule, 0, &params).unwrap_err();
+    let error = descriptor
+        .bind(rule, 0, &params)
+        .expect_err("duplicate parameter must be rejected");
     assert_eq!(error.kind(), BindErrorKind::DuplicateParameter);
     assert_eq!(error.rule_id(), Some(rule));
 }
@@ -89,7 +91,9 @@ fn test_bind_rejects_unconsumed_parameter() {
     let rule = ValidatorId::new("test.unconsumed_parameter");
     let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
 
-    let error = descriptor.bind(rule, 0, &params).unwrap_err();
+    let error = descriptor
+        .bind(rule, 0, &params)
+        .expect_err("unconsumed parameter must be rejected");
     assert_eq!(error.kind(), BindErrorKind::UnknownParameter);
     assert_eq!(error.rule_id(), Some(rule));
 }
@@ -102,7 +106,9 @@ fn test_bind_for_rejects_unconsumed_parameter() {
     let rule = ValidatorId::new("test.unconsumed_parameter_for");
     let params = [NamedValidationArgument::new("extra", ValidationArgument::Unsigned(1))];
 
-    let error = descriptor.bind_for(rule, InputType::Text, &params).unwrap_err();
+    let error = descriptor
+        .bind_for(rule, InputType::Text, &params)
+        .expect_err("unconsumed parameter must be rejected");
     assert_eq!(error.kind(), BindErrorKind::UnknownParameter);
     assert_eq!(error.rule_id(), Some(rule));
 }
@@ -114,7 +120,9 @@ fn test_bind_reports_missing_required_parameter() {
     let descriptor = ValidatorDescriptor::new(SIGNATURES);
     let rule = ValidatorId::new("test.missing_maximum");
 
-    let error = descriptor.bind(rule, 0, &[]).unwrap_err();
+    let error = descriptor
+        .bind(rule, 0, &[])
+        .expect_err("missing required parameter must be reported");
     assert_eq!(error.kind(), BindErrorKind::MissingParameter);
     assert_eq!(error.rule_id(), Some(rule));
 }
@@ -136,7 +144,8 @@ fn test_duplicate_id_reports_every_source_independent_of_input_order() {
     let one = registration("test.same", "one.rs", &D_A);
     let two = registration("test.same", "two.rs", &D_A);
     let three = registration("test.same", "three.rs", &D_A);
-    let error = ValidatorRegistry::from_registrations([three, one, two]).unwrap_err();
+    let error =
+        ValidatorRegistry::from_registrations([three, one, two]).expect_err("duplicate validator IDs must be rejected");
     let text = error.to_string();
     assert!(text.contains("one.rs") && text.contains("two.rs") && text.contains("three.rs"));
 }
@@ -148,8 +157,10 @@ fn test_one_id_can_expose_multiple_input_signatures() {
         ValidatorSignature::new(InputType::Typed(TypeId::of::<u32>()), &[], prepare),
     ]));
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
-    let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)]).unwrap();
-    assert_eq!(registry.get("test.multi").unwrap().descriptor().signatures().len(), 2);
+    let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)])
+        .expect("the validator registration is valid");
+    let registered = registry.get("test.multi").expect("the registered validator is present");
+    assert_eq!(registered.descriptor().signatures().len(), 2);
 }
 
 #[test]
@@ -161,7 +172,7 @@ fn test_duplicate_signatures_are_rejected_when_binding() {
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
     let error = descriptor
         .bind_for(ValidatorId::new("test.multi"), InputType::Text, &[])
-        .unwrap_err();
+        .expect_err("duplicate signatures must be rejected");
     assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
 }
 
@@ -173,18 +184,22 @@ fn test_descriptor_rejects_duplicate_input_shapes_and_empty_declarations() {
         ValidatorSignature::new(InputType::Text, TEXT_DEPS, prepare),
     ];
     assert_eq!(
-        ValidatorDescriptor::try_new(DUPLICATE).unwrap_err().kind(),
+        ValidatorDescriptor::try_new(DUPLICATE)
+            .expect_err("duplicate input shapes must be rejected")
+            .kind(),
         BindErrorKind::AmbiguousSignature
     );
 
     static EMPTY: &[ValidatorSignature] = &[];
     assert_eq!(
-        ValidatorDescriptor::try_new(EMPTY).unwrap_err().kind(),
+        ValidatorDescriptor::try_new(EMPTY)
+            .expect_err("empty declarations must be rejected")
+            .kind(),
         BindErrorKind::InvalidDeclaration
     );
     let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(EMPTY)));
-    let error =
-        ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)]).unwrap_err();
+    let error = ValidatorRegistry::from_registrations([registration("test.empty", "empty.rs", descriptor)])
+        .expect_err("a registry must reject an invalid descriptor");
     assert!(error.to_string().contains("invalid descriptor"));
 }
 
@@ -224,12 +239,16 @@ fn test_descriptor_preparation_errors_include_rule_and_keep_details() {
     let descriptor = ValidatorDescriptor::new(FAILING);
     let rule = ValidatorId::new("test.prepare_failure");
 
-    let error = descriptor.bind(rule, 0, &[]).unwrap_err();
+    let error = descriptor
+        .bind(rule, 0, &[])
+        .expect_err("the preparation error must be returned");
     assert_eq!(error.kind(), BindErrorKind::MissingParameter);
     assert_eq!(error.rule_id(), Some(rule));
     assert_eq!(error.parameter(), Some("minimum"));
 
-    let error = descriptor.bind_for(rule, InputType::Text, &[]).unwrap_err();
+    let error = descriptor
+        .bind_for(rule, InputType::Text, &[])
+        .expect_err("the preparation error must be returned");
     assert_eq!(error.kind(), BindErrorKind::MissingParameter);
     assert_eq!(error.rule_id(), Some(rule));
     assert_eq!(error.parameter(), Some("minimum"));
@@ -239,8 +258,10 @@ fn test_descriptor_preparation_errors_include_rule_and_keep_details() {
         "failing.rs",
         &FAILING_DESCRIPTOR,
     )])
-    .unwrap();
-    let error = registry.bind("test.prepare_failure", InputType::Text, &[]).unwrap_err();
+    .expect("the failing descriptor is structurally valid");
+    let error = registry
+        .bind("test.prepare_failure", InputType::Text, &[])
+        .expect_err("the preparation error must be returned");
     assert_eq!(error.kind(), BindErrorKind::MissingParameter);
     assert_eq!(error.rule_id(), Some(rule));
     assert_eq!(error.parameter(), Some("minimum"));
@@ -249,11 +270,15 @@ fn test_descriptor_preparation_errors_include_rule_and_keep_details() {
 #[test]
 fn test_descriptor_selection_errors_include_rule() {
     let rule = ValidatorId::new("test.selection");
-    let invalid_selection = D_A.bind(rule, 1, &[]).unwrap_err();
+    let invalid_selection = D_A
+        .bind(rule, 1, &[])
+        .expect_err("an out-of-range signature selection must be rejected");
     assert_eq!(invalid_selection.kind(), BindErrorKind::InvalidSelection);
     assert_eq!(invalid_selection.rule_id(), Some(rule));
 
-    let unsupported_input = D_A.bind_for(rule, InputType::of::<u32>(), &[]).unwrap_err();
+    let unsupported_input = D_A
+        .bind_for(rule, InputType::of::<u32>(), &[])
+        .expect_err("an unsupported input type must be rejected");
     assert_eq!(unsupported_input.kind(), BindErrorKind::UnsupportedInput);
     assert_eq!(unsupported_input.rule_id(), Some(rule));
 }
@@ -263,7 +288,9 @@ fn test_descriptor_definition_errors_include_rule() {
     static EMPTY: &[ValidatorSignature] = &[];
     let empty = ValidatorDescriptor::new(EMPTY);
     let rule = ValidatorId::new("test.empty_descriptor");
-    let error = empty.bind(rule, 0, &[]).unwrap_err();
+    let error = empty
+        .bind(rule, 0, &[])
+        .expect_err("an empty descriptor must be rejected");
     assert_eq!(error.kind(), BindErrorKind::InvalidDeclaration);
     assert_eq!(error.rule_id(), Some(rule));
 
@@ -273,7 +300,7 @@ fn test_descriptor_definition_errors_include_rule() {
     ];
     let error = ValidatorDescriptor::new(DUPLICATE)
         .bind_for(rule, InputType::Text, &[])
-        .unwrap_err();
+        .expect_err("duplicate signatures must be rejected");
     assert_eq!(error.kind(), BindErrorKind::AmbiguousSignature);
     assert_eq!(error.rule_id(), Some(rule));
 }

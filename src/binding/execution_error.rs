@@ -64,6 +64,49 @@ impl ExecutionError {
         }
     }
 
+    /// Returns the error kind.
+    #[inline]
+    pub const fn kind(&self) -> ExecutionErrorKind {
+        self.kind
+    }
+
+    /// Returns the associated rule identifier, if any.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` when a rule has been attached, or `None` otherwise.
+    #[inline]
+    pub const fn rule_id(&self) -> Option<ValidatorId> {
+        self.rule_id
+    }
+
+    /// Returns the associated dependency slot name, if the error concerns one.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some` when a dependency has been attached, or `None` otherwise.
+    #[inline]
+    pub const fn dependency(&self) -> Option<&'static str> {
+        self.dependency
+    }
+
+    /// Returns the structured error path.
+    ///
+    /// The path remains structured and does not expose the raw input value.
+    #[must_use]
+    #[inline]
+    pub const fn path(&self) -> &super::ValidationPath {
+        &self.path
+    }
+
+    /// Returns the retained cause to a caller that is trusted to inspect it.
+    ///
+    /// `None` means no owned cause was supplied. This accessor may reveal
+    /// details unsuitable for ordinary logs or user-facing output.
+    pub fn trusted_source(&self) -> Option<&(dyn Error + Send + Sync + 'static)> {
+        self.trusted_source.as_deref()
+    }
+
     /// Associates a rule identifier with this error.
     ///
     /// # Parameters
@@ -128,52 +171,6 @@ impl ExecutionError {
     pub fn with_path(mut self, path: super::ValidationPath) -> Self {
         self.path = path;
         self
-    }
-
-    /// Returns the error kind.
-    #[inline]
-    pub const fn kind(&self) -> ExecutionErrorKind {
-        self.kind
-    }
-
-    /// Returns the associated rule identifier, if any.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Some` when a rule has been attached, or `None` otherwise.
-    #[must_use]
-    #[inline]
-    pub const fn rule_id(&self) -> Option<ValidatorId> {
-        self.rule_id
-    }
-
-    /// Returns the associated dependency slot name, if the error concerns one.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Some` when a dependency has been attached, or `None` otherwise.
-    #[must_use]
-    #[inline]
-    pub const fn dependency(&self) -> Option<&'static str> {
-        self.dependency
-    }
-
-    /// Returns the structured error path.
-    ///
-    /// The path remains structured and does not expose the raw input value.
-    #[must_use]
-    #[inline]
-    pub const fn path(&self) -> &super::ValidationPath {
-        &self.path
-    }
-
-    /// Returns the retained cause to a caller that is trusted to inspect it.
-    ///
-    /// `None` means no owned cause was supplied. This accessor may reveal
-    /// details unsuitable for ordinary logs or user-facing output.
-    #[must_use]
-    pub fn trusted_source(&self) -> Option<&(dyn Error + Send + Sync + 'static)> {
-        self.trusted_source.as_deref()
     }
 }
 

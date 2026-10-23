@@ -20,6 +20,10 @@ use crate::ValidationValue;
 /// Names come from the validator declaration. Values and paths remain borrowed
 /// for the validation call and are never retained by the binding.
 ///
+/// # Type Parameters
+///
+/// - `'a`: Lifetime shared by the borrowed value and optional path.
+///
 /// # Parameters
 /// - `name`: Static dependency name declared by the validator signature.
 /// - `value`: Borrowed value for the dependency slot.

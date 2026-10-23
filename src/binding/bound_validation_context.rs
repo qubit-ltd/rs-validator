@@ -107,6 +107,11 @@ impl<'a> BoundValidationContext<'a> {
 
     /// Downcasts a required dependency to its exact type.
     ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Concrete dependency type to borrow; it must be `'static` for
+    ///   `Any` downcasting.
+    ///
     /// # Errors
     ///
     /// Returns a shape, missing-value, or slot error.
@@ -126,6 +131,11 @@ impl<'a> BoundValidationContext<'a> {
     }
 
     /// Downcasts an optional dependency, treating only `Missing` as `None`.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `T`: Concrete dependency type to borrow; it must be `'static` for
+    ///   `Any` downcasting.
     ///
     /// # Returns
     ///

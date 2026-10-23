@@ -38,6 +38,8 @@ pub struct RecordedOutcome {
 
 impl RecordedOutcome {
     /// Creates a receipt for report recording.
+    #[must_use]
+    #[inline]
     pub(crate) fn new(complete: bool, failure_ids: Vec<FailureId>) -> Self {
         Self { complete, failure_ids }
     }

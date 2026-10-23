@@ -43,6 +43,11 @@ pub struct SkippedValidation {
 impl SkippedValidation {
     /// Creates a record for an absent optional target.
     ///
+    /// # Parameters
+    ///
+    /// - `occurrence`: Zero-based declaration position of the skipped target.
+    /// - `path`: Structured path identifying the absent target.
+    ///
     /// # Returns
     ///
     /// A skipped occurrence with no prerequisite failures.
@@ -58,6 +63,13 @@ impl SkippedValidation {
 
     /// Creates a record for an occurrence skipped after prerequisite
     /// failures.
+    ///
+    /// # Parameters
+    ///
+    /// - `occurrence`: Zero-based declaration position of the skipped target.
+    /// - `path`: Structured path identifying the skipped target.
+    /// - `prerequisites`: Failure IDs that prevented this occurrence from
+    ///   running.
     ///
     /// # Errors
     ///

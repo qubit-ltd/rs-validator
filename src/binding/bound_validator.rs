@@ -256,6 +256,27 @@ impl BoundValidator {
         self.validate_named_many(value, dependencies)
     }
 
+    /// Returns the selected input shape.
+    #[must_use]
+    #[inline]
+    pub const fn input_type(&self) -> InputType {
+        self.input
+    }
+
+    /// Returns dependencies in their execution slot order.
+    #[must_use]
+    #[inline]
+    pub const fn dependency_specs(&self) -> &'static [super::DependencySpec] {
+        self.dependencies
+    }
+
+    /// Returns the stable rule identifier.
+    #[must_use]
+    #[inline]
+    pub const fn rule_id(&self) -> ValidatorId {
+        self.rule_id
+    }
+
     /// Resolves multiple named dependencies into signature order before
     /// validation.
     ///
@@ -336,27 +357,6 @@ impl BoundValidator {
         let context =
             BoundValidationContext::new_with_paths(&values, &paths).map_err(|error| error.with_rule(self.rule_id))?;
         self.validate(value, &context)
-    }
-
-    /// Returns the selected input shape.
-    #[must_use]
-    #[inline]
-    pub const fn input_type(&self) -> InputType {
-        self.input
-    }
-
-    /// Returns dependencies in their execution slot order.
-    #[must_use]
-    #[inline]
-    pub const fn dependency_specs(&self) -> &'static [super::DependencySpec] {
-        self.dependencies
-    }
-
-    /// Returns the stable rule identifier.
-    #[must_use]
-    #[inline]
-    pub const fn rule_id(&self) -> ValidatorId {
-        self.rule_id
     }
 
     /// Checks the erased input against the selected signature.

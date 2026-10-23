@@ -9,6 +9,9 @@
 //! Rule-local violations before a bound validator assigns its identity.
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 
 use crate::ValidationPath;
 use crate::ViolationCode;
@@ -86,15 +89,20 @@ impl ViolationDraft {
     ///
     /// The returned values are consumed by the binding layer, which supplies
     /// the stable rule identity before exposing a [`crate::Violation`].
+    ///
+    /// # Returns
+    ///
+    /// The violation code, relative path, and structured parameters, in that
+    /// order.
     #[inline]
     pub(crate) fn parts(self) -> (ViolationCode, ValidationPath, BTreeMap<&'static str, ViolationParam>) {
         (self.code, self.path, self.params)
     }
 }
 
-impl std::fmt::Debug for ViolationDraft {
+impl Debug for ViolationDraft {
     /// Formats only safe metadata and the parameter count.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("ViolationDraft")
             .field("code", &self.code)
