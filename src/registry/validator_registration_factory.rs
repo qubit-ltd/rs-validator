@@ -29,6 +29,57 @@ inventory::collect!(ValidatorRegistrationFactory);
 /// compile-time factory; the registration is materialized when
 /// [`ValidatorRegistry::try_global`](crate::ValidatorRegistry::try_global) is
 /// first called.
+/// The literal ID is validated during compilation. Invalid literal IDs are
+/// rejected before a global registry can be initialized.
+///
+/// # Panics
+///
+/// The descriptor expression is evaluated when the registration is
+/// materialized; panics from that expression are not caught by the registry.
+///
+/// # Examples
+///
+/// ```
+/// use std::sync::Arc;
+/// use qubit_validator::ArgumentReader;
+/// use qubit_validator::BindError;
+/// use qubit_validator::InputType;
+/// use qubit_validator::PreparedOutcome;
+/// use qubit_validator::PreparedValidator;
+/// use qubit_validator::ValidatorDescriptor;
+/// use qubit_validator::ValidatorSignature;
+/// use qubit_validator::prepare_text_with_context;
+/// use qubit_validator::register_validator;
+///
+/// fn prepare(_: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(prepare_text_with_context(&[], |_, _| Ok(PreparedOutcome::Valid)))
+/// }
+/// static SIGNATURES: &[ValidatorSignature] =
+///     &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+/// static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+/// register_validator!(id = "app.valid_rule", descriptor = &DESCRIPTOR);
+/// ```
+///
+/// ```compile_fail
+/// use std::sync::Arc;
+/// use qubit_validator::ArgumentReader;
+/// use qubit_validator::BindError;
+/// use qubit_validator::InputType;
+/// use qubit_validator::PreparedOutcome;
+/// use qubit_validator::PreparedValidator;
+/// use qubit_validator::ValidatorDescriptor;
+/// use qubit_validator::ValidatorSignature;
+/// use qubit_validator::prepare_text_with_context;
+/// use qubit_validator::register_validator;
+///
+/// fn prepare(_: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(prepare_text_with_context(&[], |_, _| Ok(PreparedOutcome::Valid)))
+/// }
+/// static SIGNATURES: &[ValidatorSignature] =
+///     &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+/// static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+/// register_validator!(id = "bad..id", descriptor = &DESCRIPTOR);
+/// ```
 #[macro_export]
 macro_rules! register_validator {
     (registration = $registration:path $(,)?) => {
@@ -46,7 +97,7 @@ macro_rules! register_validator {
         const _: () = {
             fn registration() -> $crate::ValidatorRegistration {
                 $crate::ValidatorRegistration::new(
-                    $crate::ValidatorId::new($id),
+                    const { $crate::ValidatorId::new($id) },
                     $descriptor,
                     $crate::RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
                 )
