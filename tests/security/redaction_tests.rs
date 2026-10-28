@@ -163,15 +163,26 @@ fn test_execution_and_bind_errors_expose_kind_without_source_or_values() {
         ExecutionError::new(ExecutionErrorKind::ExternalFailure).with_rule(ValidatorId::new("qubit.rules.remote"));
     assert_eq!(execution.kind(), ExecutionErrorKind::ExternalFailure);
     assert!(std::error::Error::source(&execution).is_none());
-    assert!(!execution.to_string().contains("secret input"));
-    assert!(!format!("{execution:?}").contains("secret input"));
+    assert!(execution.to_string().contains(&execution.kind().to_string()));
+    assert!(format!("{execution:?}").contains("ExternalFailure"));
 
+    let parameter = "parameter-redaction-sentinel-unique";
+    let dependency = "dependency-redaction-sentinel-unique";
     let bind = BindError::new(BindErrorKind::ParameterTypeMismatch)
-        .with_parameter("minimum")
-        .with_dependency("credential");
+        .with_parameter(parameter)
+        .with_dependency(dependency);
     assert_eq!(bind.kind(), BindErrorKind::ParameterTypeMismatch);
-    assert!(bind.to_string().contains("parameter"));
-    assert!(!bind.to_string().contains("secret input"));
+    assert_eq!(bind.parameter(), Some(parameter));
+    assert_eq!(bind.dependency(), Some(dependency));
+    let display = bind.to_string();
+    let debug = format!("{bind:?}");
+    assert!(display.contains(&bind.kind().to_string()));
+    assert!(debug.contains("has_parameter: true"));
+    assert!(debug.contains("has_dependency: true"));
+    for rendered in [&display, &debug] {
+        assert!(!rendered.contains(parameter), "parameter name must be redacted");
+        assert!(!rendered.contains(dependency), "dependency name must be redacted");
+    }
 }
 
 #[derive(Debug)]
