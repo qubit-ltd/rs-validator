@@ -6,10 +6,51 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::ptr::eq;
+
 use qubit_validator::BoundValidationContext;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
+
+#[test]
+fn test_optional_typed_distinguishes_missing_from_wrong_type() {
+    let number = 9_u32;
+    let values = [
+        ValidationValue::Typed(&number),
+        ValidationValue::Missing,
+        ValidationValue::Text("present text"),
+    ];
+    let context = BoundValidationContext::new(&values);
+    let present = context
+        .optional_typed::<u32>(0)
+        .expect("matching concrete type is accepted")
+        .expect("present value remains present");
+    assert_eq!(*present, number);
+    assert!(eq(present, &number), "optional access must borrow the original value");
+    assert_eq!(context.optional_typed::<u32>(1).expect("Missing is optional"), None);
+    assert_eq!(
+        context
+            .optional_typed::<u64>(0)
+            .expect_err("wrong concrete type is not absence")
+            .kind(),
+        ExecutionErrorKind::DependencyTypeMismatch,
+    );
+    assert_eq!(
+        context
+            .optional_typed::<u32>(2)
+            .expect_err("text is not an absent typed value")
+            .kind(),
+        ExecutionErrorKind::DependencyTypeMismatch,
+    );
+    assert_eq!(
+        context
+            .optional_typed::<u32>(3)
+            .expect_err("out-of-range slot is a contract error")
+            .kind(),
+        ExecutionErrorKind::AdapterContractViolation,
+    );
+}
 
 #[test]
 fn test_context_reads_values_and_paths_and_rejects_invalid_shapes() {
