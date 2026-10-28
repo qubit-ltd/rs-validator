@@ -13,6 +13,7 @@
 - [在启动时配置规则](#在启动时配置规则)
 - [汇总多项检查并处理容量上限](#汇总多项检查并处理容量上限)
 - [选择注册方式和适配器](#选择注册方式和适配器)
+- [选择稳定的规则 ID 和违规代码](#选择稳定的规则-id-和违规代码)
 - [排查故障并守住边界](#排查故障并守住边界)
 
 ## 它解决什么问题
@@ -360,6 +361,12 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 在规则定义处使用 `register_validator!`，启动时调用 `ValidatorRegistry::try_global()`。重复 ID 或无效描述符会返回错误；`global()` 遇到这些错误会 panic。发现规则的方式变了，绑定和执行契约没有改变。[仓库示例](../examples/local_registry.rs)含启用该功能时的路径。
 
 简单的 `prepare_text_validator`、`prepare_typed_validator` 将带类型规则的领域错误映射成一条违规草稿；读取依赖时使用对应的上下文适配器。若规则需要一次返回多条违规，或需要把外部故障与输入不合规则区分，可用 `prepare_text_with_context` / `prepare_typed_with_context` 返回 `PreparedOutcome` 或 `ExecutionError`；`prepare_text_domain_rule` / `prepare_typed_domain_rule` 可把带上下文的领域错误映射成安全草稿。表示违规的草稿列表不能为空。已有无依赖、精确接受 `T` 的预备规则，可用 `BoundValidator::try_from_prepared::<T>` 跳过注册表直接绑定。
+
+## 选择稳定的规则 ID 和违规代码
+
+`ValidatorId` 用来标识规则，`ViolationCode` 用来标识报告中的违规类型。两者都必须是非空字符串，由一个或多个点分隔的片段组成。每段以 ASCII 字母开头，后续字符只能是 ASCII 字母、数字或下划线。空片段、空白字符、非 ASCII 字母和连字符都会被拒绝；构造时不会去掉首尾空白，也不会转换大小写。例如，`app.valid_rule` 和 `text.length.minimum` 有效；`bad..id`、`_custom.invalid` 和 `text.min-length` 无效。
+
+配置等外部来源可能给出无效值时，使用 `ValidatorId::try_new` 或 `ViolationCode::try_new`，并处理它们返回的校验错误。`new` 遇到无效值会 panic。传给 `register_validator!` 的字面量 ID 会在编译期检查。完整错误变体和函数签名见 [`ValidatorId` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) 与 [`ViolationCode` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html)。
 
 ## 排查故障并守住边界
 

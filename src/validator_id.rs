@@ -16,6 +16,11 @@ use crate::internal::validate_dotted_identifier;
 
 /// A validated, process-independent validator identifier.
 ///
+/// The value is non-empty and consists of one or more dot-separated segments.
+/// Each segment starts with an ASCII letter and continues with ASCII letters,
+/// digits, or underscores. Empty segments, whitespace, non-ASCII letters, and
+/// hyphens are rejected. No trimming or case normalization is performed.
+///
 /// # Examples
 ///
 /// ```
@@ -26,6 +31,10 @@ use crate::internal::validate_dotted_identifier;
 /// assert_eq!(id.as_str(), "qubit.text.non_empty");
 /// let error = ValidatorId::try_new("qubit..non_empty").unwrap_err();
 /// assert_eq!(error, ValidatorIdError::EmptySegment);
+/// assert_eq!(
+///     ValidatorId::try_new("_custom.invalid"),
+///     Err(ValidatorIdError::InvalidSegment),
+/// );
 /// # Ok::<(), ValidatorIdError>(())
 /// ```
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -37,9 +46,17 @@ pub struct ValidatorId(
 impl ValidatorId {
     /// Creates a stable ID from a static string.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: A static string containing the complete protocol value.
+    ///
+    /// # Returns
+    ///
+    /// The validated identifier.
+    ///
     /// # Panics
     ///
-    /// Panics when `value` violates the point-separated ASCII protocol.
+    /// Panics when `value` violates the syntax documented on [`ValidatorId`].
     #[must_use]
     #[inline]
     pub const fn new(value: &'static str) -> Self {
@@ -51,9 +68,20 @@ impl ValidatorId {
 
     /// Validates and creates a stable ID.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: A static string containing the complete protocol value.
+    ///
+    /// # Returns
+    ///
+    /// The validated identifier when `value` follows the protocol.
+    ///
     /// # Errors
     ///
-    /// Returns the exact protocol violation for an invalid ID.
+    /// Returns [`ValidatorIdError::Empty`] for an empty string,
+    /// [`ValidatorIdError::EmptySegment`] for an empty dot-separated segment,
+    /// or [`ValidatorIdError::InvalidSegment`] for a segment with invalid
+    /// characters or an invalid first character.
     #[inline]
     pub const fn try_new(value: &'static str) -> Result<Self, ValidatorIdError> {
         match validate_dotted_identifier(value) {

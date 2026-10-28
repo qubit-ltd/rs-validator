@@ -13,6 +13,7 @@ This guide covers `qubit-validator` 0.1.x on Rust 1.94 or newer. It is for devel
 - [Configure a rule once at startup](#configure-a-rule-once-at-startup)
 - [Collect several checks and handle limits](#collect-several-checks-and-handle-limits)
 - [Choose registration and adapter options](#choose-registration-and-adapter-options)
+- [Choose stable IDs and violation codes](#choose-stable-ids-and-violation-codes)
 - [Diagnose failures and respect boundaries](#diagnose-failures-and-respect-boundaries)
 
 ## The problem it solves
@@ -360,6 +361,12 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 Use `register_validator!` at the rule definition and `ValidatorRegistry::try_global()` at startup. `try_global` reports duplicate IDs or invalid descriptors; `global()` panics on those errors. Discovery changes how rules enter the registry, not how they bind or execute. The [repository example](../examples/local_registry.rs) includes the feature-gated path.
 
 The simple `prepare_text_validator` and `prepare_typed_validator` adapters map a typed rule's domain error to one violation draft. For rules that read declared dependencies, use their contextual counterparts. If a rule must return several violations or distinguish an external failure from invalid input, `prepare_text_with_context` and `prepare_typed_with_context` return `PreparedOutcome` or `ExecutionError`; `prepare_text_domain_rule` and `prepare_typed_domain_rule` map contextual domain errors into safe drafts. An invalid draft list cannot be empty. `BoundValidator::try_from_prepared::<T>` binds an already prepared, dependency-free rule without a registry when its input type is exactly `T`.
+
+## Choose stable IDs and violation codes
+
+`ValidatorId` names a rule, and `ViolationCode` identifies a reported violation. Both values are non-empty strings made of dot-separated segments. Each segment starts with an ASCII letter and continues with ASCII letters, digits, or underscores. Empty segments, whitespace, non-ASCII letters, and hyphens are rejected; construction does not trim or change case. For example, `app.valid_rule` and `text.length.minimum` are valid, while `bad..id`, `_custom.invalid`, and `text.min-length` are invalid.
+
+Use `ValidatorId::try_new` or `ViolationCode::try_new` when a value comes from configuration or another fallible source; they return a validation error for invalid input. The `new` constructors panic on invalid input. A literal ID passed to `register_validator!` is checked at compile time. See the [`ValidatorId` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) and [`ViolationCode` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html) for the exact error variants and signatures.
 
 ## Diagnose failures and respect boundaries
 

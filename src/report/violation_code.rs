@@ -19,6 +19,11 @@ use crate::internal::validate_dotted_identifier;
 
 /// A stable violation code using the point-separated ASCII protocol.
 ///
+/// The value is non-empty and consists of one or more dot-separated segments.
+/// Each segment starts with an ASCII letter and continues with ASCII letters,
+/// digits, or underscores. Empty segments, whitespace, non-ASCII letters, and
+/// hyphens are rejected. No trimming or case normalization is performed.
+///
 /// # Examples
 ///
 /// ```
@@ -29,6 +34,10 @@ use crate::internal::validate_dotted_identifier;
 /// assert_eq!(code.as_str(), "text.length.minimum");
 /// let error = ViolationCode::try_new("text..minimum").unwrap_err();
 /// assert_eq!(error, ViolationCodeError::EmptySegment);
+/// assert_eq!(
+///     ViolationCode::try_new("text.min-length"),
+///     Err(ViolationCodeError::InvalidSegment),
+/// );
 /// # Ok::<(), ViolationCodeError>(())
 /// ```
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -40,9 +49,17 @@ pub struct ViolationCode(
 impl ViolationCode {
     /// Creates a code from a valid static string.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: A static string containing the complete protocol value.
+    ///
+    /// # Returns
+    ///
+    /// The validated violation code.
+    ///
     /// # Panics
     ///
-    /// Panics when `value` violates the code protocol.
+    /// Panics when `value` violates the syntax documented on [`ViolationCode`].
     #[must_use]
     #[inline]
     pub const fn new(value: &'static str) -> Self {
@@ -54,9 +71,20 @@ impl ViolationCode {
 
     /// Validates and creates a code.
     ///
+    /// # Parameters
+    ///
+    /// - `value`: A static string containing the complete protocol value.
+    ///
+    /// # Returns
+    ///
+    /// The validated violation code when `value` follows the protocol.
+    ///
     /// # Errors
     ///
-    /// Returns the protocol violation when `value` is invalid.
+    /// Returns [`ViolationCodeError::Empty`] for an empty string,
+    /// [`ViolationCodeError::EmptySegment`] for an empty dot-separated segment,
+    /// or [`ViolationCodeError::InvalidSegment`] for a segment with invalid
+    /// characters or an invalid first character.
     #[inline]
     pub const fn try_new(value: &'static str) -> Result<Self, ViolationCodeError> {
         match validate_dotted_identifier(value) {
