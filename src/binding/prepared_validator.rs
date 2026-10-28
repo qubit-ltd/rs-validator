@@ -21,6 +21,24 @@ use super::ValidationValue;
 
 /// A configured, immutable validator instance safe to share between calls.
 ///
+/// Direct calls are a lower-level execution path. The caller must supply a
+/// target matching [`Self::input_type`] and a context matching
+/// [`Self::dependency_specs`] in count, order, type, and optional-value
+/// representation. When dependency paths are provided, they must correspond
+/// to the value slots. Constructing a [`BoundValidationContext`] does not
+/// validate it against these declarations.
+///
+/// For configured execution, bind through a [`crate::ValidatorDescriptor`] or
+/// [`crate::ValidatorRegistry`] and call [`crate::BoundValidator::validate`].
+/// That boundary checks the declared shapes and outcome invariants and attaches
+/// the bound rule ID to violation drafts. A direct call returns a
+/// [`PreparedOutcome`] whose drafts do not yet carry the bound rule ID. Custom
+/// implementations must document any further preconditions rather than assuming
+/// the bound boundary has already run.
+///
+/// The direct-call example below uses a matching text target and no
+/// dependencies.
+///
 /// # Examples
 ///
 /// ```
@@ -71,10 +89,31 @@ pub trait PreparedValidator: Send + Sync {
 
     /// Validates one erased input with its ordered dependency context.
     ///
+    /// Direct callers must satisfy the input and dependency declarations
+    /// described by this trait. Use [`crate::BoundValidator::validate`] for
+    /// the checked binding boundary; implementations are not required to
+    /// duplicate all of that boundary's checks.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Borrowed target matching [`Self::input_type`].
+    /// - `context`: Borrowed dependency slots satisfying
+    ///   [`Self::dependency_specs`], with corresponding paths when paths are
+    ///   supplied.
+    ///
+    /// # Returns
+    ///
+    /// Returns the prepared valid or invalid outcome on successful execution.
+    /// Invalid drafts have no bound rule ID yet. Skipping is recorded
+    /// separately by the caller's orchestration policy as a
+    /// [`crate::ValidationOutcome`].
+    ///
     /// # Errors
     ///
-    /// Returns an execution error when the input or context cannot be
-    /// processed.
+    /// Returns an execution error when this implementation cannot process the
+    /// input or context. A domain rejection is an invalid outcome rather than
+    /// an execution error. An error return is not a guarantee that every
+    /// direct-call precondition has been checked.
     fn validate(
         &self,
         value: ValidationValue<'_>,
