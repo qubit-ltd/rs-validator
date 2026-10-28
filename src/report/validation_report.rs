@@ -269,7 +269,6 @@ impl ValidationReport {
     ///
     /// Returns `Some` when `id` was issued by this report and remains
     /// retained; otherwise returns `None`.
-    #[must_use]
     pub fn failure(&self, id: FailureId) -> Option<&Violation> {
         if id.report == self.report_id {
             self.violations.get(id.index)
@@ -304,7 +303,6 @@ impl ValidationReport {
     /// assert_eq!(report.failure_occurrence(failure_id), Some(2));
     /// # Ok::<(), qubit_validator::ValidationOutcomeError>(())
     /// ```
-    #[must_use]
     pub fn failure_occurrence(&self, id: FailureId) -> Option<usize> {
         self.failure(id)?;
         self.failure_occurrences.get(id.index).copied()

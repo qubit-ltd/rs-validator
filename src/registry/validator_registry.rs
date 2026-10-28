@@ -126,7 +126,6 @@ impl ValidatorRegistry {
     /// # Returns
     ///
     /// Returns `Some` for a registered ID and `None` when the ID is unknown.
-    #[must_use]
     #[inline]
     pub fn get(&self, id: &str) -> Option<&ValidatorRegistration> {
         self.registrations

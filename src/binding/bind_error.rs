@@ -77,7 +77,6 @@ impl BindError {
     ///
     /// The resolved identifier for a selected rule, or `None` when no rule
     /// was selected.
-    #[must_use]
     #[inline]
     pub const fn rule_id(&self) -> Option<ValidatorId> {
         self.rule_id
@@ -90,7 +89,6 @@ impl BindError {
     /// # Returns
     ///
     /// Returns `Some` when a parameter has been attached, or `None` otherwise.
-    #[must_use]
     #[inline]
     pub fn parameter(&self) -> Option<&str> {
         self.parameter.as_deref()
@@ -103,7 +101,6 @@ impl BindError {
     /// # Returns
     ///
     /// Returns `Some` when a dependency has been attached, or `None` otherwise.
-    #[must_use]
     #[inline]
     pub fn dependency(&self) -> Option<&str> {
         self.dependency.as_deref()
