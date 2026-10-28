@@ -45,6 +45,7 @@ use crate::ViolationDraft;
 /// # Returns
 ///
 /// A shared prepared adapter for the supplied validator and mapper.
+#[must_use]
 pub fn prepare_contextual_text_validator<V, E, M>(
     dependencies: &'static [DependencySpec],
     validator: V,
