@@ -153,6 +153,43 @@ fn test_contextual_typed_adapter_accepts_present_and_missing_optional_slot() {
 }
 
 #[test]
+fn test_contextual_typed_adapter_maps_domain_rejection_to_safe_violation() {
+    let rule_id = ValidatorId::new("test.optional_minimum");
+    let bound = TYPED_DESCRIPTOR
+        .bind_for(rule_id, InputType::of::<u32>(), &[])
+        .expect("optional minimum dependency binds");
+    for (value, minimum) in [(2_u32, 3_u32), (1_234_567_890_u32, 1_234_567_891_u32)] {
+        let dependencies = [ValidationValue::Typed(&minimum)];
+        let outcome = bound
+            .validate(
+                ValidationValue::Typed(&value),
+                &BoundValidationContext::new(&dependencies),
+            )
+            .expect("domain rejection must remain a successful execution outcome");
+        let diagnostics = format!("{outcome:?}");
+        let ValidationOutcome::Invalid(violations) = outcome else {
+            panic!("value below the configured minimum must be invalid");
+        };
+        assert_eq!(violations.len(), 1, "one domain error maps to one violation");
+        let violation = &violations[0];
+        assert_eq!(violation.rule_id(), rule_id);
+        assert_eq!(violation.code(), ViolationCode::new("number.below_minimum"));
+        assert_eq!(violation.path(), &ValidationPath::root());
+        assert!(violation.params().is_empty(), "the existing mapper emits no parameters");
+        if value == 1_234_567_890 {
+            assert!(
+                !diagnostics.contains("1234567890"),
+                "rejected value must stay out of Debug"
+            );
+            assert!(
+                !diagnostics.contains("1234567891"),
+                "dependency value must stay out of Debug"
+            );
+        }
+    }
+}
+
+#[test]
 fn test_contextual_adapters_reject_target_shape_before_invocation() {
     let text = prepare_contextual_text_validator(TEXT_DEPENDENCIES, MatchesDependencyPair, |_| {
         ViolationDraft::new(ViolationCode::new("text.dependency_mismatch"))

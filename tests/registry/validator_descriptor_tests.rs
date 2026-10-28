@@ -6,7 +6,6 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-use std::any::TypeId;
 use std::sync::Arc;
 
 use qubit_validator::ArgumentReader;
@@ -21,12 +20,16 @@ use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
 use qubit_validator::RegistrationSource;
 use qubit_validator::ValidationArgument;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
 use qubit_validator::ValidatorSignature;
+use qubit_validator::ViolationCode;
+use qubit_validator::ViolationDraft;
+use qubit_validator::prepare_typed_with_context;
 
 fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     struct Always;
@@ -60,6 +63,14 @@ fn prepare_ignoring_reader(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn P
 fn prepare_requiring_maximum(reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
     let _maximum = reader.required_u32("maximum")?;
     prepare_ignoring_reader(reader)
+}
+
+fn prepare_multi_u32(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_typed_with_context::<u32, _>(&[], |_value, _context| {
+        Ok(PreparedOutcome::Invalid(vec![ViolationDraft::new(ViolationCode::new(
+            "test.typed_selected",
+        ))]))
+    }))
 }
 
 static SIG_A: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
@@ -152,15 +163,43 @@ fn test_duplicate_id_reports_every_source_independent_of_input_order() {
 
 #[test]
 fn test_one_id_can_expose_multiple_input_signatures() {
-    let signatures: &'static [ValidatorSignature] = Box::leak(Box::new([
-        ValidatorSignature::new(InputType::Text, &[], prepare),
-        ValidatorSignature::new(InputType::Typed(TypeId::of::<u32>()), &[], prepare),
-    ]));
-    let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
-    let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)])
-        .expect("the validator registration is valid");
-    let registered = registry.get("test.multi").expect("the registered validator is present");
-    assert_eq!(registered.descriptor().signatures().len(), 2);
+    for reversed in [false, true] {
+        let mut declarations = [
+            ValidatorSignature::new(InputType::Text, &[], prepare),
+            ValidatorSignature::new(InputType::of::<u32>(), &[], prepare_multi_u32),
+        ];
+        if reversed {
+            declarations.reverse();
+        }
+        let signatures: &'static [ValidatorSignature] = Box::leak(Box::new(declarations));
+        let descriptor: &'static ValidatorDescriptor = Box::leak(Box::new(ValidatorDescriptor::new(signatures)));
+        let registry = ValidatorRegistry::from_registrations([registration("test.multi", "multi.rs", descriptor)])
+            .expect("both input signatures have matching prepared implementations");
+        let registered = registry.get("test.multi").expect("multi rule is registered");
+        assert_eq!(registered.descriptor().signatures().len(), 2);
+        let text = registry
+            .bind("test.multi", InputType::Text, &[])
+            .expect("text signature binds in either declaration order");
+        let typed = registry
+            .bind("test.multi", InputType::of::<u32>(), &[])
+            .expect("u32 signature binds in either declaration order");
+        assert_eq!(
+            text.validate(ValidationValue::Text("ready"), &BoundValidationContext::new(&[]))
+                .expect("text rule executes"),
+            ValidationOutcome::Valid,
+            "reversed={reversed}",
+        );
+        let value = 7_u32;
+        let outcome = typed
+            .validate(ValidationValue::Typed(&value), &BoundValidationContext::new(&[]))
+            .expect("typed domain rejection is an outcome");
+        let ValidationOutcome::Invalid(violations) = outcome else {
+            panic!("u32 must execute its own rejecting factory; reversed={reversed}");
+        };
+        assert_eq!(violations.len(), 1, "reversed={reversed}");
+        assert_eq!(violations[0].rule_id(), ValidatorId::new("test.multi"));
+        assert_eq!(violations[0].code(), ViolationCode::new("test.typed_selected"));
+    }
 }
 
 #[test]

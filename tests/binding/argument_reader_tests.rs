@@ -169,12 +169,17 @@ fn test_optional_usize_decodes_values_and_reports_errors() {
     for (case, value, expected, expected_error) in cases {
         let args = [NamedValidationArgument::new("limit", value)];
         let mut reader = ArgumentReader::new(&args).expect("argument names should be unique");
-        match reader.optional_usize("limit") {
-            Ok(actual) => assert_eq!(actual, expected, "{case}"),
-            Err(error) => {
-                assert_eq!(error.kind(), expected_error.expect("case expects an error"), "{case}");
+        match expected_error {
+            Some(expected_error) => {
+                let error = reader.optional_usize("limit").expect_err("case expects an error");
+                assert_eq!(error.kind(), expected_error, "{case}");
                 assert_eq!(error.parameter(), Some("limit"), "{case}");
             }
+            None => assert_eq!(
+                reader.optional_usize("limit").expect("case expects a value"),
+                expected,
+                "{case}"
+            ),
         }
     }
 }
