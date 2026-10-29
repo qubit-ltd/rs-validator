@@ -185,6 +185,7 @@ impl Drop for TemporaryApp {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::path::Path;
     use std::path::PathBuf;
     use std::process::Command;
 
@@ -329,8 +330,7 @@ fn main() {}
         assert!(error.contains("no closing fence"));
     }
 
-    #[test]
-    fn test_user_guide_basic_path_runs() {
+    fn run_user_guide_basic_path(target_dir: &Path) -> Vec<String> {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut failures = Vec::new();
 
@@ -417,7 +417,7 @@ mod documented_flow_tests {
             let output = Command::new("cargo")
                 .args(["test", "--offline"])
                 .current_dir(&app.path)
-                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .env("CARGO_TARGET_DIR", target_dir)
                 .output()
                 .unwrap_or_else(|error| panic!("{document}: failed to start cargo test --offline: {error}"));
             if !output.status.success() {
@@ -439,7 +439,7 @@ mod documented_flow_tests {
             }
         }
 
-        assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+        failures
     }
 
     #[test]
@@ -491,8 +491,7 @@ mod documented_flow_tests {
         }
     }
 
-    #[test]
-    fn test_user_guide_advanced_modules_run() {
+    fn run_user_guide_advanced_modules(target_dir: &Path) -> Vec<String> {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut failures = Vec::new();
 
@@ -578,7 +577,7 @@ fn main() {}
             let output = Command::new("cargo")
                 .args(["test", "--offline"])
                 .current_dir(&app.path)
-                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .env("CARGO_TARGET_DIR", target_dir)
                 .output()
                 .unwrap_or_else(|error| panic!("{document}: failed to start cargo test --offline: {error}"));
             if !output.status.success() {
@@ -599,11 +598,10 @@ fn main() {}
             }
         }
 
-        assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+        failures
     }
 
-    #[test]
-    fn test_user_guide_domain_rule_programs_run() {
+    fn run_user_guide_domain_rule_programs(target_dir: &Path) -> Vec<String> {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut failures = Vec::new();
 
@@ -627,7 +625,7 @@ fn main() {}
             let output = Command::new("cargo")
                 .args(["run", "--offline", "--quiet"])
                 .current_dir(&app.path)
-                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .env("CARGO_TARGET_DIR", target_dir)
                 .output()
                 .unwrap_or_else(|error| panic!("{document}: failed to start cargo run --offline: {error}"));
             if !output.status.success() {
@@ -640,11 +638,10 @@ fn main() {}
             }
         }
 
-        assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+        failures
     }
 
-    #[test]
-    fn test_readme_quick_start_programs_run() {
+    fn run_readme_quick_start_programs(target_dir: &Path) -> Vec<String> {
         let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let mut failures = Vec::new();
 
@@ -664,7 +661,7 @@ fn main() {}
             let output = Command::new("cargo")
                 .args(["run", "--offline", "--quiet"])
                 .current_dir(&app.path)
-                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .env("CARGO_TARGET_DIR", target_dir)
                 .output()
                 .expect("run temporary Cargo application");
             if !output.status.success() {
@@ -676,6 +673,18 @@ fn main() {}
             }
         }
 
+        failures
+    }
+
+    #[test]
+    fn test_documentation_programs_run() {
+        let cache = TemporaryApp::new("shared-target");
+        let target_dir = cache.path.join("target");
+        let mut failures = Vec::new();
+        failures.extend(run_user_guide_basic_path(&target_dir));
+        failures.extend(run_user_guide_advanced_modules(&target_dir));
+        failures.extend(run_user_guide_domain_rule_programs(&target_dir));
+        failures.extend(run_readme_quick_start_programs(&target_dir));
         assert!(failures.is_empty(), "{}", failures.join("\n\n"));
     }
 
