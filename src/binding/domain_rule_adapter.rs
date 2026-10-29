@@ -33,7 +33,8 @@ use super::prepare_typed_with_context;
 /// - `E`: Static domain error mapped to safe violation drafts. It is created
 ///   and immediately mapped within the synchronous call, so it need not be
 ///   `Send` or `Sync`.
-/// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
+/// - `D`: Invocation metadata created and mapped within one synchronous call.
+///   It need not be `Send` or `Sync`; the metadata type remains `'static`.
 /// - `Call`: Operation that invokes the validator with text and context.
 /// - `Map`: Mapper from a domain error and metadata to violation drafts.
 ///
@@ -111,7 +112,7 @@ pub fn prepare_text_domain_rule<V, E, D, Call, Map>(
 where
     V: Send + Sync + 'static,
     E: Error + 'static,
-    D: Send + 'static,
+    D: 'static,
     Call: for<'a> Fn(&V, &str, &BoundValidationContext<'a>) -> Result<(Result<(), E>, D), ExecutionError>
         + Send
         + Sync
@@ -136,7 +137,8 @@ where
 /// - `E`: Static domain error mapped to safe violation drafts. It is created
 ///   and immediately mapped within the synchronous call, so it need not be
 ///   `Send` or `Sync`.
-/// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
+/// - `D`: Invocation metadata created and mapped within one synchronous call.
+///   It need not be `Send` or `Sync`; the metadata type remains `'static`.
 /// - `Call`: Operation that invokes the validator with `T` and context.
 /// - `Map`: Mapper from a domain error and metadata to violation drafts.
 ///
@@ -215,7 +217,7 @@ where
     T: 'static,
     V: Send + Sync + 'static,
     E: Error + 'static,
-    D: Send + 'static,
+    D: 'static,
     Call: for<'a> Fn(&V, &T, &BoundValidationContext<'a>) -> Result<(Result<(), E>, D), ExecutionError>
         + Send
         + Sync

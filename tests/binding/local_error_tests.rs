@@ -70,14 +70,20 @@ fn test_all_adapters_accept_local_errors_and_remain_shareable() {
         prepare_text_domain_rule(
             &[],
             Reject,
-            |rule, value, _| Ok((rule.validate(value, &()), ())),
-            |error, ()| vec![map_error(error)],
+            |rule, value, _| Ok((rule.validate(value, &()), Rc::new(11_u32))),
+            |error, metadata| {
+                assert_eq!(**metadata, 11);
+                vec![map_error(error)]
+            },
         ),
-        prepare_typed_domain_rule::<u32, _, _, (), _, _>(
+        prepare_typed_domain_rule::<u32, _, _, Rc<u32>, _, _>(
             &[],
             Reject,
-            |rule, value, _| Ok((rule.validate(value, &()), ())),
-            |error, ()| vec![map_error(error)],
+            |rule, value, _| Ok((rule.validate(value, &()), Rc::new(13_u32))),
+            |error, metadata| {
+                assert_eq!(**metadata, 13);
+                vec![map_error(error)]
+            },
         ),
     ];
 
