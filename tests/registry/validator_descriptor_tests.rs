@@ -26,6 +26,7 @@ use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
+use qubit_validator::ValidatorRegistryError;
 use qubit_validator::ValidatorSignature;
 use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
@@ -155,10 +156,17 @@ fn test_duplicate_id_reports_every_source_independent_of_input_order() {
     let one = registration("test.same", "one.rs", &D_A);
     let two = registration("test.same", "two.rs", &D_A);
     let three = registration("test.same", "three.rs", &D_A);
-    let error =
-        ValidatorRegistry::from_registrations([three, one, two]).expect_err("duplicate validator IDs must be rejected");
-    let text = error.to_string();
-    assert!(text.contains("one.rs") && text.contains("two.rs") && text.contains("three.rs"));
+    let expected = vec![one.source(), three.source(), two.source()];
+    for input in [[three, one, two], [two, three, one]] {
+        let error = ValidatorRegistry::from_registrations(input).expect_err("duplicate validator IDs must be rejected");
+        match error {
+            ValidatorRegistryError::DuplicateId { id, sources } => {
+                assert_eq!(id, "test.same");
+                assert_eq!(sources, expected, "all sources must use deterministic source order");
+            }
+            _ => panic!("expected duplicate ID metadata"),
+        }
+    }
 }
 
 #[test]

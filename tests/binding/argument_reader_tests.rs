@@ -132,6 +132,39 @@ fn test_range_error_consumes_parameter() {
 }
 
 #[test]
+fn test_u32_readers_preserve_integer_boundaries_and_consumption() {
+    for required in [true, false] {
+        for value in [0_u128, u128::from(u32::MAX), u128::from(u32::MAX) + 1] {
+            for argument in [
+                ValidationArgument::Unsigned(value),
+                ValidationArgument::Integer(i128::try_from(value).expect("u32 boundary fits i128")),
+            ] {
+                let args = [NamedValidationArgument::new("limit", argument)];
+                let mut reader = ArgumentReader::new(&args).expect("unique parameter");
+                let result = if required {
+                    reader.required_u32("limit").map(Some)
+                } else {
+                    reader.optional_u32("limit")
+                };
+                let case = (required, value, matches!(argument, ValidationArgument::Integer(_)));
+                match u32::try_from(value) {
+                    Ok(expected) => assert_eq!(result.expect("valid u32 boundary"), Some(expected), "{case:?}"),
+                    Err(_) => {
+                        let error = result.expect_err("u32 overflow must be rejected");
+                        assert_eq!(error.kind(), BindErrorKind::ParameterOutOfRange, "{case:?}");
+                        assert_eq!(error.parameter(), Some("limit"), "{case:?}");
+                    }
+                }
+                let repeated = reader.required_u32("limit").expect_err("present parameter is consumed");
+                assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed, "{case:?}");
+                assert_eq!(repeated.parameter(), Some("limit"), "{case:?}");
+                reader.finish().expect("even a failed conversion consumes its input");
+            }
+        }
+    }
+}
+
+#[test]
 fn test_optional_usize_decodes_values_and_reports_errors() {
     let cases: [(&str, ValidationArgument<'_>, Option<usize>, Option<BindErrorKind>); 5] = [
         (
