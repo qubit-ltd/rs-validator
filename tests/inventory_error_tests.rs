@@ -9,6 +9,8 @@
 #![cfg(feature = "inventory")]
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
@@ -50,20 +52,41 @@ fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator
 
 static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+static DESCRIPTOR_CALLS: AtomicUsize = AtomicUsize::new(0);
+
+fn counted_descriptor() -> &'static ValidatorDescriptor {
+    DESCRIPTOR_CALLS.fetch_add(1, Ordering::Relaxed);
+    &DESCRIPTOR
+}
 
 register_validator!(id = "test.inventory.duplicate", descriptor = &DESCRIPTOR);
-register_validator!(id = "test.inventory.duplicate", descriptor = &DESCRIPTOR);
+register_validator!(id = "test.inventory.duplicate", descriptor = counted_descriptor());
 
 #[test]
 fn test_global_registry_caches_duplicate_registration_error() {
     let first = ValidatorRegistry::try_global().expect_err("duplicate inventory IDs are rejected");
     assert!(matches!(first, ValidatorRegistryError::DuplicateId { .. }));
+    assert_eq!(
+        DESCRIPTOR_CALLS.load(Ordering::Relaxed),
+        1,
+        "registration factory runs only during the first initialization"
+    );
 
     let second = ValidatorRegistry::try_global().expect_err("the failed result is cached");
     assert!(matches!(second, ValidatorRegistryError::DuplicateId { .. }));
+    assert_eq!(
+        DESCRIPTOR_CALLS.load(Ordering::Relaxed),
+        1,
+        "registration factory runs only during the first initialization"
+    );
 
     let panic =
         std::panic::catch_unwind(ValidatorRegistry::global).expect_err("global panics when initialization failed");
+    assert_eq!(
+        DESCRIPTOR_CALLS.load(Ordering::Relaxed),
+        1,
+        "registration factory runs only during the first initialization"
+    );
     let message = panic
         .downcast_ref::<String>()
         .map(String::as_str)
