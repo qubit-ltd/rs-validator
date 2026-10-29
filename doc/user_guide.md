@@ -94,11 +94,12 @@ pub fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Er
         RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
     );
     let registry = ValidatorRegistry::from_registrations([registration])?;
-    Ok(registry.bind("text.non_blank", InputType::Text, &[])? )
+    let configured_rule_id = String::from("text.non_blank");
+    Ok(registry.bind(configured_rule_id.as_str(), InputType::Text, &[])?)
 }
 ```
 
-`from_registrations` detects duplicate IDs and invalid descriptors; `bind` selects the text signature and prepares the rule. Handle either error before accepting profile requests. This small function returns one bound rule; an application with many rules can keep the registry and bind each selected ID at startup.
+`String::from` stands in for an owned string read from configuration; the application supplies its actual configuration source. Binding accepts a runtime configuration string, so it does not need to be `'static'` and does not need to be converted to a `ValidatorId` first. `from_registrations` detects duplicate IDs and invalid descriptors; `bind` selects the text signature and prepares the rule. Handle either error before accepting profile requests. This small function returns one bound rule; an application with many rules can keep the registry and bind each selected ID at startup.
 
 For each request, the profile service validates the borrowed name and records the result at a path chosen by the application:
 
@@ -366,7 +367,7 @@ The simple `prepare_text_validator` and `prepare_typed_validator` adapters map a
 
 `ValidatorId` names a rule, and `ViolationCode` identifies a reported violation. Both values are non-empty strings made of dot-separated segments. Each segment starts with an ASCII letter and continues with ASCII letters, digits, or underscores. Empty segments, whitespace, non-ASCII letters, and hyphens are rejected; construction does not trim or change case. For example, `app.valid_rule` and `text.length.minimum` are valid, while `bad..id`, `_custom.invalid`, and `text.min-length` are invalid.
 
-Use `ValidatorId::try_new` or `ViolationCode::try_new` when a value comes from configuration or another fallible source; they return a validation error for invalid input. The `new` constructors panic on invalid input. A literal ID passed to `register_validator!` is checked at compile time. See the [`ValidatorId` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) and [`ViolationCode` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html) for the exact error variants and signatures.
+Both `ValidatorId::try_new` and `ViolationCode::try_new` require a `&'static str`; they report syntax validation failures and are not for runtime configuration strings. They can still validate program-declared IDs or violation codes that already have static storage but may be syntactically invalid. Select a rule from a runtime ID with `ValidatorRegistry::get` or `bind`; when binding an unknown ID, `bind` returns `MissingRule`, and the caller retains the requested text. See [Configure a rule once at startup](#configure-a-rule-once-at-startup) for the binding example. Violation codes remain statically declared by the program; do not expose configuration strings as violation codes. The `new` constructors panic on invalid input. A literal ID passed to `register_validator!` is checked at compile time. See the [`ValidatorId` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) and [`ViolationCode` API](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html) for the exact error variants and signatures.
 
 ## Diagnose failures and respect boundaries
 

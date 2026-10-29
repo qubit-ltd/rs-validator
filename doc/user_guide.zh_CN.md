@@ -94,11 +94,12 @@ pub fn bind_display_name_rule() -> Result<BoundValidator, Box<dyn std::error::Er
         RegistrationSource::new(env!("CARGO_PKG_NAME"), module_path!(), file!(), line!()),
     );
     let registry = ValidatorRegistry::from_registrations([registration])?;
-    Ok(registry.bind("text.non_blank", InputType::Text, &[])? )
+    let configured_rule_id = String::from("text.non_blank");
+    Ok(registry.bind(configured_rule_id.as_str(), InputType::Text, &[])?)
 }
 ```
 
-`from_registrations` 会检查重复 ID 和无效描述符；`bind` 选择文本签名并准备规则。开放资料修改入口前应处理这些错误。这里只返回一条已绑定规则；规则较多时，应用可以持有注册表，在启动时逐条绑定配置选中的 ID。
+`String::from` 用来模拟从配置读取到的拥有型字符串；实际配置来源由应用提供。绑定接受运行时配置字符串，不要求它具有 `'static` 生命周期，也不要求先把它构造成 `ValidatorId`。`from_registrations` 会检查重复 ID 和无效描述符；`bind` 选择文本签名并准备规则。开放资料修改入口前应处理这些错误。这里只返回一条已绑定规则；规则较多时，应用可以持有注册表，在启动时逐条绑定配置选中的 ID。
 
 收到请求后，资料服务借用输入名称执行规则，并把结果记在自己指定的字段路径：
 
@@ -366,7 +367,7 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 
 `ValidatorId` 用来标识规则，`ViolationCode` 用来标识报告中的违规类型。两者都必须是非空字符串，由一个或多个点分隔的片段组成。每段以 ASCII 字母开头，后续字符只能是 ASCII 字母、数字或下划线。空片段、空白字符、非 ASCII 字母和连字符都会被拒绝；构造时不会去掉首尾空白，也不会转换大小写。例如，`app.valid_rule` 和 `text.length.minimum` 有效；`bad..id`、`_custom.invalid` 和 `text.min-length` 无效。
 
-配置等外部来源可能给出无效值时，使用 `ValidatorId::try_new` 或 `ViolationCode::try_new`，并处理它们返回的校验错误。`new` 遇到无效值会 panic。传给 `register_validator!` 的字面量 ID 会在编译期检查。完整错误变体和函数签名见 [`ValidatorId` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) 与 [`ViolationCode` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html)。
+`ValidatorId::try_new` 和 `ViolationCode::try_new` 都要求 `&'static str`；它们处理的是语法校验失败，不用于运行时配置字符串。对于程序声明且已有静态存储、但语法可能无效的 ID 或违规代码，也可以用它们获取校验错误。运行时 ID 用 `ValidatorRegistry::get` 或 `bind` 选择规则；绑定未知 ID 时，`bind` 返回 `MissingRule`，调用方保留请求文本。绑定示例见[在启动时配置规则](#在启动时配置规则)。违规代码仍由程序静态声明，不要把配置字符串暴露为违规代码。`new` 遇到无效值会 panic。传给 `register_validator!` 的字面量 ID 会在编译期检查。完整错误变体和函数签名见 [`ValidatorId` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ValidatorId.html) 与 [`ViolationCode` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/struct.ViolationCode.html)。
 
 ## 排查故障并守住边界
 
