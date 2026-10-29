@@ -45,7 +45,6 @@ use crate::ViolationDraft;
 pub fn prepare_typed_validator<T: 'static, V, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where
     V: Validator<T, ()> + Send + Sync + 'static,
-    V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     Arc::new(TypedValidatorAdapter::new(validator, map_error))

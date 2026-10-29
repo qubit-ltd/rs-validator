@@ -54,7 +54,7 @@ impl<T, V, M> ContextualTypedValidatorAdapter<T, V, M> {
 impl<T: 'static, V, E, M> PreparedValidator for ContextualTypedValidatorAdapter<T, V, M>
 where
     V: for<'a> Validator<T, BoundValidationContext<'a>, Error = E> + Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the concrete input type accepted by this validator.

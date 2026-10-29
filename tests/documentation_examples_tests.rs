@@ -26,6 +26,7 @@ const ADVANCED_GUIDE_MARKERS: [(&str, &str); 2] = [
     ("<!-- validator-guide:confirmation -->", "confirmation"),
     ("<!-- validator-guide:max-length -->", "max-length"),
 ];
+const DOMAIN_RULE_GUIDE_MARKER: &str = "<!-- validator-guide:domain-rule -->";
 
 fn extract_block(readme: &str, marker: &str, name: &str, language: &str) -> Result<String, String> {
     let mut markers = readme.match_indices(marker);
@@ -188,11 +189,13 @@ mod tests {
     use std::process::Command;
 
     use super::ADVANCED_GUIDE_MARKERS;
+    use super::DOMAIN_RULE_GUIDE_MARKER;
     use super::GUIDE_MARKERS;
     use super::INSTALLATION;
     use super::MANIFEST_MARKER;
     use super::SOURCE_MARKER;
     use super::TemporaryApp;
+    use super::extract_advanced_guide_block;
     use super::extract_guide_advanced_modules;
     use super::extract_guide_basic_path;
     use super::extract_quick_start;
@@ -240,6 +243,11 @@ pub fn max_length() {}
 ```
 "#;
 
+    const VALID_DOMAIN_RULE_GUIDE: &str = r#"<!-- validator-guide:domain-rule -->
+```rust
+fn main() {}
+```"#;
+
     #[test]
     fn test_extract_guide_advanced_modules_rejects_missing_marker() {
         for (marker, _) in ADVANCED_GUIDE_MARKERS {
@@ -280,6 +288,45 @@ pub fn max_length() {}
             extract_guide_advanced_modules(&guide, "doc/user_guide.md").expect("extract CRLF guide");
         assert_eq!(confirmation, "pub fn confirmation() {}");
         assert_eq!(max_length, "pub fn max_length() {}");
+    }
+
+    #[test]
+    fn test_extract_domain_rule_guide_rejects_missing_marker() {
+        let guide = VALID_DOMAIN_RULE_GUIDE.replace(DOMAIN_RULE_GUIDE_MARKER, "");
+        let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
+            .unwrap_err();
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
+        assert!(error.contains("found 0"));
+    }
+
+    #[test]
+    fn test_extract_domain_rule_guide_rejects_duplicate_marker() {
+        let guide = format!("{VALID_DOMAIN_RULE_GUIDE}\n{DOMAIN_RULE_GUIDE_MARKER}");
+        let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
+            .unwrap_err();
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
+        assert!(error.contains("found 2"));
+    }
+
+    #[test]
+    fn test_extract_domain_rule_guide_rejects_wrong_fence() {
+        let guide = VALID_DOMAIN_RULE_GUIDE.replace(
+            &format!("{DOMAIN_RULE_GUIDE_MARKER}\n```rust"),
+            &format!("{DOMAIN_RULE_GUIDE_MARKER}\n```toml"),
+        );
+        let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
+            .unwrap_err();
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
+        assert!(error.contains("rust fence"));
+    }
+
+    #[test]
+    fn test_extract_domain_rule_guide_rejects_unclosed_fence() {
+        let guide = VALID_DOMAIN_RULE_GUIDE.replace("fn main() {}\n```", "fn main() {}");
+        let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
+            .unwrap_err();
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
+        assert!(error.contains("no closing fence"));
     }
 
     #[test]
@@ -549,6 +596,47 @@ fn main() {}
                         String::from_utf8_lossy(&output.stderr)
                     ));
                 }
+            }
+        }
+
+        assert!(failures.is_empty(), "{}", failures.join("\n\n"));
+    }
+
+    #[test]
+    fn test_user_guide_domain_rule_programs_run() {
+        let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut failures = Vec::new();
+
+        for (document, directory) in [
+            ("doc/user_guide.md", "guide_domain_rule_en"),
+            ("doc/user_guide.zh_CN.md", "guide_domain_rule_zh"),
+        ] {
+            let guide = fs::read_to_string(project_root.join(document))
+                .unwrap_or_else(|error| panic!("{document}: could not read guide: {error}"));
+            let program = extract_advanced_guide_block(&guide, document, DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
+                .unwrap_or_else(|error| panic!("{error}"));
+            let app = TemporaryApp::new(directory);
+            fs::create_dir(app.path.join("src")).expect("create temporary src directory");
+            fs::write(app.path.join("src/main.rs"), program).expect("write domain-rule guide program");
+            let manifest = format!(
+                "[package]\nname = \"{directory}\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nqubit-validator = {{ path = {:?} }}\n",
+                project_root.to_string_lossy()
+            );
+            fs::write(app.path.join("Cargo.toml"), manifest).expect("write temporary Cargo manifest");
+
+            let output = Command::new("cargo")
+                .args(["run", "--offline", "--quiet"])
+                .current_dir(&app.path)
+                .env("CARGO_TARGET_DIR", app.path.join("target"))
+                .output()
+                .unwrap_or_else(|error| panic!("{document}: failed to start cargo run --offline: {error}"));
+            if !output.status.success() {
+                failures.push(format!(
+                    "{document}: cargo run --offline --quiet exited with {}\nstdout:\n{}\nstderr:\n{}",
+                    output.status,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
             }
         }
 

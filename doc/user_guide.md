@@ -361,7 +361,97 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 
 Use `register_validator!` at the rule definition and `ValidatorRegistry::try_global()` at startup. `try_global` reports duplicate IDs or invalid descriptors; `global()` panics on those errors. Discovery changes how rules enter the registry, not how they bind or execute. The [repository example](../examples/local_registry.rs) includes the feature-gated path.
 
-The simple `prepare_text_validator` and `prepare_typed_validator` adapters map a typed rule's domain error to one violation draft. For rules that read declared dependencies, use their contextual counterparts. If a rule must return several violations or distinguish an external failure from invalid input, `prepare_text_with_context` and `prepare_typed_with_context` return `PreparedOutcome` or `ExecutionError`; `prepare_text_domain_rule` and `prepare_typed_domain_rule` map contextual domain errors into safe drafts. An invalid draft list cannot be empty. `BoundValidator::try_from_prepared::<T>` binds an already prepared, dependency-free rule without a registry when its input type is exactly `T`.
+The simple `prepare_text_validator` and `prepare_typed_validator` adapters map a typed rule's domain error to one violation draft. For rules that read declared dependencies, use their contextual counterparts. Domain error values are consumed during mapping and need not be `Send + Sync`; stored validators, domain-call and mapper closures, and prepared adapters retain their thread-safety bounds. If a rule must return several violations or distinguish an external failure from invalid input, `prepare_text_with_context` and `prepare_typed_with_context` return `PreparedOutcome` or `ExecutionError`; [`prepare_text_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_text_domain_rule.html) and [`prepare_typed_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_typed_domain_rule.html) map contextual domain errors into safe drafts. Use the typed factory when the rule validates an exact Rust value type; use the text factory for string input. An invalid draft list cannot be empty. `BoundValidator::try_from_prepared::<T>` binds an already prepared, dependency-free rule without a registry when its input type is exactly `T`.
+
+The directory lookup below is an application-provided stand-in, not a real repository. The maximum name length is rule configuration and is safe report metadata. A domain rejection becomes two violations in the report; a lookup failure returns an `ExecutionError` directly and is not recorded. Use `is_valid()` to decide whether to save only after every planned check has completed successfully. The documentation example tests compile and run this program.
+
+<!-- validator-guide:domain-rule -->
+```rust
+use std::sync::Arc;
+use qubit_validator::{
+    ArgumentReader, BindError, DependencySpec, ExecutionError, ExecutionErrorKind,
+    InputType, NamedValidationDependency, PreparedValidator, RegistrationSource,
+    ValidationOutcome, ValidationPath, ValidationReport, ValidationValue,
+    ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry,
+    ValidatorSignature, ViolationCode, ViolationDraft, ViolationParam,
+    prepare_text_domain_rule,
+};
+
+// Application-provided stand-in for a directory lookup.
+fn directory_available(email: &str) -> Result<bool, ExecutionError> {
+    if email == "offline@example.test" {
+        Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
+    } else {
+        Ok(true)
+    }
+}
+fn prepare(_: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_domain_rule(
+        DEPENDENCIES, 40_usize,
+        |maximum, name, context| {
+            let email = context.text(0)?;
+            let available = directory_available(email)?;
+            let domain_result = if available && !name.trim().is_empty()
+                && name.chars().count() <= *maximum
+            {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("profile policy rejected"))
+            };
+            Ok((domain_result, *maximum))
+        },
+        |_, maximum| vec![
+            ViolationDraft::new(ViolationCode::new("profile.name_policy"))
+                .with_param("maximum", ViolationParam::Unsigned(*maximum as u128)),
+            ViolationDraft::new(ViolationCode::new("profile.update_rejected")),
+        ],
+    ))
+}
+static DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("email", InputType::Text, false)];
+static SIGNATURES: &[ValidatorSignature] = &[
+    ValidatorSignature::new(InputType::Text, DEPENDENCIES, prepare),
+];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let id = ValidatorId::new("profile.name_policy");
+    let registration = ValidatorRegistration::new(
+        id, &DESCRIPTOR,
+        RegistrationSource::new("profile-app", "profile", file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+    let rule = registry.bind("profile.name_policy", InputType::Text, &[])?;
+    let dependencies = [NamedValidationDependency::new(
+        "email", ValidationValue::Text("ada@example.test"),
+    )];
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &dependencies)?, ValidationOutcome::Valid);
+    let rejected = rule.validate_named(ValidationValue::Text("   "), &dependencies)?;
+    let mut report = ValidationReport::new();
+    let receipt = report.record_outcome(
+        0, ValidationPath::root().with_field("display_name"), rejected,
+    )?;
+    assert!(receipt.complete());
+    assert!(!report.is_truncated());
+    assert!(!report.is_valid());
+    assert_eq!(report.failure_count(), 2);
+    assert_eq!(report.violations()[0].rule_id(), id);
+    assert_eq!(report.violations()[0].path().render(), "display_name");
+    assert_eq!(report.violations()[0].code().as_str(), "profile.name_policy");
+    assert_eq!(report.violations()[1].code().as_str(), "profile.update_rejected");
+    let should_save = report.is_valid();
+    assert!(!should_save);
+    let offline = [NamedValidationDependency::new(
+        "email", ValidationValue::Text("offline@example.test"),
+    )];
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &offline)
+        .unwrap_err().kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(report.failure_count(), 2);
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &[])
+        .unwrap_err().kind(), ExecutionErrorKind::MissingDependencyBinding);
+    assert_eq!(report.failure_count(), 2);
+    Ok(())
+}
+```
 
 ## Choose stable IDs and violation codes
 

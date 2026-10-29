@@ -15,6 +15,7 @@ mod dependency_binding_tests;
 mod domain_rule_adapter_tests;
 mod execution_error_tests;
 mod input_type_tests;
+mod local_error_tests;
 mod prepared_outcome_tests;
 mod typed_adapter_tests;
 mod validation_outcome_tests;

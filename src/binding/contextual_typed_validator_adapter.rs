@@ -29,7 +29,8 @@ use crate::ViolationDraft;
 ///
 /// - `T`: Borrowed value type expected by the validator.
 /// - `V`: Context-aware validator of `T`.
-/// - `E`: Its domain error type, which must be thread-safe and static.
+/// - `E`: Its static domain error type, created and mapped within the
+///   synchronous call, so it need not be `Send` or `Sync`.
 /// - `M`: Mapper from the domain error to a safe violation draft.
 ///
 /// # Panics
@@ -55,7 +56,7 @@ pub fn prepare_contextual_typed_validator<T: 'static, V, E, M>(
 ) -> Arc<dyn PreparedValidator>
 where
     V: for<'a> Validator<T, BoundValidationContext<'a>, Error = E> + Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     Arc::new(ContextualTypedValidatorAdapter::new(validator, map_error, dependencies))

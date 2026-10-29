@@ -43,7 +43,6 @@ use crate::ViolationDraft;
 pub fn prepare_text_validator<V, M>(validator: V, map_error: M) -> Arc<dyn PreparedValidator>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
-    V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     Arc::new(TextValidatorAdapter::new(validator, map_error))

@@ -38,7 +38,6 @@ impl<V, M> TextValidatorAdapter<V, M> {
 impl<V, M> PreparedValidator for TextValidatorAdapter<V, M>
 where
     V: Validator<str, ()> + Send + Sync + 'static,
-    V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this adapter.

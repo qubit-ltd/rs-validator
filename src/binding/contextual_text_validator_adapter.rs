@@ -28,7 +28,8 @@ use crate::ViolationDraft;
 /// # Type Parameters
 ///
 /// - `V`: Text validator implementing the context-aware [`Validator`] contract.
-/// - `E`: Its domain error type, which must be thread-safe and static.
+/// - `E`: Its static domain error type, created and mapped within the
+///   synchronous call, so it need not be `Send` or `Sync`.
 /// - `M`: Mapper from the domain error to a safe violation draft.
 ///
 /// # Panics
@@ -53,7 +54,7 @@ pub fn prepare_contextual_text_validator<V, E, M>(
 ) -> Arc<dyn PreparedValidator>
 where
     V: for<'a> Validator<str, BoundValidationContext<'a>, Error = E> + Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     Arc::new(ContextualTextValidatorAdapter::new(validator, map_error, dependencies))

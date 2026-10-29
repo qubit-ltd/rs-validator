@@ -30,7 +30,9 @@ use super::prepare_typed_with_context;
 /// # Type Parameters
 ///
 /// - `V`: Owned domain validator value used by each invocation.
-/// - `E`: Domain error mapped to safe violation drafts.
+/// - `E`: Static domain error mapped to safe violation drafts. It is created
+///   and immediately mapped within the synchronous call, so it need not be
+///   `Send` or `Sync`.
 /// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
 /// - `Call`: Operation that invokes the validator with text and context.
 /// - `Map`: Mapper from a domain error and metadata to violation drafts.
@@ -59,6 +61,46 @@ use super::prepare_typed_with_context;
 ///
 /// Implementations of `map_error` must map errors to safe codes and parameters;
 /// they must not copy raw input or secret error text into a violation.
+///
+/// # Examples
+///
+/// ```
+/// use std::rc::Rc;
+///
+/// use qubit_validator::{
+///     BoundValidationContext, ExecutionError, PreparedOutcome, PreparedValidator,
+///     ValidationValue, ViolationCode, ViolationDraft, prepare_text_domain_rule,
+/// };
+///
+/// #[derive(Debug)]
+/// struct Rejected(Rc<u32>);
+/// impl std::fmt::Display for Rejected {
+///     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         formatter.write_str("domain rejection")
+///     }
+/// }
+/// impl std::error::Error for Rejected {}
+///
+/// let prepared = prepare_text_domain_rule::<(), Rejected, (), _, _>(
+///     &[],
+///     (),
+///     |_, value, _| Ok((if value == "ready" { Ok(()) } else { Err(Rejected(Rc::new(1))) }, ())),
+///     |error, _| {
+///         let _local_error = error.0;
+///         vec![ViolationDraft::new(ViolationCode::new("input.rejected"))]
+///     },
+/// );
+/// let context = BoundValidationContext::new(&[]);
+/// assert_eq!(
+///     prepared.validate(ValidationValue::Text("ready"), &context)?,
+///     PreparedOutcome::Valid,
+/// );
+/// assert!(matches!(
+///     prepared.validate(ValidationValue::Text("bad"), &context)?,
+///     PreparedOutcome::Invalid(_),
+/// ));
+/// # Ok::<(), ExecutionError>(())
+/// ```
 #[must_use]
 pub fn prepare_text_domain_rule<V, E, D, Call, Map>(
     dependencies: &'static [DependencySpec],
@@ -68,7 +110,7 @@ pub fn prepare_text_domain_rule<V, E, D, Call, Map>(
 ) -> Arc<dyn PreparedValidator>
 where
     V: Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     D: Send + 'static,
     Call: for<'a> Fn(&V, &str, &BoundValidationContext<'a>) -> Result<(Result<(), E>, D), ExecutionError>
         + Send
@@ -91,7 +133,9 @@ where
 ///
 /// - `T`: Exact `'static` input type accepted by the domain validator.
 /// - `V`: Owned domain validator value used by each invocation.
-/// - `E`: Domain error mapped to safe violation drafts.
+/// - `E`: Static domain error mapped to safe violation drafts. It is created
+///   and immediately mapped within the synchronous call, so it need not be
+///   `Send` or `Sync`.
 /// - `D`: Invocation metadata borrowed by the mapper after a domain failure.
 /// - `Call`: Operation that invokes the validator with `T` and context.
 /// - `Map`: Mapper from a domain error and metadata to violation drafts.
@@ -120,6 +164,46 @@ where
 ///
 /// Implementations of `map_error` must map errors to safe codes and parameters;
 /// they must not copy raw input or secret error text into a violation.
+///
+/// # Examples
+///
+/// ```
+/// use std::rc::Rc;
+///
+/// use qubit_validator::{
+///     BoundValidationContext, ExecutionError, PreparedOutcome, PreparedValidator,
+///     ValidationValue, ViolationCode, ViolationDraft, prepare_typed_domain_rule,
+/// };
+///
+/// #[derive(Debug)]
+/// struct Rejected(Rc<u32>);
+/// impl std::fmt::Display for Rejected {
+///     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         formatter.write_str("domain rejection")
+///     }
+/// }
+/// impl std::error::Error for Rejected {}
+///
+/// let prepared = prepare_typed_domain_rule::<u32, _, _, (), _, _>(
+///     &[],
+///     (),
+///     |_, value, _| Ok((if *value == 7 { Ok(()) } else { Err(Rejected(Rc::new(1))) }, ())),
+///     |error, _| {
+///         let _local_error = error.0;
+///         vec![ViolationDraft::new(ViolationCode::new("number.rejected"))]
+///     },
+/// );
+/// let context = BoundValidationContext::new(&[]);
+/// assert_eq!(
+///     prepared.validate(ValidationValue::Typed(&7_u32), &context)?,
+///     PreparedOutcome::Valid,
+/// );
+/// assert!(matches!(
+///     prepared.validate(ValidationValue::Typed(&8_u32), &context)?,
+///     PreparedOutcome::Invalid(_),
+/// ));
+/// # Ok::<(), ExecutionError>(())
+/// ```
 #[must_use]
 pub fn prepare_typed_domain_rule<T, V, E, D, Call, Map>(
     dependencies: &'static [DependencySpec],
@@ -130,7 +214,7 @@ pub fn prepare_typed_domain_rule<T, V, E, D, Call, Map>(
 where
     T: 'static,
     V: Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     D: Send + 'static,
     Call: for<'a> Fn(&V, &T, &BoundValidationContext<'a>) -> Result<(Result<(), E>, D), ExecutionError>
         + Send

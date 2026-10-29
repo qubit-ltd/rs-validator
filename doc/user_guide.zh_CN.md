@@ -361,7 +361,97 @@ qubit-validator = { version = "0.1", features = ["inventory"] }
 
 在规则定义处使用 `register_validator!`，启动时调用 `ValidatorRegistry::try_global()`。重复 ID 或无效描述符会返回错误；`global()` 遇到这些错误会 panic。发现规则的方式变了，绑定和执行契约没有改变。[仓库示例](../examples/local_registry.rs)含启用该功能时的路径。
 
-简单的 `prepare_text_validator`、`prepare_typed_validator` 将带类型规则的领域错误映射成一条违规草稿；读取依赖时使用对应的上下文适配器。若规则需要一次返回多条违规，或需要把外部故障与输入不合规则区分，可用 `prepare_text_with_context` / `prepare_typed_with_context` 返回 `PreparedOutcome` 或 `ExecutionError`；`prepare_text_domain_rule` / `prepare_typed_domain_rule` 可把带上下文的领域错误映射成安全草稿。表示违规的草稿列表不能为空。已有无依赖、精确接受 `T` 的预备规则，可用 `BoundValidator::try_from_prepared::<T>` 跳过注册表直接绑定。
+简单的 `prepare_text_validator`、`prepare_typed_validator` 将带类型规则的领域错误映射成一条违规草稿；读取依赖时使用对应的上下文适配器。领域错误会在映射期间被消费，因此无需满足 `Send + Sync`；被存储的验证器、领域调用闭包、映射器闭包和预备适配器仍保留各自的线程安全约束。若规则需要一次返回多条违规，或需要把外部故障与输入不合规则区分，可用 `prepare_text_with_context` / `prepare_typed_with_context` 返回 `PreparedOutcome` 或 `ExecutionError`；[`prepare_text_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_text_domain_rule.html) / [`prepare_typed_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_typed_domain_rule.html) 可把带上下文的领域错误映射成安全草稿。规则验证精确 Rust 类型时选择类型化工厂，输入为字符串时选择文本工厂。表示违规的草稿列表不能为空。已有无依赖、精确接受 `T` 的预备规则，可用 `BoundValidator::try_from_prepared::<T>` 跳过注册表直接绑定。
+
+下面的目录查询是应用提供的模拟实现，不代表真实仓储。名字长度上限属于规则配置，可作为安全报告元数据。领域拒绝会在报告中生成两条违规；查询故障直接返回 `ExecutionError`，不会写入报告。只有所有预定检查都成功完成后，才能用 `is_valid()` 决定是否保存。文档示例测试会编译并运行这段程序。
+
+<!-- validator-guide:domain-rule -->
+```rust
+use std::sync::Arc;
+use qubit_validator::{
+    ArgumentReader, BindError, DependencySpec, ExecutionError, ExecutionErrorKind,
+    InputType, NamedValidationDependency, PreparedValidator, RegistrationSource,
+    ValidationOutcome, ValidationPath, ValidationReport, ValidationValue,
+    ValidatorDescriptor, ValidatorId, ValidatorRegistration, ValidatorRegistry,
+    ValidatorSignature, ViolationCode, ViolationDraft, ViolationParam,
+    prepare_text_domain_rule,
+};
+
+// Application-provided stand-in for a directory lookup.
+fn directory_available(email: &str) -> Result<bool, ExecutionError> {
+    if email == "offline@example.test" {
+        Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure))
+    } else {
+        Ok(true)
+    }
+}
+fn prepare(_: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_domain_rule(
+        DEPENDENCIES, 40_usize,
+        |maximum, name, context| {
+            let email = context.text(0)?;
+            let available = directory_available(email)?;
+            let domain_result = if available && !name.trim().is_empty()
+                && name.chars().count() <= *maximum
+            {
+                Ok(())
+            } else {
+                Err(std::io::Error::other("profile policy rejected"))
+            };
+            Ok((domain_result, *maximum))
+        },
+        |_, maximum| vec![
+            ViolationDraft::new(ViolationCode::new("profile.name_policy"))
+                .with_param("maximum", ViolationParam::Unsigned(*maximum as u128)),
+            ViolationDraft::new(ViolationCode::new("profile.update_rejected")),
+        ],
+    ))
+}
+static DEPENDENCIES: &[DependencySpec] = &[DependencySpec::new("email", InputType::Text, false)];
+static SIGNATURES: &[ValidatorSignature] = &[
+    ValidatorSignature::new(InputType::Text, DEPENDENCIES, prepare),
+];
+static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let id = ValidatorId::new("profile.name_policy");
+    let registration = ValidatorRegistration::new(
+        id, &DESCRIPTOR,
+        RegistrationSource::new("profile-app", "profile", file!(), line!()),
+    );
+    let registry = ValidatorRegistry::from_registrations([registration])?;
+    let rule = registry.bind("profile.name_policy", InputType::Text, &[])?;
+    let dependencies = [NamedValidationDependency::new(
+        "email", ValidationValue::Text("ada@example.test"),
+    )];
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &dependencies)?, ValidationOutcome::Valid);
+    let rejected = rule.validate_named(ValidationValue::Text("   "), &dependencies)?;
+    let mut report = ValidationReport::new();
+    let receipt = report.record_outcome(
+        0, ValidationPath::root().with_field("display_name"), rejected,
+    )?;
+    assert!(receipt.complete());
+    assert!(!report.is_truncated());
+    assert!(!report.is_valid());
+    assert_eq!(report.failure_count(), 2);
+    assert_eq!(report.violations()[0].rule_id(), id);
+    assert_eq!(report.violations()[0].path().render(), "display_name");
+    assert_eq!(report.violations()[0].code().as_str(), "profile.name_policy");
+    assert_eq!(report.violations()[1].code().as_str(), "profile.update_rejected");
+    let should_save = report.is_valid();
+    assert!(!should_save);
+    let offline = [NamedValidationDependency::new(
+        "email", ValidationValue::Text("offline@example.test"),
+    )];
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &offline)
+        .unwrap_err().kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(report.failure_count(), 2);
+    assert_eq!(rule.validate_named(ValidationValue::Text("Ada"), &[])
+        .unwrap_err().kind(), ExecutionErrorKind::MissingDependencyBinding);
+    assert_eq!(report.failure_count(), 2);
+    Ok(())
+}
+```
 
 ## 选择稳定的规则 ID 和违规代码
 

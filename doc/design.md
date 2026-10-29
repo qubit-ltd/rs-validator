@@ -243,9 +243,12 @@ enable it.
 Validation is synchronous. Inputs, parameter strings, dependency values, and
 contexts are borrowed for their calls; the crate does not clone or retain the
 input value. A prepared validator is held as `Arc<dyn PreparedValidator>`, and
-`PreparedValidator` requires `Send + Sync`. The supplied text and typed
-adapters consequently require their validators, mapped errors, and mapper
-closures to satisfy the documented thread-safety bounds.
+`PreparedValidator` requires `Send + Sync`. Supplied adapters therefore
+require their stored validators and callbacks, including domain-call and error
+mapping closures, to be thread-safe. Domain errors are created and mapped
+during the synchronous call, so the temporary error values themselves need
+not be `Send` or `Sync`. `ExecutionError` retains a trusted source only when
+the source satisfies its explicit `Send + Sync` bound.
 
 A registry owns one boxed slice of lightweight registration values sorted by
 stable ID; lookup uses binary search. Descriptors, signatures, dependency specifications, IDs,

@@ -51,7 +51,7 @@ impl<V, M> ContextualTextValidatorAdapter<V, M> {
 impl<V, E, M> PreparedValidator for ContextualTextValidatorAdapter<V, M>
 where
     V: for<'a> Validator<str, BoundValidationContext<'a>, Error = E> + Send + Sync + 'static,
-    E: Error + Send + Sync + 'static,
+    E: Error + 'static,
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this validator.

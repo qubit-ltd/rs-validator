@@ -47,7 +47,6 @@ impl<T, V, M> TypedValidatorAdapter<T, V, M> {
 impl<T: 'static, V, M> PreparedValidator for TypedValidatorAdapter<T, V, M>
 where
     V: Validator<T, ()> + Send + Sync + 'static,
-    V::Error: Send + Sync,
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the concrete input type accepted by this adapter.
