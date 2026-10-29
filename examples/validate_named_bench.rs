@@ -20,6 +20,7 @@ use qubit_validator::InputType;
 use qubit_validator::NamedValidationDependency;
 use qubit_validator::PreparedOutcome;
 use qubit_validator::PreparedValidator;
+use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
 use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
@@ -130,11 +131,19 @@ fn run_case(
     ordered: &BoundValidationContext<'_>,
 ) {
     let value = ValidationValue::Text("sample");
+    assert!(
+        matches!(bound.validate_named(value, named), Ok(ValidationOutcome::Valid)),
+        "named benchmark setup must validate"
+    );
+    assert!(
+        matches!(bound.validate(value, ordered), Ok(ValidationOutcome::Valid)),
+        "ordered benchmark setup must validate"
+    );
     let mut call_named = || {
-        let _ = black_box(bound.validate_named(value, named).unwrap());
+        let _ = black_box(black_box(bound).validate_named(black_box(value), black_box(named)));
     };
     let mut call_ordered = || {
-        let _ = black_box(bound.validate(value, ordered).unwrap());
+        let _ = black_box(black_box(bound).validate(black_box(value), black_box(ordered)));
     };
     ns_per_call(100_000, &mut call_named);
     ns_per_call(100_000, &mut call_ordered);
