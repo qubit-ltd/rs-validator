@@ -226,8 +226,10 @@ impl ValidationReport {
     /// report, but a newly created report alone does not prove completion.
     /// This method cannot know whether rules remain unsubmitted. If the caller
     /// stops validation early while checks may remain, it must call
-    /// [`Self::mark_truncated`] so the report is marked incomplete. Reaching
-    /// the report's capacity limit also marks it as truncated automatically.
+    /// [`Self::mark_truncated`] so the report is marked incomplete. Capacity
+    /// limits mark the report as truncated automatically only when an outcome
+    /// cannot be retained in full. Merely filling the available capacity does
+    /// not mark the report as truncated.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         self.violations.is_empty()
