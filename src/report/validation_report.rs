@@ -128,6 +128,10 @@ impl ValidationReport {
     /// lower than the last successfully submitted occurrence. Such an error
     /// leaves this report unchanged.
     ///
+    /// For a valid outcome, the path is ignored and not retained. Callers may
+    /// pass the root path to avoid cloning a field path. The occurrence still
+    /// participates in the ordering check.
+    ///
     /// # Returns
     ///
     /// Returns whether the whole outcome fits the configured limits and the

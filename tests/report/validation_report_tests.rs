@@ -73,6 +73,37 @@ fn test_partial_invalid_retains_only_prefix_with_resolvable_ids() {
 }
 
 #[test]
+fn test_valid_path_is_ignored_but_occurrence_still_advances() {
+    let mut root_report = ValidationReport::new();
+    let mut field_report = ValidationReport::new();
+    let root_receipt = root_report
+        .record_outcome(5, ValidationPath::root(), ValidationOutcome::valid())
+        .expect("root-path valid outcome records");
+    let field_receipt = field_report
+        .record_outcome(
+            5,
+            ValidationPath::root().with_field("profile").with_field("name"),
+            ValidationOutcome::valid(),
+        )
+        .expect("field-path valid outcome records");
+    assert_eq!(root_receipt, field_receipt);
+    assert!(root_receipt.complete());
+    assert!(root_receipt.failure_ids().is_empty());
+    for report in [&mut root_report, &mut field_report] {
+        assert!(report.is_valid());
+        assert!(!report.is_truncated());
+        assert!(report.violations().is_empty());
+        assert!(report.skipped().is_empty());
+        assert_eq!(
+            report.record_outcome(4, ValidationPath::root(), ValidationOutcome::valid()),
+            Err(ValidationOutcomeError::OutOfOrderOccurrence),
+        );
+        assert!(report.is_valid());
+        assert!(!report.is_truncated());
+    }
+}
+
+#[test]
 fn test_partial_invalid_receipt_contains_only_newly_retained_failure_ids() {
     let mut report = ValidationReport::with_limits(ValidationLimits {
         max_violations: Some(2),
