@@ -36,11 +36,15 @@ use crate::ValidatorId;
 ///
 /// # Source compatibility
 ///
-/// Crate-internal construction of `InvalidDescriptor` must provide the new
-/// `dependency` field; use `None` when no declaration dependency name is
-/// available. Because this enum is `non_exhaustive`, external crates cannot
-/// construct its variants directly. External patterns must use `..` to ignore
-/// fields or explicitly bind `dependency` when reading the declaration name.
+/// The enum-level `non_exhaustive` attribute requires external matches to
+/// include a wildcard arm for future variants. It does not prevent external
+/// callers from constructing the current variants or matching all of their
+/// fields. Construction must supply every field of the selected variant.
+/// Patterns may use `..` to ignore fields they do not need.
+///
+/// Adding a field to an existing variant can break external construction or
+/// complete field patterns and must be evaluated as a source-compatibility
+/// change separately from adding an enum variant.
 #[must_use]
 #[derive(Clone, Error)]
 #[non_exhaustive]
