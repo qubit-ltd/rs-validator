@@ -9,6 +9,7 @@
 //! Private adapter for typed validators with checked dependency context.
 
 use std::error::Error;
+use std::marker::PhantomData;
 
 use super::super::BoundValidationContext;
 use super::super::DependencySpec;
@@ -28,7 +29,7 @@ pub(in crate::binding) struct ContextualTypedValidatorAdapter<T, V, M> {
     /// Mapper that creates a safe violation draft from the domain error.
     map_error: M,
     /// Type marker describing the borrowed value accepted by `validator`.
-    marker: std::marker::PhantomData<fn() -> T>,
+    marker: PhantomData<fn() -> T>,
     /// Declared dependency slots consumed by the validator.
     dependencies: &'static [DependencySpec],
 }
@@ -44,7 +45,7 @@ impl<T, V, M> ContextualTypedValidatorAdapter<T, V, M> {
         Self {
             validator,
             map_error,
-            marker: std::marker::PhantomData,
+            marker: PhantomData,
             dependencies,
         }
     }

@@ -8,6 +8,10 @@
 
 //! Input and dependency signatures for validator definitions.
 
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
+
 use crate::binding::DependencySpec;
 use crate::binding::InputType;
 use crate::binding::PrepareFn;
@@ -115,10 +119,10 @@ impl ValidatorSignature {
     }
 }
 
-impl std::fmt::Debug for ValidatorSignature {
+impl Debug for ValidatorSignature {
     /// Formats the input shape and dependency count without invoking the
     /// factory.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("ValidatorSignature")
             .field("input", &self.input)

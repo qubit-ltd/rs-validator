@@ -9,6 +9,10 @@
 //! Structured data violations.
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::Result as FmtResult;
 
 use super::ValidationPath;
 use super::ViolationCode;
@@ -172,9 +176,9 @@ impl Violation {
     }
 }
 
-impl std::fmt::Debug for Violation {
+impl Debug for Violation {
     /// Formats stable identifiers without exposing path labels or parameters.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("Violation")
             .field("rule_id", &self.rule_id)
@@ -183,9 +187,9 @@ impl std::fmt::Debug for Violation {
     }
 }
 
-impl std::fmt::Display for Violation {
+impl Display for Violation {
     /// Formats only the stable violation code.
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.code.fmt(formatter)
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(&self.code, formatter)
     }
 }
