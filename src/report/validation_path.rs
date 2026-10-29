@@ -77,10 +77,10 @@ fn append_quoted_field(output: &mut String, field: &str) {
 /// Runtime field names cannot be retained in a path. Represent dynamic map
 /// entries with [`Self::with_map_entry`] instead.
 ///
-/// ```compile_fail
+/// ```compile_fail,E0597
 /// use qubit_validator::ValidationPath;
 /// let runtime_name = String::from("user supplied key");
-/// let _ = ValidationPath::root().with_field(runtime_name);
+/// let _ = ValidationPath::root().with_field(&runtime_name);
 /// ```
 #[derive(Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ValidationPath {

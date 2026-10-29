@@ -232,6 +232,9 @@ In the current checkout, both `qubit-model-metadata` and `qubit-model-derive` se
 
 ## Testing
 
+Default `cargo fmt --check` may report differences from the project format; do
+not apply its full-repository diff.
+
 ```bash
 # Run tests with the default feature set
 cargo test
@@ -240,30 +243,27 @@ cargo test
 cargo test --all-features
 
 # Project CI checks
-.infra/bin/ci-check.sh
+./.infra/bin/ci-check.sh
 
 # Check code coverage
-.infra/bin/coverage.sh
+./.infra/bin/coverage.sh
 ```
 
 ## License
 
-Copyright (c) 2025 - 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
 full license text.
 
 ## Contributing
 
-Contributions are welcome. Please follow the Rust API guidelines and keep
-public API documentation and tests current. This repository uses
-`.infra/bin/align-ci.sh` as its formatting command and
-`.infra/bin/ci-check.sh` as its final check. Default `cargo fmt --check` may
-report differences from the project format; do not apply its full-repository
-diff.
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./.infra/bin/align-ci.sh` to format code and
+`./.infra/bin/ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
-**Haixing Hu**
+**Haixing Hu** - *Qubit Co. Ltd.*
 
 Repository: [https://github.com/qubit-ltd/rs-validator](https://github.com/qubit-ltd/rs-validator)
