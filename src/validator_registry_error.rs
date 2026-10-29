@@ -36,9 +36,11 @@ use crate::ValidatorId;
 ///
 /// # Source compatibility
 ///
-/// Constructing `InvalidDescriptor` directly requires the `dependency` field;
-/// use `None` when no declaration dependency name is available. Complete
-/// patterns must bind `dependency` or use `..` to ignore it.
+/// Crate-internal construction of `InvalidDescriptor` must provide the new
+/// `dependency` field; use `None` when no declaration dependency name is
+/// available. Because this enum is `non_exhaustive`, external crates cannot
+/// construct its variants directly. External patterns must use `..` to ignore
+/// fields or explicitly bind `dependency` when reading the declaration name.
 #[must_use]
 #[derive(Clone, Error)]
 #[non_exhaustive]
