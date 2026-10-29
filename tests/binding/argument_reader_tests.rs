@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::ptr;
+
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindErrorKind;
 use qubit_validator::NamedValidationArgument;
@@ -291,4 +293,79 @@ fn test_optional_usize_handles_missing_and_repeated_reads() {
         .expect_err("second read should be rejected");
     assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
     assert_eq!(error.parameter(), Some("limit"));
+}
+
+#[test]
+fn test_required_str_borrows_and_consumes_present_strings() {
+    for value in [String::from("configured text"), String::new()] {
+        let args = [NamedValidationArgument::new(
+            "label",
+            ValidationArgument::String(&value),
+        )];
+        let mut reader = ArgumentReader::new(&args).expect("unique parameter");
+        let decoded = reader.required_str("label").expect("present string");
+        assert_eq!(decoded, value.as_str());
+        assert!(ptr::eq(decoded, value.as_str()), "the string must be borrowed");
+        let error = reader.required_str("label").expect_err("present value was consumed");
+        assert_eq!(error.kind(), BindErrorKind::ParameterAlreadyConsumed);
+        assert_eq!(error.parameter(), Some("label"));
+        reader.finish().expect("string was consumed");
+    }
+}
+
+#[test]
+fn test_required_str_reports_missing_and_consumes_type_errors() {
+    let mut empty = ArgumentReader::new(&[]).expect("empty arguments");
+    let missing = empty.required_str("label").expect_err("required string is absent");
+    assert_eq!(missing.kind(), BindErrorKind::MissingParameter);
+    assert_eq!(missing.parameter(), Some("label"));
+    empty.finish().expect("no unread parameters");
+
+    let args = [NamedValidationArgument::new("label", ValidationArgument::Bool(false))];
+    let mut reader = ArgumentReader::new(&args).expect("unique parameter");
+    let error = reader.required_str("label").expect_err("boolean is not a string");
+    assert_eq!(error.kind(), BindErrorKind::ParameterTypeMismatch);
+    assert_eq!(error.parameter(), Some("label"));
+    let repeated = reader.required_str("label").expect_err("failed read consumed value");
+    assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    assert_eq!(repeated.parameter(), Some("label"));
+    reader.finish().expect("failed typed read consumed value");
+}
+
+#[test]
+fn test_optional_bool_preserves_true_false_and_absence() {
+    for value in [true, false] {
+        let args = [NamedValidationArgument::new(
+            "inclusive",
+            ValidationArgument::Bool(value),
+        )];
+        let mut reader = ArgumentReader::new(&args).expect("unique parameter");
+        assert_eq!(reader.optional_bool("inclusive").expect("boolean"), Some(value));
+        let repeated = reader.optional_bool("inclusive").expect_err("present value consumed");
+        assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed);
+        assert_eq!(repeated.parameter(), Some("inclusive"));
+        reader.finish().expect("boolean consumed");
+    }
+    let mut empty = ArgumentReader::new(&[]).expect("empty arguments");
+    assert_eq!(empty.optional_bool("inclusive").expect("absent value"), None);
+    assert_eq!(empty.optional_bool("inclusive").expect("still absent"), None);
+    empty.finish().expect("no unread parameters");
+}
+
+#[test]
+fn test_optional_bool_type_error_consumes_present_parameter() {
+    let args = [NamedValidationArgument::new(
+        "inclusive",
+        ValidationArgument::String("false"),
+    )];
+    let mut reader = ArgumentReader::new(&args).expect("unique parameter");
+    let error = reader.optional_bool("inclusive").expect_err("string is not a boolean");
+    assert_eq!(error.kind(), BindErrorKind::ParameterTypeMismatch);
+    assert_eq!(error.parameter(), Some("inclusive"));
+    let repeated = reader
+        .optional_bool("inclusive")
+        .expect_err("failed read consumed value");
+    assert_eq!(repeated.kind(), BindErrorKind::ParameterAlreadyConsumed);
+    assert_eq!(repeated.parameter(), Some("inclusive"));
+    reader.finish().expect("failed typed read consumed value");
 }
