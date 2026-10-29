@@ -20,10 +20,14 @@ use crate::ViolationDraft;
 
 /// Prepares a typed validator that reads its declared dependency slots.
 ///
-/// The adapter passes the checked [`BoundValidationContext`] directly to the
-/// typed validator. [`super::BoundValidator`] checks dependency count, shape,
-/// optionality, and paths before this adapter runs. Domain errors are converted
-/// with `map_error`; callers must keep raw input out of the resulting draft.
+/// The adapter passes the supplied [`BoundValidationContext`] directly to the
+/// typed validator. When execution goes through [`super::BoundValidator`],
+/// that boundary checks dependency count, shape, optionality, and paths before
+/// invoking the adapter. The returned adapter does not validate the declared
+/// dependency contract itself. Callers invoking [`PreparedValidator::validate`]
+/// directly must supply a context satisfying
+/// [`PreparedValidator::dependency_specs`]. Domain errors are converted with
+/// `map_error`; callers must keep raw input out of the resulting draft.
 ///
 /// # Type Parameters
 ///
