@@ -15,6 +15,7 @@ use qubit_validator::ExecutionError;
 use qubit_validator::ExecutionErrorKind;
 use qubit_validator::InputType;
 use qubit_validator::PathSegment;
+use qubit_validator::PreparedOutcome;
 use qubit_validator::SkipReason;
 use qubit_validator::ValidationOutcome;
 use qubit_validator::ValidationPath;
@@ -49,10 +50,8 @@ fn test_debug_surfaces_redact_values_and_show_safe_shapes() {
     let value = ValidationValue::Text(secret);
     let values = [value];
     let context = BoundValidationContext::new(&values);
-    let draft =
-        ViolationDraft::new(ViolationCode::new("text.invalid")).with_path(ValidationPath::root().with_field("value"));
 
-    for debug in [format!("{value:?}"), format!("{context:?}"), format!("{draft:?}")] {
+    for debug in [format!("{value:?}"), format!("{context:?}")] {
         assert!(!debug.contains(secret));
     }
     assert_eq!(InputType::Text, value.input_type().expect("text has an input type"));
@@ -60,6 +59,33 @@ fn test_debug_surfaces_redact_values_and_show_safe_shapes() {
     let dynamic_entry = ValidationPath::root().with_map_entry(0).with_map_value();
     assert_eq!(dynamic_entry.render(), ".<map-entry:0>.<map-value>");
     assert!(!dynamic_entry.render().contains(secret));
+}
+
+#[test]
+fn test_violation_draft_and_prepared_outcome_debug_redact_static_content() {
+    let field = "field-redaction-sentinel-unique";
+    let parameter_name = "parameter-redaction-sentinel-unique";
+    let token = "token-redaction-sentinel-unique";
+    let draft = ViolationDraft::new(ViolationCode::new("text.redaction_check"))
+        .with_path(ValidationPath::root().with_field(field))
+        .with_param(parameter_name, ViolationParam::Token(token));
+
+    let draft_debug = format!("{draft:?}");
+    assert!(draft_debug.contains("text.redaction_check"));
+    assert!(draft_debug.contains("parameter_count: 1"));
+    for sentinel in [field, parameter_name, token] {
+        assert!(!draft_debug.contains(sentinel), "draft Debug must redact {sentinel}");
+    }
+
+    let outcome = PreparedOutcome::Invalid(vec![draft]);
+    let outcome_debug = format!("{outcome:?}");
+    assert!(outcome_debug.contains("text.redaction_check"));
+    for sentinel in [field, parameter_name, token] {
+        assert!(
+            !outcome_debug.contains(sentinel),
+            "prepared outcome Debug must redact {sentinel}"
+        );
+    }
 }
 
 #[test]
