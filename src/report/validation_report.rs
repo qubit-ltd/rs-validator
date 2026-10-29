@@ -344,8 +344,9 @@ impl ValidationReport {
         self.limits
     }
 
-    /// Returns the remaining shared capacity for top-level and prerequisite
-    /// violations, or the largest possible count when unbounded.
+    /// Returns the remaining capacity for retained original violations, or the
+    /// largest possible count when unbounded. Prerequisite references do not
+    /// consume this capacity.
     fn remaining_failure_capacity(&self) -> usize {
         self.limits
             .max_violations
