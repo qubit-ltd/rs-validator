@@ -217,6 +217,7 @@ impl ValidatorRegistry {
                     id: registration.id(),
                     registration_source: registration.source(),
                     kind: error.kind(),
+                    dependency: error.dependency().map(str::to_owned),
                 });
             }
         }

@@ -6,6 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::error::Error;
 use std::sync::Arc;
 
 use qubit_validator::ArgumentReader;
@@ -25,6 +26,7 @@ use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorRegistration;
 use qubit_validator::ValidatorRegistry;
+use qubit_validator::ValidatorRegistryError;
 use qubit_validator::ValidatorSignature;
 
 fn prepare(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
@@ -99,11 +101,71 @@ fn test_registry_sorts_registrations_for_binary_search() {
 fn test_local_registry_rejects_duplicate_ids() {
     let first = registration("example.valid", "first.rs");
     let second = registration("example.valid", "second.rs");
-    let error = ValidatorRegistry::from_registrations([first, second]).expect_err("duplicate ID");
+    let expected = vec![first.source(), second.source()];
+    for input in [[first, second], [second, first]] {
+        let error = ValidatorRegistry::from_registrations(input).expect_err("duplicate ID");
+        match error {
+            ValidatorRegistryError::DuplicateId { id, sources } => {
+                assert_eq!(id, "example.valid");
+                assert_eq!(sources, expected);
+            }
+            _ => panic!("expected duplicate ID metadata"),
+        }
+    }
+}
 
-    assert!(error.to_string().contains("example.valid"));
-    assert!(error.to_string().contains("first.rs"));
-    assert!(error.to_string().contains("second.rs"));
+#[test]
+fn test_registry_preserves_declaration_dependency_without_formatting_it() {
+    static DEPENDENCIES: &[DependencySpec] = &[
+        DependencySpec::new("private_dependency_slot", InputType::Text, false),
+        DependencySpec::new("private_dependency_slot", InputType::Text, false),
+    ];
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, prepare)];
+    static INVALID: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+    let id = ValidatorId::new("test.invalid_descriptor");
+    let location = RegistrationSource::new("test", "registry", "invalid.rs", 7);
+    let registration = ValidatorRegistration::new(id, &INVALID, location);
+    let error = ValidatorRegistry::from_registrations([registration])
+        .expect_err("duplicate dependency declarations must be rejected");
+    let cloned = error.clone();
+    for error in [&error, &cloned] {
+        match error {
+            ValidatorRegistryError::InvalidDescriptor {
+                id: actual_id,
+                registration_source,
+                kind,
+                dependency,
+            } => {
+                assert_eq!(*actual_id, id);
+                assert_eq!(*registration_source, location);
+                assert_eq!(*kind, BindErrorKind::InvalidDeclaration);
+                assert_eq!(dependency.as_deref(), Some("private_dependency_slot"));
+            }
+            _ => panic!("expected invalid descriptor metadata"),
+        }
+        assert!(!error.to_string().contains("private_dependency_slot"));
+        assert!(!format!("{error:?}").contains("private_dependency_slot"));
+        assert!(Error::source(error).is_none());
+    }
+}
+
+#[test]
+fn test_registry_invalid_descriptor_without_dependency_keeps_none() {
+    static EMPTY: ValidatorDescriptor = ValidatorDescriptor::new(&[]);
+    let registration = ValidatorRegistration::new(
+        ValidatorId::new("test.empty_descriptor"),
+        &EMPTY,
+        RegistrationSource::new("test", "registry", "empty.rs", 1),
+    );
+    let error = ValidatorRegistry::from_registrations([registration])
+        .expect_err("a descriptor requires at least one signature");
+    match error {
+        ValidatorRegistryError::InvalidDescriptor { kind, dependency, .. } => {
+            assert_eq!(kind, BindErrorKind::InvalidDeclaration);
+            assert_eq!(dependency, None);
+        }
+        _ => panic!("expected invalid descriptor metadata"),
+    }
 }
 
 #[test]
