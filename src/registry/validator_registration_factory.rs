@@ -32,6 +32,11 @@ inventory::collect!(ValidatorRegistrationFactory);
 /// The literal ID is validated during compilation. Invalid literal IDs are
 /// rejected before a global registry can be initialized.
 ///
+/// When a registration value is already shared by local and process-wide
+/// registries, pass its path to `registration =`. This form preserves the
+/// registration's existing source metadata. The `id`/`descriptor` form
+/// instead records the macro invocation's crate, module, file, and line.
+///
 /// # Panics
 ///
 /// The descriptor expression is evaluated when the registration is
@@ -58,6 +63,40 @@ inventory::collect!(ValidatorRegistrationFactory);
 ///     &[ValidatorSignature::new(InputType::Text, &[], prepare)];
 /// static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 /// register_validator!(id = "app.valid_rule", descriptor = &DESCRIPTOR);
+/// ```
+///
+/// A shared registration can be used in both a local registry and the global
+/// inventory. The registration path preserves the source stored in the value.
+///
+/// ```
+/// use std::sync::Arc;
+/// use qubit_validator::{
+///     ArgumentReader, BindError, InputType, PreparedOutcome, PreparedValidator,
+///     RegistrationSource, ValidatorDescriptor, ValidatorId, ValidatorRegistration,
+///     ValidatorRegistry, ValidatorSignature, prepare_text_with_context,
+///     register_validator,
+/// };
+///
+/// fn prepare(_: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+///     Ok(prepare_text_with_context(&[], |_, _| Ok(PreparedOutcome::Valid)))
+/// }
+/// static SIGNATURES: &[ValidatorSignature] =
+///     &[ValidatorSignature::new(InputType::Text, &[], prepare)];
+/// static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
+/// const SHARED_REGISTRATION: ValidatorRegistration = ValidatorRegistration::new(
+///     ValidatorId::new("app.shared_rule"),
+///     &DESCRIPTOR,
+///     RegistrationSource::new("app", "app::rules", "src/rules.rs", 42),
+/// );
+///
+/// let local = ValidatorRegistry::from_registrations([SHARED_REGISTRATION]).unwrap();
+/// register_validator!(registration = SHARED_REGISTRATION);
+/// let global = ValidatorRegistry::try_global().unwrap();
+/// let local_entry = local.get("app.shared_rule").unwrap();
+/// let global_entry = global.get("app.shared_rule").unwrap();
+/// assert_eq!(local_entry.id(), global_entry.id());
+/// assert!(std::ptr::eq(local_entry.descriptor(), global_entry.descriptor()));
+/// assert_eq!(local_entry.source(), global_entry.source());
 /// ```
 ///
 /// ```compile_fail

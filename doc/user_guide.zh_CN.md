@@ -359,7 +359,7 @@ assert_eq!(report.skipped().len(), 1);
 qubit-validator = { version = "0.1", features = ["inventory"] }
 ```
 
-在规则定义处使用 `register_validator!`，启动时调用 `ValidatorRegistry::try_global()`。重复 ID 或无效描述符会返回错误；`global()` 遇到这些错误会 panic。发现规则的方式变了，绑定和执行契约没有改变。[仓库示例](../examples/local_registry.rs)含启用该功能时的路径。
+在规则定义处使用 `register_validator!`，启动时调用 `ValidatorRegistry::try_global()`。重复 ID 或无效描述符会返回错误；`global()` 遇到这些错误会 panic。发现规则的方式变了，绑定和执行契约没有改变。如果同一个 `ValidatorRegistration` 常量还要用于局部注册表，可传入 `registration = SHARED_REGISTRATION`；这种写法会复用该值已有的 ID、描述符和来源信息。`id`/`descriptor` 写法则记录宏调用位置的来源。两种写法都要求启用 `inventory` 功能且 ID 静态有效；`id` 写法中的字面量会在编译期检查。共享注册示例见 [`register_validator!` API 文档](https://docs.rs/qubit-validator/latest/qubit_validator/macro.register_validator.html)。[仓库示例](../examples/local_registry.rs)也展示了启用该功能时的路径。
 
 简单的 `prepare_text_validator`、`prepare_typed_validator` 将带类型规则的领域错误映射成一条违规草稿；读取依赖时使用对应的上下文适配器。领域错误会在映射期间被消费，因此无需满足 `Send + Sync`；被存储的验证器、领域调用闭包、映射器闭包和预备适配器仍保留各自的线程安全约束。若规则需要一次返回多条违规，或需要把外部故障与输入不合规则区分，可用 `prepare_text_with_context` / `prepare_typed_with_context` 返回 `PreparedOutcome` 或 `ExecutionError`；[`prepare_text_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_text_domain_rule.html) / [`prepare_typed_domain_rule`](https://docs.rs/qubit-validator/latest/qubit_validator/fn.prepare_typed_domain_rule.html) 可把带上下文的领域错误映射成安全草稿。规则验证精确 Rust 类型时选择类型化工厂，输入为字符串时选择文本工厂。表示违规的草稿列表不能为空。已有无依赖、精确接受 `T` 的预备规则，可用 `BoundValidator::try_from_prepared::<T>` 跳过注册表直接绑定。
 
