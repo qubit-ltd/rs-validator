@@ -12,8 +12,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use thiserror::Error;
-
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BindErrorKind;
@@ -39,6 +37,7 @@ use qubit_validator::ViolationCode;
 use qubit_validator::ViolationDraft;
 use qubit_validator::ViolationParam;
 use qubit_validator::prepare_text_validator;
+use thiserror::Error;
 
 struct Minimum;
 

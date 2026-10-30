@@ -10,8 +10,6 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
-use thiserror::Error;
-
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
 use qubit_validator::BoundValidationContext;
@@ -34,6 +32,7 @@ use qubit_validator::prepare_contextual_text_validator;
 use qubit_validator::prepare_contextual_typed_validator;
 use qubit_validator::prepare_text_with_context;
 use qubit_validator::prepare_typed_with_context;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error("text does not match the dependency pair")]
