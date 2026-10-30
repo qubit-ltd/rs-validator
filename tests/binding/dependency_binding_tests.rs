@@ -252,6 +252,53 @@ impl PreparedValidator for NoDependencyAdapter {
     }
 }
 
+struct PathErrorAdapter;
+
+impl PreparedValidator for PathErrorAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::of::<String>()
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        &[]
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        _: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure)
+            .with_path(ValidationPath::root().with_field("nested")))
+    }
+}
+
+struct DependencyErrorAdapter;
+
+impl PreparedValidator for DependencyErrorAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        SINGLE_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        Err(ExecutionError::new(ExecutionErrorKind::ExternalFailure)
+            .with_dependency("item")
+            .with_path(context.dependency_path(0)?.clone()))
+    }
+}
+
+fn prepare_dependency_error_adapter(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(DependencyErrorAdapter))
+}
+
 struct SingleTextAdapter;
 
 impl PreparedValidator for SingleTextAdapter {
@@ -532,6 +579,50 @@ fn test_validate_named_zero_dependencies_matches_ordered_validation() {
         )
         .expect("empty ordered context is valid");
     assert_eq!(named, ordered);
+}
+
+#[test]
+fn test_bound_validator_preserves_adapter_error_path_without_adding_target_prefix() {
+    let bound = BoundValidator::try_from_prepared::<String>(RULE_ID, Arc::new(PathErrorAdapter))
+        .expect("zero-dependency prepared rule binds");
+
+    let error = bound
+        .validate(
+            ValidationValue::Typed(&String::from("target")),
+            &BoundValidationContext::new(&[]),
+        )
+        .expect_err("the adapter returns an execution error");
+
+    assert_eq!(error.kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.path().render(), "nested");
+    assert_eq!(error.dependency(), None);
+}
+
+#[test]
+fn test_bound_validator_preserves_declared_dependency_error_path() {
+    static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+        InputType::Text,
+        SINGLE_DEPENDENCIES,
+        prepare_dependency_error_adapter,
+    )];
+    let descriptor = ValidatorDescriptor::new(SIGNATURES);
+    let bound = descriptor.bind(RULE_ID, 0, &[]).expect("dependency rule binds");
+    let value = "dependency";
+    let path = ValidationPath::root().with_field("profile").with_field("email");
+    let values = [ValidationValue::Text(value)];
+    let paths = [path.clone()];
+    let context =
+        BoundValidationContext::new_with_paths(&values, &paths).expect("dependency value and path counts match");
+
+    let error = bound
+        .validate(ValidationValue::Text("target"), &context)
+        .expect_err("the adapter reports an error at its dependency");
+
+    assert_eq!(error.kind(), ExecutionErrorKind::ExternalFailure);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("item"));
+    assert_eq!(error.path(), &path);
 }
 
 #[test]

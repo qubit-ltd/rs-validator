@@ -19,6 +19,8 @@ use crate::ValidatorId;
 /// Its public formatting and metadata never include raw validation input. An
 /// underlying cause can be retained for an explicitly trusted diagnostic
 /// consumer. The standard error chain deliberately does not expose that cause.
+/// The path is an opaque structured location: the caller or integrating layer
+/// defines its coordinate system. This type does not add path prefixes.
 ///
 /// # Examples
 ///
@@ -90,9 +92,10 @@ impl ExecutionError {
         self.dependency
     }
 
-    /// Returns the structured error path.
+    /// Returns the structured error path unchanged.
     ///
     /// The path remains structured and does not expose the raw input value.
+    /// Its coordinate system is defined by the caller or integrating layer.
     #[must_use]
     #[inline]
     pub const fn path(&self) -> &super::ValidationPath {
@@ -124,10 +127,13 @@ impl ExecutionError {
 
     /// Associates a dependency slot name with this error.
     ///
+    /// When an integrating layer uses dependency metadata for location
+    /// handling, the name must match a slot declared for the current rule.
+    ///
     /// # Parameters
     ///
-    /// - `dependency`: Static slot name of the dependency involved in the
-    ///   failure.
+    /// - `dependency`: Static name of the declared dependency slot involved in
+    ///   the failure.
     ///
     /// # Returns
     ///
@@ -158,11 +164,16 @@ impl ExecutionError {
         self
     }
 
-    /// Associates a structured path with this error.
+    /// Replaces this error's structured path.
+    ///
+    /// This method does not concatenate or normalize paths. Integrations that
+    /// distinguish ordinary rule errors from dependency errors must apply the
+    /// appropriate coordinate convention at their own boundary.
     ///
     /// # Parameters
     ///
-    /// - `path`: Structured location that does not render raw input keys.
+    /// - `path`: Structured location, in the coordinate system selected by the
+    ///   caller, that does not render raw input keys.
     ///
     /// # Returns
     ///

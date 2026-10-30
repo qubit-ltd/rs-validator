@@ -199,9 +199,26 @@ be retained accidentally. This type does not prove where a static string came
 from; callers must still use declared field names and represent runtime map
 positions with `MapEntry`, which does not retain the key text.
 `ValidationPath::concat` joins segment sequences without rendering or parsing
-them. The occurrence path passed to `record_outcome` is the base for each invalid
+them. A `ViolationDraft` path is relative to the current validation target. The
+occurrence path passed to `record_outcome` is the base for each invalid
 violation path; a root violation path means the occurrence itself. Failed-prerequisite
 evidence retains its absolute path.
+
+Paths on execution errors use a separate contract. `ExecutionError::with_path`
+replaces the error path and does not concatenate it. A bound validation context
+stores dependency paths in slot order exactly as supplied; a missing path
+defaults to the root path without implying that the dependency is the current
+target or the report root. Direct `BoundValidator` calls return adapter error
+paths unchanged. An integrating model layer interprets ordinary rule error
+paths relative to the current target. A dependency error must name a slot
+declared for that rule and use that dependency's coordinate system. The model
+layer matches the name to the declared slot, preserves that slot's object
+navigation metadata, and does not prefix the dependency path with the target.
+For example, a target at `profile.confirmation` that depends on
+`profile.email` reports a dependency error at `profile.email`; an external
+`..` dependency on `nickname` keeps `nickname` as its property path and `..`
+as separate object navigation. Unknown dependency names do not match a slot
+and do not select dependency navigation metadata.
 
 `ValidationValue` and validation arguments are borrowed views and redact names and values in `Debug`.
 `BindError` stores parameter or dependency names, not parameter values.

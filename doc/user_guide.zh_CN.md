@@ -261,6 +261,22 @@ pub fn check_confirmation(
 
 两个邮箱相同返回 `Valid`，不同则产生 `email.confirmation_mismatch`；缺少必填依赖或类型错误返回 `ExecutionError`，应走服务错误分支。`validate_named` 按签名名称匹配槽位：零个或一个依赖时不会分配重排容器；两个到八个依赖使用固定容量的临时缓冲；九个及以上依赖才会按需分配缓冲。克隆非根路径 `ValidationPath` 时仍可能分配。若上游已经核验顺序，也可使用 `validate` 和 `BoundValidationContext::new(&values)`。可选依赖仍占一个槽位，缺失时显式传 `ValidationValue::Missing`；错误类型不能当作缺失。
 
+依赖路径与值按相同槽位顺序传入，并会原样保留。坐标系由调用方选择；`new_with_paths` 和 `NamedValidationDependency::with_path` 都不会添加目标路径前缀。例如，模型适配器可以把依赖 `profile.email` 的位置传给上下文：
+
+```rust
+use qubit_validator::{BoundValidationContext, ExecutionError, ValidationPath, ValidationValue};
+
+fn main() -> Result<(), ExecutionError> {
+    let values = [ValidationValue::Text("ada@example.test")];
+    let paths = [ValidationPath::root().with_field("profile").with_field("email")];
+    let context = BoundValidationContext::new_with_paths(&values, &paths)?;
+    assert_eq!(context.dependency_path(0)?.render(), "profile.email");
+    Ok(())
+}
+```
+
+适配器若在读取声明依赖后返回错误，应附上该槽位名称和路径。模型校验会把名称与声明槽位匹配，并将依赖位置和目标位置分开处理。因此，位于 `profile.confirmation` 的确认规则若读取 `profile.email`，错误应定位到 `profile.email`；外部 `..` 依赖的 `nickname` 错误仍以 `nickname` 作为属性路径，并单独保留 `..` 对象导航。普通规则错误仍使用相对于当前目标的路径。
+
 ## 在启动时配置规则
 
 如果资料策略限制显示名称长度，可以在绑定时读取 `maximum`，之后每次请求复用该上限。下面的独立模块同时包含规则准备和启动时绑定；它按 Unicode 标量值计数，若应用需要按字节或用户感知字符计数，应另外定义规则。

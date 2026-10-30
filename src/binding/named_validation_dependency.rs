@@ -18,7 +18,9 @@ use crate::ValidationValue;
 /// One dependency value identified by its signature name.
 ///
 /// Names come from the validator declaration. Values and paths remain borrowed
-/// for the validation call and are never retained by the binding.
+/// for the validation call and are never retained by the binding. An optional
+/// path is caller-selected and remains attached to its named slot when inputs
+/// are reordered; it is not prefixed with the current target path.
 ///
 /// # Type Parameters
 ///
@@ -65,10 +67,15 @@ impl<'a> NamedValidationDependency<'a> {
         }
     }
 
-    /// Associates a model path with this dependency value.
+    /// Associates a caller-supplied path with this dependency value.
+    ///
+    /// The path is kept unchanged and follows this named slot if
+    /// [`crate::BoundValidator::validate_named`] reorders the inputs. This
+    /// method does not add a current-target prefix.
     ///
     /// # Parameters
-    /// - `path`: Borrowed path identifying the dependency location.
+    /// - `path`: Borrowed path identifying the dependency in the coordinate
+    ///   system selected by the caller.
     ///
     /// # Returns
     /// The dependency associated with `path`.

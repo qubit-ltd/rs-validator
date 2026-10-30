@@ -261,6 +261,22 @@ Call `bind_confirmation_rule()` during startup and keep its result in the profil
 
 Matching values yield `Valid`; different values yield `email.confirmation_mismatch`. Missing or wrongly typed required dependencies produce `ExecutionError`, which the service handles as a failure rather than a field violation. `validate_named` maps names to signature slots. It does not allocate a reorder container for zero or one dependency; two to eight dependencies use a fixed-capacity temporary buffer, and nine or more allocate that buffer on demand. Cloning a non-root `ValidationPath` may still allocate. If the caller has already established slot order, use `validate` with `BoundValidationContext::new(&values)`. Optional slots still occupy a position; use `ValidationValue::Missing` for absence. A wrong type is not absence.
 
+Dependency paths are supplied in the same slot order as their values and are kept unchanged. The caller chooses the coordinate system; neither `new_with_paths` nor `NamedValidationDependency::with_path` adds the target path. For example, a model adapter can pass the dependency's `profile.email` location to its context:
+
+```rust
+use qubit_validator::{BoundValidationContext, ExecutionError, ValidationPath, ValidationValue};
+
+fn main() -> Result<(), ExecutionError> {
+    let values = [ValidationValue::Text("ada@example.test")];
+    let paths = [ValidationPath::root().with_field("profile").with_field("email")];
+    let context = BoundValidationContext::new_with_paths(&values, &paths)?;
+    assert_eq!(context.dependency_path(0)?.render(), "profile.email");
+    Ok(())
+}
+```
+
+When an adapter returns an error for a declared dependency, attach that slot's name and path. Model validation matches the name to the declaration and keeps the dependency location separate from the target. A `confirmation` rule on `profile.confirmation` that reads `profile.email` therefore reports at `profile.email`; an external `..` dependency on `nickname` keeps `nickname` as its property path and retains `..` as separate object navigation. Ordinary rule errors continue to use a path relative to the current target.
+
 ## Configure a rule once at startup
 
 If profile policy adds a maximum display-name length, read its `maximum` parameter while binding, then reuse that limit for every request. This module includes preparation and startup binding; it counts Unicode scalar values, so an application requiring grapheme or byte limits must define a different rule.

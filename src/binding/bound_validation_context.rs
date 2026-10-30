@@ -20,6 +20,12 @@ use super::ValidationValue;
 
 /// Borrowed dependency slots used during a synchronous validation call.
 ///
+/// Optional paths are stored in slot order exactly as supplied by the caller.
+/// This type does not infer a coordinate system or add the current target's
+/// path. When paths are omitted, [`Self::dependency_path`] returns the root
+/// path as a default location; that does not identify the target or report
+/// root.
+///
 /// # Examples
 ///
 /// ```
@@ -46,7 +52,23 @@ impl<'a> BoundValidationContext<'a> {
         Self { values, paths: None }
     }
 
-    /// Creates a context with model-provided relative dependency paths.
+    /// Creates a context with caller-supplied dependency paths.
+    ///
+    /// Paths are associated with values by slot index and kept unchanged. The
+    /// caller chooses their coordinate system; this method does not add a
+    /// current-target prefix.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_validator::{BoundValidationContext, ValidationPath, ValidationValue};
+    ///
+    /// let values = [ValidationValue::Text("ada@example.test")];
+    /// let paths = [ValidationPath::root().with_field("profile").with_field("email")];
+    /// let context = BoundValidationContext::new_with_paths(&values, &paths)?;
+    /// assert_eq!(context.dependency_path(0)?.render(), "profile.email");
+    /// # Ok::<(), qubit_validator::ExecutionError>(())
+    /// ```
     ///
     /// # Errors
     ///
@@ -93,7 +115,9 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// # Returns
     ///
-    /// Returns the stored path, or the root path when no paths were supplied.
+    /// Returns the stored path unchanged, or the root path when no paths were
+    /// supplied. The default root is only a fallback location and does not
+    /// establish that the dependency is the current target.
     #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
@@ -181,7 +205,9 @@ impl<'a> BoundValidationContext<'a> {
     /// # Errors
     ///
     /// Returns the first shape, missing-value, or adapter contract error in
-    /// signature order. Error metadata does not include raw dependency values.
+    /// signature order. Shape errors retain the supplied slot path, or its
+    /// default root path. Error metadata does not include raw dependency
+    /// values.
     ///
     /// # Returns
     ///

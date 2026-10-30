@@ -28,6 +28,12 @@ use super::ValidationValue;
 /// to the value slots. Constructing a [`BoundValidationContext`] does not
 /// validate it against these declarations.
 ///
+/// This layer does not interpret error paths or add a target prefix. When
+/// integrated with model validation, ordinary rule errors use target-relative
+/// paths; an error for a dependency should name a declared slot and use that
+/// dependency's coordinate system. Model navigation and final path handling
+/// belong to the integrating layer.
+///
 /// For configured execution, bind through a [`crate::ValidatorDescriptor`] or
 /// [`crate::ValidatorRegistry`] and call [`crate::BoundValidator::validate`].
 /// That boundary checks the declared shapes and outcome invariants and attaches
@@ -112,8 +118,9 @@ pub trait PreparedValidator: Send + Sync {
     ///
     /// Returns an execution error when this implementation cannot process the
     /// input or context. A domain rejection is an invalid outcome rather than
-    /// an execution error. An error return is not a guarantee that every
-    /// direct-call precondition has been checked.
+    /// an execution error. Error paths are returned unchanged by this layer.
+    /// An error return is not a guarantee that every direct-call precondition
+    /// has been checked.
     fn validate(
         &self,
         value: ValidationValue<'_>,
