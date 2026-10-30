@@ -67,6 +67,10 @@ impl ExecutionError {
     }
 
     /// Returns the error kind.
+    ///
+    /// # Returns
+    ///
+    /// The stable category describing this execution failure.
     #[inline]
     pub const fn kind(&self) -> ExecutionErrorKind {
         self.kind
@@ -106,6 +110,10 @@ impl ExecutionError {
     ///
     /// `None` means no owned cause was supplied. This accessor may reveal
     /// details unsuitable for ordinary logs or user-facing output.
+    ///
+    /// # Returns
+    ///
+    /// `Some` when a trusted cause was retained, or `None` otherwise.
     pub fn trusted_source(&self) -> Option<&(dyn Error + Send + Sync + 'static)> {
         self.trusted_source.as_deref()
     }

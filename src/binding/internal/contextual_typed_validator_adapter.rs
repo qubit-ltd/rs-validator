@@ -23,6 +23,12 @@ use crate::Validator;
 use crate::ViolationDraft;
 
 /// Owns a contextual typed validator and preserves its accepted type.
+///
+/// # Type Parameters
+///
+/// - `T`: Concrete input type borrowed by the typed validator.
+/// - `V`: Validator that checks the input with its dependency context.
+/// - `M`: Mapper that converts the validator's domain error into a violation.
 pub(in crate::binding) struct ContextualTypedValidatorAdapter<T, V, M> {
     /// Validator invoked with a checked value and dependency context.
     validator: V,
@@ -39,6 +45,19 @@ impl<T, V, M> ContextualTypedValidatorAdapter<T, V, M> {
     ///
     /// The dependency slots are borrowed for the adapter's entire lifetime so
     /// the binding layer can verify and provide their values before validation.
+    ///
+    /// # Parameters
+    ///
+    /// - `validator`: Typed validator that receives the checked input and
+    ///   dependency context.
+    /// - `map_error`: Converts a domain error into a safe violation draft.
+    /// - `dependencies`: Static declarations for the dependency slots the
+    ///   validator consumes.
+    ///
+    /// # Returns
+    ///
+    /// An adapter that retains the validator, mapper, and dependency
+    /// declarations for prepared validation.
     #[must_use]
     #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
@@ -58,12 +77,21 @@ where
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the concrete input type accepted by this validator.
+    ///
+    /// # Returns
+    ///
+    /// The exact concrete Rust type accepted by the typed validator.
     #[inline]
     fn input_type(&self) -> InputType {
         InputType::of::<T>()
     }
 
     /// Returns the dependency slots declared for this validator.
+    ///
+    /// # Returns
+    ///
+    /// The static dependency declarations in the order expected by the
+    /// validator.
     #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
@@ -75,6 +103,17 @@ where
     /// mapped violation. An execution error is returned when `value` does not
     /// contain the accepted type, indicating that the binding supplied a value
     /// with the wrong shape.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Checked input value whose concrete type must be `T`.
+    /// - `context`: Dependency values supplied in the validator's declared
+    ///   order.
+    ///
+    /// # Returns
+    ///
+    /// A valid outcome when the validator accepts the value, or an invalid
+    /// outcome containing the mapped violation when it rejects the value.
     ///
     /// # Errors
     ///

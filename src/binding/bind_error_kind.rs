@@ -72,6 +72,10 @@ pub enum BindErrorKind {
 
 impl fmt::Display for BindErrorKind {
     /// Formats the stable human-readable error category.
+    ///
+    /// # Errors
+    ///
+    /// Returns the formatter's error if writing the category fails.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             Self::UnknownParameter => "unknown parameter",

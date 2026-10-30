@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::error::Error;
+use std::fmt;
 use std::sync::Arc;
 
 use qubit_validator::ArgumentReader;
@@ -34,12 +36,12 @@ struct DomainRule;
 
 #[derive(Debug)]
 struct Rejected;
-impl std::fmt::Display for Rejected {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for Rejected {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("secret domain detail")
     }
 }
-impl std::error::Error for Rejected {}
+impl Error for Rejected {}
 
 impl Validator<str> for DomainRule {
     type Error = Rejected;
@@ -69,13 +71,13 @@ static DOMAIN_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(DOMAIN_
 #[derive(Debug)]
 struct TypedFailure;
 
-impl std::fmt::Display for TypedFailure {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for TypedFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("secret typed failure")
     }
 }
 
-impl std::error::Error for TypedFailure {}
+impl Error for TypedFailure {}
 
 fn prepare_typed_with_safe_configuration(
     _reader: &mut ArgumentReader<'_>,

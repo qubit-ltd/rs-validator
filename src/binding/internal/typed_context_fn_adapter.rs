@@ -21,6 +21,12 @@ use super::super::PreparedValidator;
 use super::super::ValidationValue;
 
 /// Runs a typed validation closure after checking the erased target type.
+///
+/// # Type Parameters
+///
+/// - `T`: Concrete input type accepted by the closure.
+/// - `F`: Thread-safe closure that produces a prepared outcome or execution
+///   error.
 pub(in crate::binding) struct TypedContextFnAdapter<T, F> {
     /// Validation operation.
     call: F,
@@ -32,6 +38,16 @@ pub(in crate::binding) struct TypedContextFnAdapter<T, F> {
 
 impl<T, F> TypedContextFnAdapter<T, F> {
     /// Creates an adapter around one validation operation.
+    ///
+    /// # Parameters
+    ///
+    /// - `call`: Typed validation operation invoked after the erased input is
+    ///   checked.
+    /// - `dependencies`: Static dependency slots declared for the operation.
+    ///
+    /// # Returns
+    ///
+    /// An adapter that retains the operation and its dependency declarations.
     #[must_use]
     #[inline]
     pub(in crate::binding) const fn new(call: F, dependencies: &'static [DependencySpec]) -> Self {
@@ -49,18 +65,35 @@ where
     F: for<'a> Fn(&T, &BoundValidationContext<'a>) -> Result<PreparedOutcome, ExecutionError> + Send + Sync,
 {
     /// Returns the concrete input type accepted by this closure.
+    ///
+    /// # Returns
+    ///
+    /// The exact typed input shape accepted by the closure.
     #[inline]
     fn input_type(&self) -> InputType {
         InputType::of::<T>()
     }
 
     /// Returns the dependency slots declared for this closure.
+    ///
+    /// # Returns
+    ///
+    /// The static dependency slots in the order expected by the closure.
     #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
     }
 
     /// Executes the closure with a checked typed target.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Erased input that must contain a value of type `T`.
+    /// - `context`: Borrowed context containing the declared dependency slots.
+    ///
+    /// # Returns
+    ///
+    /// The closure's prepared outcome when execution succeeds.
     ///
     /// # Errors
     ///

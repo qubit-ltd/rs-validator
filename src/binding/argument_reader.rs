@@ -23,6 +23,10 @@ use crate::ValidationArgument;
 /// parameter's consumption. Call [`Self::finish`] to reject parameters that
 /// were never read.
 ///
+/// # Type Parameters
+///
+/// - `'a`: Lifetime shared by the declared parameter names and borrowed values.
+///
 /// # Examples
 ///
 /// ```
@@ -90,6 +94,7 @@ impl<'a> ArgumentReader<'a> {
     ///
     /// Returns `MissingParameter` when the name is absent, or
     /// `ParameterAlreadyConsumed` when the argument was previously read.
+    #[inline]
     pub fn required_argument(&mut self, name: &str) -> Result<ValidationArgument<'a>, BindError> {
         self.take(name)
     }
@@ -110,6 +115,7 @@ impl<'a> ArgumentReader<'a> {
     /// `ParameterAlreadyConsumed` when it was previously read,
     /// `ParameterTypeMismatch` when it is not an integer, or
     /// `ParameterOutOfRange` when its value cannot be represented as a `u32`.
+    #[inline]
     pub fn required_u32(&mut self, name: &str) -> Result<u32, BindError> {
         self.u32_value(name, true).map(|value| value.expect("required value"))
     }
@@ -130,6 +136,7 @@ impl<'a> ArgumentReader<'a> {
     /// Returns `ParameterAlreadyConsumed` when the present parameter was
     /// previously read, `ParameterTypeMismatch` when it is not an integer, or
     /// `ParameterOutOfRange` when its value cannot be represented as a `u32`.
+    #[inline]
     pub fn optional_u32(&mut self, name: &str) -> Result<Option<u32>, BindError> {
         self.u32_value(name, false)
     }

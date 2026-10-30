@@ -154,6 +154,7 @@ fn extract_advanced_guide_block(guide: &str, document: &str, marker: &str, name:
     Err(format!("{context}: rust fence has no closing fence"))
 }
 
+#[must_use = "the temporary application directory is removed when its guard is dropped"]
 struct TemporaryApp {
     path: PathBuf,
 }
@@ -254,9 +255,9 @@ fn main() {}
         for (marker, _) in ADVANCED_GUIDE_MARKERS {
             let guide = VALID_ADVANCED_GUIDE.replace(marker, "");
             let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
-            assert!(error.contains("doc/user_guide.md"));
-            assert!(error.contains(marker));
-            assert!(error.contains("found 0"));
+            assert!(error.contains("doc/user_guide.md"), "{error}");
+            assert!(error.contains(marker), "{error}");
+            assert!(error.contains("found 0"), "{error}");
         }
     }
 
@@ -265,9 +266,9 @@ fn main() {}
         for (marker, _) in ADVANCED_GUIDE_MARKERS {
             let guide = format!("{VALID_ADVANCED_GUIDE}\n{marker}");
             let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
-            assert!(error.contains("doc/user_guide.md"));
-            assert!(error.contains(marker));
-            assert!(error.contains("found 2"));
+            assert!(error.contains("doc/user_guide.md"), "{error}");
+            assert!(error.contains(marker), "{error}");
+            assert!(error.contains("found 2"), "{error}");
         }
     }
 
@@ -276,9 +277,9 @@ fn main() {}
         for (marker, _) in ADVANCED_GUIDE_MARKERS {
             let guide = VALID_ADVANCED_GUIDE.replace(&format!("{marker}\n```rust"), &format!("{marker}\n```toml"));
             let error = extract_guide_advanced_modules(&guide, "doc/user_guide.md").unwrap_err();
-            assert!(error.contains("doc/user_guide.md"));
-            assert!(error.contains(marker));
-            assert!(error.contains("rust fence"));
+            assert!(error.contains("doc/user_guide.md"), "{error}");
+            assert!(error.contains(marker), "{error}");
+            assert!(error.contains("rust fence"), "{error}");
         }
     }
 
@@ -296,8 +297,8 @@ fn main() {}
         let guide = VALID_DOMAIN_RULE_GUIDE.replace(DOMAIN_RULE_GUIDE_MARKER, "");
         let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
             .unwrap_err();
-        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
-        assert!(error.contains("found 0"));
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER), "{error}");
+        assert!(error.contains("found 0"), "{error}");
     }
 
     #[test]
@@ -305,8 +306,8 @@ fn main() {}
         let guide = format!("{VALID_DOMAIN_RULE_GUIDE}\n{DOMAIN_RULE_GUIDE_MARKER}");
         let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
             .unwrap_err();
-        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
-        assert!(error.contains("found 2"));
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER), "{error}");
+        assert!(error.contains("found 2"), "{error}");
     }
 
     #[test]
@@ -317,8 +318,8 @@ fn main() {}
         );
         let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
             .unwrap_err();
-        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
-        assert!(error.contains("rust fence"));
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER), "{error}");
+        assert!(error.contains("rust fence"), "{error}");
     }
 
     #[test]
@@ -326,8 +327,8 @@ fn main() {}
         let guide = VALID_DOMAIN_RULE_GUIDE.replace("fn main() {}\n```", "fn main() {}");
         let error = extract_advanced_guide_block(&guide, "doc/user_guide.md", DOMAIN_RULE_GUIDE_MARKER, "domain-rule")
             .unwrap_err();
-        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER));
-        assert!(error.contains("no closing fence"));
+        assert!(error.contains(DOMAIN_RULE_GUIDE_MARKER), "{error}");
+        assert!(error.contains("no closing fence"), "{error}");
     }
 
     fn run_user_guide_basic_path(target_dir: &Path) -> Vec<String> {
@@ -375,7 +376,7 @@ mod documented_flow_tests {
     }
 
     #[test]
-    fn accepted_name_is_saved_and_blank_name_is_rejected()
+    fn test_accepted_name_is_saved_and_blank_name_is_rejected()
         -> Result<(), Box<dyn std::error::Error>>
     {
         let rule = crate::profile::startup::bind_display_name_rule()?;
@@ -534,7 +535,7 @@ mod documented_advanced_examples_tests {
     }
 
     #[test]
-    fn confirmation_module_accepts_matching_email_and_rejects_mismatch() {
+    fn test_confirmation_module_accepts_matching_email_and_rejects_mismatch() {
         let rule = bind_confirmation_rule().expect("bind confirmation rule");
         assert!(matches!(
             check_confirmation(&rule, "ada@example.com", "ada@example.com")
@@ -549,7 +550,7 @@ mod documented_advanced_examples_tests {
     }
 
     #[test]
-    fn max_length_module_counts_unicode_scalar_values() {
+    fn test_max_length_module_counts_unicode_scalar_values() {
         let rule = bind_max_length_rule(3).expect("bind maximum length rule");
         assert!(matches!(
             rule.validate(ValidationValue::Text("猫é🙂"), &BoundValidationContext::new(&[]))

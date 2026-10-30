@@ -23,15 +23,21 @@ use crate::binding::PrepareFn;
 /// ```
 /// use std::sync::Arc;
 ///
-/// use qubit_validator::{
-///     ArgumentReader, BindError, BoundValidationContext, ExecutionError, InputType,
-///     PreparedOutcome, PreparedValidator, ValidationValue, ValidatorSignature,
-/// };
+/// use qubit_validator::ArgumentReader;
+/// use qubit_validator::BindError;
+/// use qubit_validator::BoundValidationContext;
+/// use qubit_validator::DependencySpec;
+/// use qubit_validator::ExecutionError;
+/// use qubit_validator::InputType;
+/// use qubit_validator::PreparedOutcome;
+/// use qubit_validator::PreparedValidator;
+/// use qubit_validator::ValidationValue;
+/// use qubit_validator::ValidatorSignature;
 ///
 /// struct Accept;
 /// impl PreparedValidator for Accept {
 ///     fn input_type(&self) -> InputType { InputType::Text }
-///     fn dependency_specs(&self) -> &'static [qubit_validator::DependencySpec] { &[] }
+///     fn dependency_specs(&self) -> &'static [DependencySpec] { &[] }
 ///     fn validate(
 ///         &self,
 ///         _: ValidationValue<'_>,

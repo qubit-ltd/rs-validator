@@ -51,8 +51,8 @@ use super::ValidationValue;
 /// use std::sync::Arc;
 ///
 /// use qubit_validator::{
-///     BoundValidationContext, ExecutionError, NamedValidationArgument, PreparedOutcome,
-///     PreparedValidator, ValidationValue,
+///     BoundValidationContext, ExecutionError, PreparedOutcome, PreparedValidator,
+///     ValidationValue,
 /// };
 ///
 /// struct Accept;
@@ -75,21 +75,28 @@ use super::ValidationValue;
 /// }
 ///
 /// let prepared: Arc<dyn PreparedValidator> = Arc::new(Accept);
-/// let arguments: &[NamedValidationArgument<'_>] = &[];
 /// let result = prepared.validate(
 ///     ValidationValue::Text("ready"),
 ///     &BoundValidationContext::new(&[]),
 /// );
 /// assert_eq!(result?, PreparedOutcome::valid());
-/// let _ = arguments;
 /// # Ok::<(), ExecutionError>(())
 /// ```
 pub trait PreparedValidator: Send + Sync {
     /// Returns the exact erased target shape accepted by this implementation.
+    ///
+    /// # Returns
+    ///
+    /// The input shape accepted by this validator.
     #[must_use]
     fn input_type(&self) -> InputType;
 
     /// Returns dependency slots accepted in execution order.
+    ///
+    /// # Returns
+    ///
+    /// A static slice of dependency declarations in the order expected by
+    /// [`Self::validate`].
     #[must_use]
     fn dependency_specs(&self) -> &'static [DependencySpec];
 

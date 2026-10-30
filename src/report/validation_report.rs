@@ -120,6 +120,7 @@ impl ValidationReport {
     ///
     /// Use this when the execution policy stopped before the report's own
     /// collection limits rejected an outcome.
+    #[inline]
     pub fn mark_truncated(&mut self) {
         self.truncated = true;
     }
@@ -278,6 +279,7 @@ impl ValidationReport {
     /// Every retained original failure in the same count reported by
     /// [`Self::failure_count`].
     #[must_use = "inspect all retained failure evidence"]
+    #[inline]
     pub fn failures(&self) -> impl Iterator<Item = &Violation> + '_ {
         self.violations.iter()
     }
@@ -291,10 +293,16 @@ impl ValidationReport {
 
     /// Returns the violation associated with a failure ID from this report.
     ///
+    /// # Parameters
+    ///
+    /// - `id`: Failure identifier whose retained violation is requested.
+    ///
     /// # Returns
     ///
     /// Returns `Some` when `id` was issued by this report and remains
     /// retained; otherwise returns `None`.
+    #[must_use]
+    #[inline]
     pub fn failure(&self, id: FailureId) -> Option<&Violation> {
         if id.report == self.report_id {
             self.violations.get(id.index)
@@ -308,6 +316,10 @@ impl ValidationReport {
     /// Only failures retained in this report have an occurrence. IDs from a
     /// different report and failures rejected by the violation capacity return
     /// `None`.
+    ///
+    /// # Parameters
+    ///
+    /// - `id`: Failure identifier whose retained occurrence is requested.
     ///
     /// # Examples
     ///
@@ -329,6 +341,8 @@ impl ValidationReport {
     /// assert_eq!(report.failure_occurrence(failure_id), Some(2));
     /// # Ok::<(), qubit_validator::ValidationOutcomeError>(())
     /// ```
+    #[must_use]
+    #[inline]
     pub fn failure_occurrence(&self, id: FailureId) -> Option<usize> {
         self.failure(id)?;
         self.failure_occurrences.get(id.index).copied()
@@ -340,6 +354,7 @@ impl ValidationReport {
     /// violation capacity. Multiple failures from one outcome share an
     /// occurrence, and separate outcomes may use the same occurrence.
     #[must_use = "inspect all retained failures and their occurrences"]
+    #[inline]
     pub fn failures_with_occurrences(&self) -> impl Iterator<Item = (usize, &Violation)> + '_ {
         self.failure_occurrences.iter().copied().zip(self.violations.iter())
     }

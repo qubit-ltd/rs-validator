@@ -19,6 +19,11 @@ use crate::Validator;
 use crate::ViolationDraft;
 
 /// Owns a text validator and the mapper for its domain errors.
+///
+/// # Type Parameters
+///
+/// - `V`: Validator for borrowed text with unit context.
+/// - `M`: Mapper that converts the validator's error into a violation draft.
 pub(in crate::binding) struct TextValidatorAdapter<V, M> {
     /// Typed validator invoked after the erased input is checked.
     validator: V,
@@ -28,6 +33,15 @@ pub(in crate::binding) struct TextValidatorAdapter<V, M> {
 
 impl<V, M> TextValidatorAdapter<V, M> {
     /// Creates an adapter from a validator and its domain error mapper.
+    ///
+    /// # Parameters
+    ///
+    /// - `validator`: Domain validator invoked for each accepted text value.
+    /// - `map_error`: Mapper that converts a domain error into a safe draft.
+    ///
+    /// # Returns
+    ///
+    /// The adapter owning `validator` and `map_error`.
     #[must_use]
     #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M) -> Self {
@@ -41,12 +55,20 @@ where
     M: Fn(V::Error) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this adapter.
+    ///
+    /// # Returns
+    ///
+    /// The text input shape.
     #[inline]
     fn input_type(&self) -> InputType {
         InputType::Text
     }
 
     /// Returns that this unit-context adapter has no dependency slots.
+    ///
+    /// # Returns
+    ///
+    /// An empty slice because this adapter uses unit context.
     #[inline]
     fn dependency_specs(&self) -> &'static [super::super::DependencySpec] {
         &[]
@@ -58,6 +80,11 @@ where
     /// A successful domain validation produces a valid outcome. A domain
     /// validation failure produces an invalid outcome containing the mapped
     /// violation.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Erased input; only its text variant is accepted.
+    /// - `_`: Context ignored because this adapter declares no dependencies.
     ///
     /// # Errors
     ///
