@@ -7,6 +7,10 @@
 // =============================================================================
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+
+use thiserror::Error;
 
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
@@ -31,7 +35,7 @@ use qubit_validator::prepare_contextual_typed_validator;
 use qubit_validator::prepare_text_with_context;
 use qubit_validator::prepare_typed_with_context;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 #[error("text does not match the dependency pair")]
 struct DependencyPairMismatch;
 
@@ -71,7 +75,7 @@ static TEXT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static TEXT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(TEXT_SIGNATURES);
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 #[error("value is below its optional minimum")]
 struct BelowMinimum;
 
@@ -267,9 +271,6 @@ fn test_text_context_closure_preserves_all_prepared_outcomes_and_execution_error
 
 #[test]
 fn test_typed_context_closure_rejects_wrong_target_type_before_invocation() {
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::atomic::Ordering;
-
     let calls = Arc::new(AtomicUsize::new(0));
     let prepared = prepare_typed_with_context::<u32, _>(&[], {
         let calls = Arc::clone(&calls);

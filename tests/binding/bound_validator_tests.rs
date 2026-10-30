@@ -6,10 +6,13 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+use std::any::TypeId;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+
+use thiserror::Error;
 
 use qubit_validator::ArgumentReader;
 use qubit_validator::BindError;
@@ -48,7 +51,7 @@ impl Validator<u32> for Minimum {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 #[error("text rejected")]
 struct TextRejected;
 
@@ -185,7 +188,7 @@ struct CountingPrepared(AtomicUsize);
 
 impl PreparedValidator for CountingPrepared {
     fn input_type(&self) -> InputType {
-        InputType::Typed(std::any::TypeId::of::<u32>())
+        InputType::Typed(TypeId::of::<u32>())
     }
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         &[]

@@ -8,6 +8,8 @@
 
 //! Construction and recording errors for validation outcomes.
 
+use thiserror::Error;
+
 /// An outcome violates the invariant required by its declared variant.
 ///
 /// # Examples
@@ -21,7 +23,7 @@
 /// );
 /// ```
 #[must_use]
-#[derive(Clone, Copy, Debug, Eq, thiserror::Error, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Error, PartialEq)]
 #[non_exhaustive]
 pub enum ValidationOutcomeError {
     /// An outcome was submitted before the last successfully recorded
