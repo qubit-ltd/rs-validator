@@ -25,6 +25,7 @@ use qubit_validator::ValidationValue;
 use qubit_validator::ValidatorDescriptor;
 use qubit_validator::ValidatorId;
 use qubit_validator::ValidatorSignature;
+use qubit_validator::prepare_text_with_context;
 
 struct ValidAdapter;
 
@@ -56,6 +57,19 @@ static DEPENDENCIES: &[DependencySpec] = &[
 static SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(InputType::Text, DEPENDENCIES, prepare_valid)];
 static DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SIGNATURES);
 const RULE_ID: ValidatorId = ValidatorId::new("test.dependency_contract");
+
+fn prepare_must_not_execute(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(DEPENDENCIES, |_, _| {
+        panic!("dependency validation must reject the call before adapter execution")
+    }))
+}
+
+static MUST_NOT_EXECUTE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    DEPENDENCIES,
+    prepare_must_not_execute,
+)];
+static MUST_NOT_EXECUTE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(MUST_NOT_EXECUTE_SIGNATURES);
 
 struct OrderedTextAdapter;
 
@@ -340,14 +354,14 @@ fn test_bind_takes_dependency_specs_from_selected_signature() {
 
 #[test]
 fn test_validate_reports_missing_dependency_name_rule_and_path() {
-    let bound = DESCRIPTOR
+    let bound = MUST_NOT_EXECUTE_DESCRIPTOR
         .bind(RULE_ID, 0, &[])
         .expect("dependency slots in signature order must bind");
     let maximum = 10_u64;
     let values = [ValidationValue::Missing, ValidationValue::Typed(&maximum)];
     let minimum_path = ValidationPath::root().with_field("range").with_field("minimum");
     let maximum_path = ValidationPath::root().with_field("range").with_field("maximum");
-    let paths = [minimum_path.clone(), maximum_path];
+    let paths = [minimum_path.clone(), maximum_path.clone()];
     let context = BoundValidationContext::new_with_paths(&values, &paths)
         .expect("dependency values and paths have matching lengths");
 
@@ -359,11 +373,23 @@ fn test_validate_reports_missing_dependency_name_rule_and_path() {
     assert_eq!(error.rule_id(), Some(RULE_ID));
     assert_eq!(error.dependency(), Some("minimum"));
     assert_eq!(error.path(), &minimum_path);
+
+    let named = [
+        NamedValidationDependency::new("maximum", ValidationValue::Typed(&maximum)).with_path(&maximum_path),
+        NamedValidationDependency::new("minimum", ValidationValue::Missing).with_path(&minimum_path),
+    ];
+    let error = bound
+        .validate_named(ValidationValue::Text("value"), &named)
+        .expect_err("a required missing dependency must fail before adapter execution");
+    assert_eq!(error.kind(), ExecutionErrorKind::MissingRequiredDependencyValue);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("minimum"));
+    assert_eq!(error.path(), &minimum_path);
 }
 
 #[test]
 fn test_validate_reports_wrong_dependency_type_name_rule_and_path() {
-    let bound = DESCRIPTOR
+    let bound = MUST_NOT_EXECUTE_DESCRIPTOR
         .bind(RULE_ID, 0, &[])
         .expect("dependency slots in signature order must bind");
     let minimum = 1_u64;
@@ -378,6 +404,18 @@ fn test_validate_reports_wrong_dependency_type_name_rule_and_path() {
         .validate(ValidationValue::Text("value"), &context)
         .expect_err("a dependency with the wrong type must fail before adapter execution");
 
+    assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some("maximum"));
+    assert_eq!(error.path(), &maximum_path);
+
+    let named = [
+        NamedValidationDependency::new("maximum", ValidationValue::Text("ten")).with_path(&maximum_path),
+        NamedValidationDependency::new("minimum", ValidationValue::Typed(&minimum)),
+    ];
+    let error = bound
+        .validate_named(ValidationValue::Text("value"), &named)
+        .expect_err("a dependency with the wrong type must fail before adapter execution");
     assert_eq!(error.kind(), ExecutionErrorKind::DependencyTypeMismatch);
     assert_eq!(error.rule_id(), Some(RULE_ID));
     assert_eq!(error.dependency(), Some("maximum"));
