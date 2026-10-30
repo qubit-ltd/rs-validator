@@ -100,6 +100,20 @@ impl ValidatorDescriptor {
 
     /// Binds one explicitly selected signature and owns its prepared instance.
     ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Stable rule identifier attached to the binding, its
+    ///   violations, and binding errors.
+    /// - `signature_index`: Zero-based index into [`Self::signatures`] in
+    ///   declaration order. Reordering signatures changes this selection.
+    /// - `params`: Named configuration arguments borrowed during preparation.
+    ///   The factory must own any configuration it retains for execution.
+    ///
+    /// # Returns
+    ///
+    /// A reusable binding owning a shared prepared validator instance. The
+    /// returned binding does not borrow `params`.
+    ///
     /// # Errors
     ///
     /// Returns `InvalidDeclaration` or `AmbiguousSignature` when the
@@ -124,6 +138,20 @@ impl ValidatorDescriptor {
     }
 
     /// Selects and binds the unique signature matching an input shape.
+    ///
+    /// # Parameters
+    ///
+    /// - `rule_id`: Stable rule identifier attached to the binding, its
+    ///   violations, and binding errors.
+    /// - `input`: Input shape used to select the matching signature; binding
+    ///   does not convert values between input shapes.
+    /// - `params`: Named configuration arguments borrowed during preparation.
+    ///   The factory must own any configuration it retains for execution.
+    ///
+    /// # Returns
+    ///
+    /// A reusable binding owning a shared prepared validator instance for
+    /// `input`. The returned binding does not borrow `params`.
     ///
     /// # Errors
     ///

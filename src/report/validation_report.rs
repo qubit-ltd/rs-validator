@@ -74,6 +74,19 @@ pub struct ValidationReport {
 
 impl ValidationReport {
     /// Creates an empty report with explicit collection limits.
+    ///
+    /// Limits apply only to retained violation and skipped-entry counts, not
+    /// to validation work or total memory use. See [`crate::ValidationLimits`]
+    /// for the resource boundaries callers must enforce separately.
+    ///
+    /// # Parameters
+    ///
+    /// - `limits`: Independent limits for retained violations and skipped
+    ///   entries. `None` leaves the corresponding count unbounded.
+    ///
+    /// # Returns
+    ///
+    /// An empty, untruncated report configured with `limits`.
     #[inline]
     pub fn with_limits(limits: ValidationLimits) -> Self {
         Self {
@@ -87,7 +100,14 @@ impl ValidationReport {
         }
     }
 
-    /// Creates an empty report.
+    /// Creates an empty report without collection limits.
+    ///
+    /// Both retained violation and skipped-entry counts are unbounded. Use
+    /// [`Self::with_limits`] when either count needs an explicit limit.
+    ///
+    /// # Returns
+    ///
+    /// An empty, untruncated report with both collection limits set to `None`.
     #[inline]
     pub fn new() -> Self {
         Self::with_limits(ValidationLimits {
