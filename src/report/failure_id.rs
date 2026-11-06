@@ -53,6 +53,12 @@ impl FailureId {
     ///
     /// The caller must ensure that the report identity and index refer to an
     /// entry already retained by the originating report.
+    ///
+    /// # Parameters
+    ///
+    /// - `report`: process-local identity of the report that retained the
+    ///   failure.
+    /// - `index`: zero-based position of the failure in that report.
     #[must_use]
     #[inline]
     pub(crate) const fn new(report: u64, index: usize) -> Self {

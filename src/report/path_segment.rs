@@ -51,6 +51,10 @@ pub enum PathSegment {
 
 impl Debug for PathSegment {
     /// Formats structural path data while redacting field labels.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Receives the redacted representation of this segment.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         match self {
             Self::Field(_) => formatter.write_str("Field(<redacted>)"),

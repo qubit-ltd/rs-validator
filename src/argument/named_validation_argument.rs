@@ -84,6 +84,15 @@ impl<'a> NamedValidationArgument<'a> {
 
 impl fmt::Debug for NamedValidationArgument<'_> {
     /// Omits the parameter name and relies on the value's redacted formatter.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination that receives the redacted debug
+    ///   representation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when formatting succeeds, or the formatter's error otherwise.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("NamedValidationArgument")

@@ -102,6 +102,15 @@ impl ViolationDraft {
 
 impl Debug for ViolationDraft {
     /// Formats only safe metadata and the parameter count.
+    ///
+    /// # Parameters
+    /// - `formatter`: Destination that receives the debug representation.
+    ///
+    /// # Returns
+    /// The result of writing the representation to `formatter`.
+    ///
+    /// # Errors
+    /// Returns the formatter's error if writing the representation fails.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("ViolationDraft")

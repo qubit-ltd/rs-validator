@@ -127,6 +127,10 @@ impl ValidatorRegistration {
 // Supports callers that still hold static references to registrations.
 impl From<&ValidatorRegistration> for ValidatorRegistration {
     /// Copies a registration borrowed from a static-compatible reference.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Registration whose copy is returned.
     #[inline]
     fn from(value: &ValidatorRegistration) -> Self {
         *value

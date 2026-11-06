@@ -38,6 +38,11 @@ pub struct RecordedOutcome {
 
 impl RecordedOutcome {
     /// Creates a receipt for report recording.
+    ///
+    /// # Parameters
+    ///
+    /// - `complete`: whether all outcome data fit within the report limits.
+    /// - `failure_ids`: identifiers of failures retained from the outcome.
     #[must_use]
     #[inline]
     pub(crate) fn new(complete: bool, failure_ids: Vec<FailureId>) -> Self {

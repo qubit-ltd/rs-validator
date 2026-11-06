@@ -77,6 +77,11 @@ pub enum ValidatorRegistryError {
 
 impl Debug for ValidatorRegistryError {
     /// Formats registration metadata without exposing dependency names.
+    ///
+    /// # Parameters
+    ///
+    /// - `self` is the registry error whose registration metadata is formatted.
+    /// - `formatter` is the destination supplied by the caller of `Debug::fmt`.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::DuplicateId { id, sources } => formatter

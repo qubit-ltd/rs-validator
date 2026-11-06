@@ -46,6 +46,10 @@ pub struct BoundValidationContext<'a> {
 
 impl<'a> BoundValidationContext<'a> {
     /// Creates a context with root paths for each dependency slot.
+    ///
+    /// # Parameters
+    ///
+    /// - `values`: Dependency values in signature slot order.
     #[must_use]
     #[inline]
     pub fn new(values: &'a [ValidationValue<'a>]) -> Self {
@@ -57,6 +61,11 @@ impl<'a> BoundValidationContext<'a> {
     /// Paths are associated with values by slot index and kept unchanged. The
     /// caller chooses their coordinate system; this method does not add a
     /// current-target prefix.
+    ///
+    /// # Parameters
+    ///
+    /// - `values`: Dependency values in signature slot order.
+    /// - `paths`: Paths aligned with `values` by slot index.
     ///
     /// # Examples
     ///
@@ -96,6 +105,10 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// Returns an adapter contract error for an invalid slot index.
     ///
+    /// # Parameters
+    ///
+    /// - `index`: Zero-based dependency slot to read.
+    ///
     /// # Returns
     ///
     /// Returns a copy of the value stored at `index`.
@@ -118,6 +131,10 @@ impl<'a> BoundValidationContext<'a> {
     /// Returns the stored path unchanged, or the root path when no paths were
     /// supplied. The default root is only a fallback location and does not
     /// establish that the dependency is the current target.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Zero-based dependency slot whose path is requested.
     #[inline]
     pub fn dependency_path(&self, index: usize) -> Result<&ValidationPath, ExecutionError> {
         match self.paths {
@@ -135,6 +152,10 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// - `T`: Concrete dependency type to borrow; it must be `'static` for
     ///   `Any` downcasting.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Zero-based dependency slot to downcast.
     ///
     /// # Errors
     ///
@@ -170,6 +191,10 @@ impl<'a> BoundValidationContext<'a> {
     ///
     /// Returns a shape or slot error. A wrong concrete type is never treated
     /// as an absent optional value.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Zero-based optional dependency slot to downcast.
     #[inline]
     pub fn optional_typed<T: 'static>(&self, index: usize) -> Result<Option<&'a T>, ExecutionError> {
         match self.value(index)? {
@@ -191,6 +216,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Returns
     ///
     /// Returns the borrowed text dependency.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: Zero-based dependency slot to borrow as text.
     #[inline]
     pub fn text(&self, index: usize) -> Result<&'a str, ExecutionError> {
         match self.value(index)? {
@@ -212,6 +241,10 @@ impl<'a> BoundValidationContext<'a> {
     /// # Returns
     ///
     /// Returns `()` when every slot satisfies its declared dependency.
+    ///
+    /// # Parameters
+    ///
+    /// - `specs`: Dependency declarations in the same order as the bound slots.
     pub(crate) fn check_specs(&self, specs: &[DependencySpec]) -> Result<(), ExecutionError> {
         if self.values.len() != specs.len() || self.paths.is_some_and(|paths| paths.len() != specs.len()) {
             return Err(ExecutionError::new(ExecutionErrorKind::AdapterContractViolation));
@@ -243,6 +276,11 @@ static ROOT_PATH: ValidationPath = ValidationPath::root();
 
 impl Debug for BoundValidationContext<'_> {
     /// Formats only the slot count so dependency values remain private.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination formatter receiving the redacted
+    ///   representation.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("BoundValidationContext")

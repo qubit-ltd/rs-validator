@@ -178,6 +178,10 @@ impl Violation {
 
 impl Debug for Violation {
     /// Formats stable identifiers without exposing path labels or parameters.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination and formatting options for the debug output.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("Violation")
@@ -189,6 +193,11 @@ impl Debug for Violation {
 
 impl Display for Violation {
     /// Formats only the stable violation code.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination and formatting options for the display
+    ///   output.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(&self.code, formatter)
     }

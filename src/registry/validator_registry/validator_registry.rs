@@ -123,6 +123,10 @@ impl ValidatorRegistry {
 
     /// Finds a registration by stable ID.
     ///
+    /// # Parameters
+    ///
+    /// * `id` - Stable identifier to look up.
+    ///
     /// # Returns
     ///
     /// Returns `Some` for a registered ID and `None` when the ID is unknown.

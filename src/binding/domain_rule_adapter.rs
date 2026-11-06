@@ -234,6 +234,26 @@ where
 /// Successful domain results are valid. Failed results are passed with their
 /// invocation metadata to the mapper; an empty invalid draft list is rejected
 /// as an adapter contract violation.
+///
+/// # Type Parameters
+///
+/// - `E`: Domain error consumed by the error mapper.
+/// - `D`: Invocation metadata borrowed by the error mapper on domain failure.
+///
+/// # Parameters
+///
+/// - `result`: Domain result paired with metadata from the same invocation.
+/// - `map_error`: Maps a domain error and its metadata to violation drafts.
+///
+/// # Returns
+///
+/// A valid outcome for domain success, or an invalid outcome containing the
+/// mapped violation drafts for domain failure.
+///
+/// # Errors
+///
+/// Returns `AdapterContractViolation` when a domain failure maps to no
+/// violation drafts.
 fn map_domain_result<E, D>(
     result: (Result<(), E>, D),
     map_error: &impl Fn(E, &D) -> Vec<ViolationDraft>,

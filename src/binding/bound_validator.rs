@@ -136,6 +136,15 @@ impl BoundValidator {
     }
 
     /// Creates a bound occurrence from a prepared implementation and signature.
+    ///
+    /// # Parameters
+    ///
+    /// - `prepared`: Immutable implementation to invoke for this occurrence.
+    /// - `signature`: Input and dependency contract selected for the
+    ///   occurrence.
+    /// - `rule_id`: Stable identifier attached to validation results and
+    ///   errors.
+    #[must_use]
     pub(crate) fn new(
         prepared: Arc<dyn PreparedValidator>,
         signature: ValidatorSignature,
@@ -283,6 +292,11 @@ impl BoundValidator {
     /// Small dependency sets use fixed-size stack buffers; larger sets allocate
     /// vectors. Missing, duplicate, and unknown bindings are reported before
     /// the prepared validator runs.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Borrowed target value to validate.
+    /// - `dependencies`: Borrowed dependency values keyed by signature name.
     fn validate_named_many(
         &self,
         value: ValidationValue<'_>,
@@ -360,6 +374,10 @@ impl BoundValidator {
     }
 
     /// Checks the erased input against the selected signature.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Borrowed value whose presence and input shape are checked.
     fn check_input(&self, value: ValidationValue<'_>) -> Result<(), ExecutionError> {
         if value.is_missing() || !self.input.accepts(value) {
             return Err(ExecutionError::new(ExecutionErrorKind::InputTypeMismatch).with_rule(self.rule_id));
@@ -368,6 +386,10 @@ impl BoundValidator {
     }
 
     /// Checks dependency values against the selected signature.
+    ///
+    /// # Parameters
+    ///
+    /// - `context`: Borrowed dependency context checked against the signature.
     fn check_dependencies(&self, context: &BoundValidationContext<'_>) -> Result<(), ExecutionError> {
         context
             .check_specs(self.dependencies)
@@ -378,6 +400,10 @@ impl BoundValidator {
 impl fmt::Debug for BoundValidator {
     /// Formats structural metadata without exposing the prepared
     /// implementation.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination that receives the debug representation.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BoundValidator")

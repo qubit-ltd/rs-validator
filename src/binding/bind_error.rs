@@ -153,6 +153,14 @@ impl BindError {
 
 impl fmt::Debug for BindError {
     /// Formats structural metadata without exposing raw parameter values.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Formatter that receives the structural representation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`fmt::Error`] if writing the debug representation fails.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("BindError")
@@ -166,6 +174,14 @@ impl fmt::Debug for BindError {
 
 impl fmt::Display for BindError {
     /// Formats a stable summary without exposing raw parameter values.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Formatter that receives the stable error summary.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`fmt::Error`] if writing the summary fails.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "validation binding failed: {}", self.kind)
     }

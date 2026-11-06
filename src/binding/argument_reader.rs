@@ -271,6 +271,11 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Reads and converts an optional or required unsigned 32-bit parameter.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the parameter to read.
+    /// - `required`: Whether absence should produce `MissingParameter`.
     fn u32_value(&mut self, name: &str, required: bool) -> Result<Option<u32>, BindError> {
         let Some(value) = self.take_optional(name)? else {
             if required {
@@ -291,6 +296,18 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Takes a present parameter once, or returns `None` when it is absent.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the parameter to find and consume.
+    ///
+    /// # Returns
+    ///
+    /// `Some` with the parameter value when present, or `None` when absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParameterAlreadyConsumed` when the parameter was already read.
     fn take_optional(&mut self, name: &str) -> Result<Option<ValidationArgument<'a>>, BindError> {
         let Some(index) = self.args.iter().position(|argument| argument.name() == name) else {
             return Ok(None);
@@ -303,18 +320,47 @@ impl<'a> ArgumentReader<'a> {
     }
 
     /// Takes a required parameter once.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name of the required parameter.
+    ///
+    /// # Returns
+    ///
+    /// The parameter value.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MissingParameter` when absent or `ParameterAlreadyConsumed`
+    /// when previously read.
     fn take(&mut self, name: &str) -> Result<ValidationArgument<'a>, BindError> {
         self.take_optional(name)?
             .ok_or_else(|| BindError::new(BindErrorKind::MissingParameter).with_parameter(name))
     }
 
     /// Builds a type-mismatch error without retaining the rejected value.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name to attach to the error.
+    ///
+    /// # Returns
+    ///
+    /// A `ParameterTypeMismatch` error for `name`.
     #[inline]
     fn type_error(name: &str) -> BindError {
         BindError::new(BindErrorKind::ParameterTypeMismatch).with_parameter(name)
     }
 
     /// Builds a range error without retaining the rejected value.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: Name to attach to the error.
+    ///
+    /// # Returns
+    ///
+    /// A `ParameterOutOfRange` error for `name`.
     #[inline]
     fn range_error(name: &str) -> BindError {
         BindError::new(BindErrorKind::ParameterOutOfRange).with_parameter(name)
@@ -324,6 +370,15 @@ impl<'a> ArgumentReader<'a> {
 impl fmt::Debug for ArgumentReader<'_> {
     /// Formats only the parameter count so argument names and values stay
     /// private.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Formatter that receives the redacted debug
+    ///   representation.
+    ///
+    /// # Returns
+    ///
+    /// The formatter's result.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ArgumentReader")

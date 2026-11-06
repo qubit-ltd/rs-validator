@@ -85,6 +85,9 @@ impl<'a> NamedValidationDependency<'a> {
 
 impl Debug for NamedValidationDependency<'_> {
     /// Formats only dependency shape without exposing values or paths.
+    ///
+    /// # Parameters
+    /// - `formatter`: Destination that receives the formatted dependency shape.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter
             .debug_struct("NamedValidationDependency")

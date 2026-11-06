@@ -73,6 +73,10 @@ pub enum BindErrorKind {
 impl fmt::Display for BindErrorKind {
     /// Formats the stable human-readable error category.
     ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination that receives the formatted category.
+    ///
     /// # Errors
     ///
     /// Returns the formatter's error if writing the category fails.

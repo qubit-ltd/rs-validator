@@ -106,6 +106,15 @@ impl<'a> ValidationValue<'a> {
 
 impl Debug for ValidationValue<'_> {
     /// Formats only the value shape and always redacts raw input.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination used to write the redacted value shape.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when formatting succeeds, or the formatter's error
+    /// otherwise.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         match self {
             Self::Text(_) => formatter.write_str("Text(<redacted>)"),

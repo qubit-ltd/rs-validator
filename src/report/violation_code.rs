@@ -105,6 +105,10 @@ impl ViolationCode {
 
 impl Debug for ViolationCode {
     /// Formats the validated, program-declared code.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: The formatter receiving the debug tuple representation.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter.debug_tuple("ViolationCode").field(&self.0).finish()
     }
@@ -112,6 +116,11 @@ impl Debug for ViolationCode {
 
 impl Display for ViolationCode {
     /// Formats the validated, program-declared code.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: The formatter receiving the code's display
+    ///   representation.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter.write_str(self.0)
     }

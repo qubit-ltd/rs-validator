@@ -128,6 +128,10 @@ impl ValidatorSignature {
 impl Debug for ValidatorSignature {
     /// Formats the input shape and dependency count without invoking the
     /// factory.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination that receives the debug representation.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> FmtResult {
         formatter
             .debug_struct("ValidatorSignature")

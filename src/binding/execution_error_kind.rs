@@ -52,6 +52,10 @@ pub enum ExecutionErrorKind {
 
 impl Display for ExecutionErrorKind {
     /// Formats the stable human-readable error category.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Receives the category's stable human-readable text.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         let name = match self {
             Self::InputTypeMismatch => "input type mismatch",

@@ -157,6 +157,11 @@ impl ExecutionError {
     /// Ordinary formatting and [`std::error::Error::source`] never expose this
     /// value. Callers must avoid forwarding it to untrusted logs or clients.
     ///
+    /// # Type Parameters
+    ///
+    /// - `E`: The owned source error type retained behind the standard error
+    ///   trait object.
+    ///
     /// # Parameters
     ///
     /// - `source`: Owned, thread-safe source error retained for this failure.
@@ -195,6 +200,11 @@ impl ExecutionError {
 
 impl fmt::Debug for ExecutionError {
     /// Formats structural metadata without exposing raw input or source text.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination formatter that receives the structural
+    ///   representation.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ExecutionError")
@@ -208,6 +218,10 @@ impl fmt::Debug for ExecutionError {
 
 impl fmt::Display for ExecutionError {
     /// Formats a stable summary without exposing raw input or source text.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination formatter that receives the stable summary.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(formatter, "validation execution failed: {}", self.kind)
     }

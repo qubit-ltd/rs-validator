@@ -321,6 +321,20 @@ impl ValidatorDescriptor {
 
 impl fmt::Debug for ValidatorDescriptor {
     /// Formats the number of signatures without exposing preparation details.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: Descriptor whose signature count is written to the formatter.
+    /// - `formatter`: Destination formatter that receives the debug
+    ///   representation.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when formatting succeeds.
+    ///
+    /// # Errors
+    ///
+    /// Returns the formatter's error if writing the representation fails.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ValidatorDescriptor")

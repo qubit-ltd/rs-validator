@@ -22,6 +22,16 @@ use crate::Validator;
 use crate::ViolationDraft;
 
 /// Owns a contextual text validator and the mapper for its domain errors.
+///
+/// # Type Parameters
+///
+/// - `V`: Validator invoked with checked text and dependency context; for the
+///   [`PreparedValidator`] implementation it must accept `str` with a
+///   [`BoundValidationContext`] of any borrow lifetime and satisfy the `Send +
+///   Sync + 'static` bounds.
+/// - `M`: Mapper from the validator's domain error to a safe violation draft;
+///   for the [`PreparedValidator`] implementation it must satisfy the `Send +
+///   Sync + 'static` bounds.
 pub(in crate::binding) struct ContextualTextValidatorAdapter<V, M> {
     /// Validator invoked with a checked text value and dependency context.
     validator: V,
@@ -37,6 +47,17 @@ impl<V, M> ContextualTextValidatorAdapter<V, M> {
     ///
     /// The dependency list is borrowed for the adapter's entire lifetime so
     /// the binding layer can verify and provide the values before validation.
+    ///
+    /// # Parameters
+    ///
+    /// - `validator`: Context-aware validator invoked for checked text input.
+    /// - `map_error`: Converts a domain error into a violation draft.
+    /// - `dependencies`: Static dependency slots required by the validator.
+    ///
+    /// # Returns
+    ///
+    /// An adapter that uses the supplied validator, mapper, and dependency
+    /// declarations.
     #[must_use]
     #[inline]
     pub(in crate::binding) const fn new(validator: V, map_error: M, dependencies: &'static [DependencySpec]) -> Self {
@@ -55,12 +76,21 @@ where
     M: Fn(E) -> ViolationDraft + Send + Sync + 'static,
 {
     /// Returns the text shape accepted by this validator.
+    ///
+    /// # Returns
+    ///
+    /// The input shape is always text.
     #[inline]
     fn input_type(&self) -> InputType {
         InputType::Text
     }
 
     /// Returns the dependency slots declared for this validator.
+    ///
+    /// # Returns
+    ///
+    /// The static dependency declarations in the order expected by the
+    /// validator.
     #[inline]
     fn dependency_specs(&self) -> &'static [DependencySpec] {
         self.dependencies
@@ -76,6 +106,16 @@ where
     ///
     /// Returns an execution error when `value` is not text. Domain errors from
     /// the validator are represented as invalid outcomes instead.
+    ///
+    /// # Returns
+    ///
+    /// A valid outcome when the validator accepts the text, or an invalid
+    /// outcome containing the mapped violation when it rejects the text.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: Erased input that must contain text.
+    /// - `context`: Dependency values matching this adapter's declared slots.
     fn validate(
         &self,
         value: ValidationValue<'_>,

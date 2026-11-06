@@ -18,6 +18,10 @@ use super::PathSegment;
 /// Reports whether a field label can be rendered as a dotted ASCII identifier.
 ///
 /// Empty labels, non-ASCII bytes, and punctuation require quoted rendering.
+///
+/// # Parameters
+///
+/// - `field`: Label to check without allocating or changing it.
 #[inline]
 fn is_simple_field(field: &str) -> bool {
     let mut bytes = field.bytes();
@@ -31,6 +35,11 @@ fn is_simple_field(field: &str) -> bool {
 ///
 /// Control characters and JSON metacharacters are escaped; other Unicode
 /// characters are copied unchanged.
+///
+/// # Parameters
+///
+/// - `output`: String that receives the quoted field notation.
+/// - `field`: Field label to escape and append.
 fn append_quoted_field(output: &mut String, field: &str) {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     output.push_str("[\"");
@@ -247,6 +256,11 @@ impl ValidationPath {
 
 impl Debug for ValidationPath {
     /// Formats only the segment count so field labels remain private.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: Path whose segment count is formatted.
+    /// - `formatter`: Formatter receiving the redacted debug representation.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter
             .debug_struct("ValidationPath")
@@ -257,6 +271,11 @@ impl Debug for ValidationPath {
 
 impl Display for ValidationPath {
     /// Formats a redacted placeholder instead of rendering path labels.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: Path represented by the fixed redacted placeholder.
+    /// - `formatter`: Formatter receiving the placeholder.
     fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
         formatter.write_str("<validation-path>")
     }

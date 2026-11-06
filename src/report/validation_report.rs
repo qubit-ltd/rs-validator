@@ -410,6 +410,14 @@ impl Default for ValidationReport {
 
 impl fmt::Debug for ValidationReport {
     /// Formats counts and truncation state without exposing report contents.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination and formatting state provided by the caller.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when formatting succeeds, or the formatter's error.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("ValidationReport")
@@ -422,6 +430,14 @@ impl fmt::Debug for ValidationReport {
 
 impl fmt::Display for ValidationReport {
     /// Formats counts and truncation state without exposing report contents.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Destination and formatting state provided by the caller.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` when formatting succeeds, or the formatter's error.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,

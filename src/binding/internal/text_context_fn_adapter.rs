@@ -18,6 +18,11 @@ use super::super::PreparedValidator;
 use super::super::ValidationValue;
 
 /// Runs a text validation closure after checking the erased target shape.
+///
+/// # Type Parameters
+///
+/// * `F` is the closure that validates text using its bound context. To use
+///   this adapter as a [`PreparedValidator`], `F` must also be `Send + Sync`.
 pub(in crate::binding) struct TextContextFnAdapter<F> {
     /// Validation operation.
     call: F,
@@ -27,6 +32,12 @@ pub(in crate::binding) struct TextContextFnAdapter<F> {
 
 impl<F> TextContextFnAdapter<F> {
     /// Creates an adapter around one validation operation.
+    ///
+    /// # Parameters
+    ///
+    /// * `call` is the validation closure to invoke for text values.
+    /// * `dependencies` declares the dependency slots available to that
+    ///   closure.
     #[must_use]
     #[inline]
     pub(in crate::binding) const fn new(call: F, dependencies: &'static [DependencySpec]) -> Self {
@@ -51,6 +62,16 @@ where
     }
 
     /// Executes the closure with a checked text target.
+    ///
+    /// # Parameters
+    ///
+    /// * `value` is the erased value to validate; it must contain text.
+    /// * `context` provides the bound dependency values for this validation.
+    ///
+    /// # Returns
+    ///
+    /// The closure's prepared outcome, or an input type mismatch when `value`
+    /// does not contain text, or an error returned by the closure.
     fn validate(
         &self,
         value: ValidationValue<'_>,

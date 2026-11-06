@@ -71,6 +71,10 @@ pub enum ValidationArgument<'a> {
 
 impl fmt::Debug for ValidationArgument<'_> {
     /// Redacts scalar contents and reports only collection lengths.
+    ///
+    /// # Parameters
+    ///
+    /// - `formatter`: Receives the redacted representation.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Bool(_) => formatter.write_str("Bool(<redacted>)"),
