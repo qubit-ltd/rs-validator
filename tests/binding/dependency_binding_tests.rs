@@ -346,6 +346,214 @@ static SINGLE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
 )];
 static SINGLE_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(SINGLE_SIGNATURES);
 
+fn assert_named_binding_error(error: &ExecutionError, kind: ExecutionErrorKind, dependency: &str) {
+    assert_eq!(error.kind(), kind);
+    assert_eq!(error.rule_id(), Some(RULE_ID));
+    assert_eq!(error.dependency(), Some(dependency));
+    assert_eq!(error.path(), &ValidationPath::root());
+}
+
+fn prepare_single_must_not_execute(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(SINGLE_DEPENDENCIES, |_, _| {
+        panic!("invalid named binding reached prepared validator")
+    }))
+}
+
+static SINGLE_MUST_NOT_EXECUTE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    SINGLE_DEPENDENCIES,
+    prepare_single_must_not_execute,
+)];
+static SINGLE_MUST_NOT_EXECUTE_DESCRIPTOR: ValidatorDescriptor =
+    ValidatorDescriptor::new(SINGLE_MUST_NOT_EXECUTE_SIGNATURES);
+
+static EIGHT_DEPENDENCIES: &[DependencySpec] = &[
+    DependencySpec::new("d0", InputType::of::<u64>(), false),
+    DependencySpec::new("d1", InputType::of::<u64>(), false),
+    DependencySpec::new("d2", InputType::of::<u64>(), false),
+    DependencySpec::new("d3", InputType::of::<u64>(), false),
+    DependencySpec::new("d4", InputType::of::<u64>(), false),
+    DependencySpec::new("d5", InputType::of::<u64>(), false),
+    DependencySpec::new("d6", InputType::of::<u64>(), false),
+    DependencySpec::new("d7", InputType::of::<u64>(), false),
+];
+
+struct EightSlotAdapter {
+    mixed_paths: bool,
+}
+
+impl PreparedValidator for EightSlotAdapter {
+    fn input_type(&self) -> InputType {
+        InputType::Text
+    }
+
+    fn dependency_specs(&self) -> &'static [DependencySpec] {
+        EIGHT_DEPENDENCIES
+    }
+
+    fn validate(
+        &self,
+        _: ValidationValue<'_>,
+        context: &BoundValidationContext<'_>,
+    ) -> Result<PreparedOutcome, ExecutionError> {
+        for index in 0..8 {
+            assert_eq!(*context.typed::<u64>(index)?, index as u64);
+            let expected_path = match (self.mixed_paths, index) {
+                (true, 0) => ValidationPath::root().with_field("slot_zero"),
+                (true, 7) => ValidationPath::root().with_field("slot_seven"),
+                _ => ValidationPath::root(),
+            };
+            assert_eq!(context.dependency_path(index)?, &expected_path);
+        }
+        Ok(PreparedOutcome::valid())
+    }
+}
+
+fn prepare_eight_slots(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(EightSlotAdapter { mixed_paths: false }))
+}
+
+fn prepare_eight_slots_with_paths(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(Arc::new(EightSlotAdapter { mixed_paths: true }))
+}
+
+static EIGHT_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    EIGHT_DEPENDENCIES,
+    prepare_eight_slots,
+)];
+static EIGHT_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(EIGHT_SIGNATURES);
+static EIGHT_PATH_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    EIGHT_DEPENDENCIES,
+    prepare_eight_slots_with_paths,
+)];
+static EIGHT_PATH_DESCRIPTOR: ValidatorDescriptor = ValidatorDescriptor::new(EIGHT_PATH_SIGNATURES);
+
+fn prepare_nine_must_not_execute(_reader: &mut ArgumentReader<'_>) -> Result<Arc<dyn PreparedValidator>, BindError> {
+    Ok(prepare_text_with_context(NINE_DEPENDENCIES, |_, _| {
+        panic!("invalid named binding reached prepared validator")
+    }))
+}
+
+static NINE_MUST_NOT_EXECUTE_SIGNATURES: &[ValidatorSignature] = &[ValidatorSignature::new(
+    InputType::Text,
+    NINE_DEPENDENCIES,
+    prepare_nine_must_not_execute,
+)];
+static NINE_MUST_NOT_EXECUTE_DESCRIPTOR: ValidatorDescriptor =
+    ValidatorDescriptor::new(NINE_MUST_NOT_EXECUTE_SIGNATURES);
+
+#[test]
+fn test_validate_named_single_slot_duplicate_is_rejected_before_execution() {
+    let bound = SINGLE_MUST_NOT_EXECUTE_DESCRIPTOR
+        .bind(RULE_ID, 0, &[])
+        .expect("single-slot signature binds");
+    let value = NamedValidationDependency::new("item", ValidationValue::Text("value"));
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &[value, value])
+        .expect_err("duplicate single-slot binding is rejected before execution");
+    assert_named_binding_error(&error, ExecutionErrorKind::DuplicateDependencyBinding, "item");
+}
+
+#[test]
+fn test_validate_named_single_slot_unknown_is_rejected_before_execution() {
+    let bound = SINGLE_MUST_NOT_EXECUTE_DESCRIPTOR
+        .bind(RULE_ID, 0, &[])
+        .expect("single-slot signature binds");
+    let valid = NamedValidationDependency::new("item", ValidationValue::Text("value"));
+    let unknown = NamedValidationDependency::new("unknown", ValidationValue::Text("value"));
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &[valid, unknown])
+        .expect_err("unknown single-slot binding is rejected before execution");
+    assert_named_binding_error(&error, ExecutionErrorKind::UnknownDependencyBinding, "unknown");
+}
+
+fn eight_slot_inputs(numbers: &[u64; 8]) -> [NamedValidationDependency<'_>; 8] {
+    std::array::from_fn(|index| {
+        let slot = 7 - index;
+        NamedValidationDependency::new(EIGHT_DEPENDENCIES[slot].name(), ValidationValue::Typed(&numbers[slot]))
+    })
+}
+
+#[test]
+fn test_validate_named_reorders_eight_dependencies_without_paths() {
+    let bound = EIGHT_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let numbers: [u64; 8] = std::array::from_fn(|index| index as u64);
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &eight_slot_inputs(&numbers))
+            .expect("eight named dependencies are reordered by signature"),
+        ValidationOutcome::Valid,
+    );
+}
+
+#[test]
+fn test_validate_named_reorders_eight_dependencies_with_mixed_paths() {
+    let bound = EIGHT_PATH_DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
+    let numbers: [u64; 8] = std::array::from_fn(|index| index as u64);
+    let path_zero = ValidationPath::root().with_field("slot_zero");
+    let path_seven = ValidationPath::root().with_field("slot_seven");
+    let dependencies: [NamedValidationDependency<'_>; 8] = std::array::from_fn(|index| {
+        let slot = 7 - index;
+        let dependency =
+            NamedValidationDependency::new(EIGHT_DEPENDENCIES[slot].name(), ValidationValue::Typed(&numbers[slot]));
+        match slot {
+            0 => dependency.with_path(&path_zero),
+            7 => dependency.with_path(&path_seven),
+            _ => dependency,
+        }
+    });
+    assert_eq!(
+        bound
+            .validate_named(ValidationValue::Text("target"), &dependencies)
+            .expect("eight named dependencies preserve mixed paths"),
+        ValidationOutcome::Valid,
+    );
+}
+
+#[test]
+fn test_validate_named_nine_slot_duplicate_unknown_and_missing_are_rejected_before_execution() {
+    let bound = NINE_MUST_NOT_EXECUTE_DESCRIPTOR
+        .bind(RULE_ID, 0, &[])
+        .expect("nine-slot signature binds");
+    let numbers: [u64; 9] = std::array::from_fn(|index| index as u64);
+    let valid: [NamedValidationDependency<'_>; 9] = std::array::from_fn(|index| {
+        NamedValidationDependency::new(NINE_DEPENDENCIES[index].name(), ValidationValue::Typed(&numbers[index]))
+    });
+
+    let duplicate = [
+        valid.as_slice(),
+        &[NamedValidationDependency::new(
+            "d8",
+            ValidationValue::Typed(&numbers[8]),
+        )],
+    ]
+    .concat();
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &duplicate)
+        .expect_err("duplicate heap-buffer binding is rejected before execution");
+    assert_named_binding_error(&error, ExecutionErrorKind::DuplicateDependencyBinding, "d8");
+
+    let unknown = [
+        valid.as_slice(),
+        &[NamedValidationDependency::new(
+            "unknown",
+            ValidationValue::Typed(&numbers[0]),
+        )],
+    ]
+    .concat();
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &unknown)
+        .expect_err("unknown heap-buffer binding is rejected before execution");
+    assert_named_binding_error(&error, ExecutionErrorKind::UnknownDependencyBinding, "unknown");
+
+    let error = bound
+        .validate_named(ValidationValue::Text("target"), &valid[..8])
+        .expect_err("missing final heap-buffer slot is reported before execution");
+    assert_named_binding_error(&error, ExecutionErrorKind::MissingDependencyBinding, "d8");
+}
+
 #[test]
 fn test_bind_takes_dependency_specs_from_selected_signature() {
     let bound = DESCRIPTOR.bind(RULE_ID, 0, &[]).expect("signature binds");
